@@ -97,9 +97,18 @@ async function getComplaintDetails(req, res) {
     `;
     const updatesResult = await db.query(updatesQuery, [id]);
 
+    const reportQuery = `
+      SELECT w.*, e.full_name as employee_name 
+      FROM work_reports w
+      LEFT JOIN employees e ON w.employee_id = e.id
+      WHERE w.complaint_id = $1;
+    `;
+    const reportResult = await db.query(reportQuery, [id]);
+
     return res.json({
       complaint: compResult.rows[0],
-      updates: updatesResult.rows
+      updates: updatesResult.rows,
+      work_report: reportResult.rows[0] || null
     });
   } catch (err) {
     console.error('[AdminComplaintController] Error getting details:', err.message);

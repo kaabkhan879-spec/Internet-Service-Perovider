@@ -167,6 +167,46 @@ async function initializeDatabase() {
       ALTER TABLE employees ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'employee';
     `);
 
+    // Create Employee Portal specific tables
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS technical_tasks (
+        id SERIAL PRIMARY KEY,
+        task_type VARCHAR(100) NOT NULL,
+        customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+        assigned_employee_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+        description TEXT,
+        priority VARCHAR(20) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+        status VARCHAR(20) DEFAULT 'assigned' CHECK (status IN ('assigned', 'on_the_way', 'in_progress', 'completed')),
+        admin_notes TEXT,
+        due_date DATE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        completed_at TIMESTAMP WITH TIME ZONE
+      );
+
+      CREATE TABLE IF NOT EXISTS work_reports (
+        id SERIAL PRIMARY KEY,
+        complaint_id INTEGER REFERENCES complaints(id) ON DELETE SET NULL,
+        task_id INTEGER REFERENCES technical_tasks(id) ON DELETE SET NULL,
+        employee_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+        problem_found TEXT,
+        work_performed TEXT,
+        solution TEXT,
+        equipment_used TEXT,
+        additional_notes TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS employee_notifications (
+        id SERIAL PRIMARY KEY,
+        employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+        title VARCHAR(200) NOT NULL,
+        message TEXT NOT NULL,
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     // Sync complaints check constraints (if tables already exist)
     await db.query(`
       ALTER TABLE complaints DROP CONSTRAINT IF EXISTS complaints_priority_check;

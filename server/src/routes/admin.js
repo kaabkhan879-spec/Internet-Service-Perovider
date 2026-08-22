@@ -39,6 +39,7 @@ const {
   recordPayment: recordAdminPayment
 } = require('../controllers/adminPaymentController');
 const { triggerStatusCheck } = require('../controllers/adminSubscriptionController');
+const { createTask, listTasks, listWorkReports } = require('../controllers/adminTaskController');
 const { requireAuth, requireAdmin } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -90,5 +91,10 @@ router.get('/bills/:billId/payments', getBillPayments);
 
 // Subscriptions Management endpoints
 router.post('/subscriptions/check-status', triggerStatusCheck);
+
+// Technical Tasks endpoints
+router.post('/tasks', createTask);
+router.get('/tasks', listTasks);
+router.get('/work-reports', listWorkReports);
 
 module.exports = router;

@@ -744,14 +744,55 @@ function ComplaintsManagement({ user, onLogoutSuccess }) {
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 text-[10px] font-bold text-slate-500 tracking-wider">
                       <div>Priority: <span className="text-white">{selectedComplaintDetails.complaint.priority}</span></div>
                       <div>Status: <span className="text-white">{selectedComplaintDetails.complaint.status === 'open' ? 'pending' : selectedComplaintDetails.complaint.status}</span></div>
                       {selectedComplaintDetails.complaint.resolved_at && (
-                        <div>Resolved At: <span className="text-emerald-400">{new Date(selectedComplaintDetails.complaint.resolved_at).toLocaleDateString()}</span></div>
+                        <div>Resolved At: <span className="text-emerald-450">{new Date(selectedComplaintDetails.complaint.resolved_at).toLocaleDateString()}</span></div>
                       )}
                     </div>
                   </div>
+
+                  {/* Technician Work Report (if resolved) */}
+                  {selectedComplaintDetails.work_report && (
+                    <div className="p-4 rounded-xl bg-emerald-950/20 border border-emerald-900/30 space-y-3 text-xs">
+                      <h4 className="font-bold text-emerald-400 text-[10px] uppercase tracking-wider">Technician Work Report</h4>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div>
+                          <span className="text-slate-500 block">Completed By:</span>
+                          <span className="text-white block mt-0.5">{selectedComplaintDetails.work_report.employee_name}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 block">Date/Time:</span>
+                          <span className="text-slate-350 block mt-0.5">{new Date(selectedComplaintDetails.work_report.created_at).toLocaleString()}</span>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-slate-500 block">Problem Found:</span>
+                          <span className="text-slate-300 block mt-0.5">{selectedComplaintDetails.work_report.problem_found}</span>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-slate-500 block">Work Performed:</span>
+                          <span className="text-slate-300 block mt-0.5">{selectedComplaintDetails.work_report.work_performed}</span>
+                        </div>
+                        <div className="col-span-2">
+                          <span className="text-slate-500 block">Resolution/Solution:</span>
+                          <span className="text-white block mt-0.5 font-semibold">{selectedComplaintDetails.work_report.solution}</span>
+                        </div>
+                        {selectedComplaintDetails.work_report.equipment_used && (
+                          <div className="col-span-2">
+                            <span className="text-slate-500 block">Used Equipment/Material:</span>
+                            <span className="text-slate-300 block mt-0.5">{selectedComplaintDetails.work_report.equipment_used}</span>
+                          </div>
+                        )}
+                        {selectedComplaintDetails.work_report.additional_notes && (
+                          <div className="col-span-2">
+                            <span className="text-slate-500 block">Additional Notes:</span>
+                            <span className="text-slate-400 block mt-0.5 italic">{selectedComplaintDetails.work_report.additional_notes}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Comments Timeline history */}
                   <div className="space-y-3">
