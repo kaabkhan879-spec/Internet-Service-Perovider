@@ -1,0 +1,159 @@
+const db = require('./db');
+
+const schemaSql = `
+-- 1. Users Table
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(100) UNIQUE NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'employee', 'customer')),
+  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+-- 2. Customers Table
+CREATE TABLE IF NOT EXISTS customers (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  customer_code VARCHAR(50) UNIQUE NOT NULL,
+  full_name VARCHAR(100) NOT NULL,
+  phone VARCHAR(20) NOT NULL,
+  email VARCHAR(100) NOT NULL,
+  address TEXT,
+  cnic VARCHAR(20),
+  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  installation_date TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_customers_customer_code ON customers(customer_code);
+CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(phone);
+
+-- 3. Employees Table
+CREATE TABLE IF NOT EXISTS employees (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE SET NULL,
+  employee_code VARCHAR(50) UNIQUE NOT NULL,
+  full_name VARCHAR(100) NOT NULL,
+  phone VARCHAR(20) NOT NULL,
+  designation VARCHAR(100),
+  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. Packages Table
+CREATE TABLE IF NOT EXISTS packages (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  speed_mbps INTEGER NOT NULL,
+  monthly_price DECIMAL(10, 2) NOT NULL,
+  data_limit_gb INTEGER,
+  description TEXT,
+  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5. Subscriptions Table
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id SERIAL PRIMARY KEY,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+  package_id INTEGER REFERENCES packages(id) ON DELETE RESTRICT,
+  start_date DATE NOT NULL,
+  end_date DATE,
+  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'expired')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. Bills Table
+CREATE TABLE IF NOT EXISTS bills (
+  id SERIAL PRIMARY KEY,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+  subscription_id INTEGER REFERENCES subscriptions(id) ON DELETE SET NULL,
+  billing_month VARCHAR(7) NOT NULL,
+  amount DECIMAL(10, 2) NOT NULL,
+  due_date DATE NOT NULL,
+  status VARCHAR(20) DEFAULT 'unpaid' CHECK (status IN ('paid', 'unpaid', 'overdue')),
+  paid_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_bills_customer_id ON bills(customer_id);
+CREATE INDEX IF NOT EXISTS idx_bills_status ON bills(status);
+
+-- 7. Payments Table
+CREATE TABLE IF NOT EXISTS payments (
+  id SERIAL PRIMARY KEY,
+  bill_id INTEGER REFERENCES bills(id) ON DELETE SET NULL,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+  amount DECIMAL(10, 2) NOT NULL,
+  payment_method VARCHAR(50) NOT NULL,
+  transaction_reference VARCHAR(100),
+  payment_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  status VARCHAR(20) DEFAULT 'completed' CHECK (status IN ('completed', 'failed', 'pending')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 8. Complaints Table
+CREATE TABLE IF NOT EXISTS complaints (
+  id SERIAL PRIMARY KEY,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+  assigned_employee_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+  subject VARCHAR(200) NOT NULL,
+  description TEXT NOT NULL,
+  priority VARCHAR(20) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
+  status VARCHAR(20) DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  resolved_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS idx_complaints_customer_id ON complaints(customer_id);
+CREATE INDEX IF NOT EXISTS idx_complaints_status ON complaints(status);
+
+-- 9. Complaint Updates Table
+CREATE TABLE IF NOT EXISTS complaint_updates (
+  id SERIAL PRIMARY KEY,
+  complaint_id INTEGER REFERENCES complaints(id) ON DELETE CASCADE,
+  employee_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+  status VARCHAR(20) NOT NULL CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')),
+  comment TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+`;
+
+async function initializeDatabase() {
+  if (!process.env.DATABASE_URL) {
+    console.log('[Database] DATABASE_URL is not set. Skipping schema initialization.');
+    return false;
+  }
+
+  console.log('[Database] Starting database schema initialization...');
+  try {
+    await db.query(schemaSql);
+    console.log('[Database] Database tables, relationships, and indexes checked/created successfully.');
+    return true;
+  } catch (err) {
+    console.error('[Database] Error initializing database schema:', err.message);
+    return false;
+  }
+}
+
+// Allow direct execution (e.g. node src/config/dbInit.js)
+if (require.main === module) {
+  initializeDatabase().then((success) => {
+    process.exit(success ? 0 : 1);
+  });
+}
+
+module.exports = {
+  initializeDatabase
+};
