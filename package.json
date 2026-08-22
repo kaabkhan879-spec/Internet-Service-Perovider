@@ -1,0 +1,12 @@
+{
+  "name": "isp-management-system",
+  "version": "1.0.0",
+  "description": "Root orchestrator for the ISP Management System",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --names \"CLIENT,SERVER\" --prefix-colors \"cyan,indigo\" \"npm run dev --prefix client\" \"npm run dev --prefix server\""
+  },
+  "dependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
