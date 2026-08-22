@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
+import CustomerManagement from './components/CustomerManagement';
 
 // Layout wrapper for consistent look and feel
 function Layout({ children, user }) {
@@ -162,6 +163,10 @@ function App() {
           <Route 
             path="/admin" 
             element={user ? <AdminDashboard user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
+          />
+          <Route 
+            path="/admin/customers" 
+            element={user ? <CustomerManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

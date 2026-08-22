@@ -89,7 +89,9 @@ function AdminDashboard({ user, onLogoutSuccess }) {
 
   const handleSidebarClick = (name) => {
     if (name === 'Dashboard') {
-      setActiveTab('Dashboard');
+      navigate('/admin');
+    } else if (name === 'Customers') {
+      navigate('/admin/customers');
     } else {
       setToastMessage(`"${name}" module is pending development in the next phase.`);
       setTimeout(() => setToastMessage(''), 3000);

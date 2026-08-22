@@ -140,6 +140,20 @@ async function initializeDatabase() {
   try {
     await db.query(schemaSql);
     console.log('[Database] Database tables, relationships, and indexes checked/created successfully.');
+
+    // Seed packages if table is empty
+    const checkPackages = await db.query('SELECT COUNT(*) FROM packages');
+    if (parseInt(checkPackages.rows[0].count, 10) === 0) {
+      console.log('[Database] Seeding default package tiers...');
+      await db.query(`
+        INSERT INTO packages (name, speed_mbps, monthly_price, data_limit_gb, description, status) VALUES
+        ('Starter Fiber (10 Mbps)', 10, 15.00, NULL, 'Ideal for light browsing and streaming', 'active'),
+        ('Standard Fiber (25 Mbps)', 25, 25.00, NULL, 'Best for families and smart devices', 'active'),
+        ('Premium Fiber (50 Mbps)', 50, 40.00, NULL, 'High speed for gaming and 4K streaming', 'active')
+      `);
+      console.log('[Database] Default package tiers seeded successfully.');
+    }
+
     return true;
   } catch (err) {
     console.error('[Database] Error initializing database schema:', err.message);
