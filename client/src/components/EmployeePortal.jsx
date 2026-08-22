@@ -35,6 +35,16 @@ function EmployeePortal({ user, onLogoutSuccess }) {
   const [passwordForm, setPasswordForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
   const [passwordError, setPasswordError] = useState('');
 
+  // Password Visibility States
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Account Preferences Toggle States
+  const [prefNotifications, setPrefNotifications] = useState(true);
+  const [prefTheme, setPrefTheme] = useState(true);
+  const [prefAlerts, setPrefAlerts] = useState(true);
+
   // Complaints Tab specific filter/search/pagination states
   const [complaintsSearch, setComplaintsSearch] = useState('');
   const [complaintsStatusFilter, setComplaintsStatusFilter] = useState('all'); // 'all' | 'pending' | 'on_the_way' | 'in_progress' | 'resolved'
@@ -176,7 +186,6 @@ function EmployeePortal({ user, onLogoutSuccess }) {
       // Merge mock and real database notifications
       const mergedNotifications = [
         ...getMockNotifications().filter(mn => {
-          // Keep mock notification if not removed or if testing state is fresh
           const removedMocks = JSON.parse(localStorage.getItem('removed_mocks') || '[]');
           return !removedMocks.includes(mn.id);
         }),
@@ -339,7 +348,6 @@ function EmployeePortal({ user, onLogoutSuccess }) {
     if (notif.is_read) return;
 
     if (notif.is_mock) {
-      // Simulate read for mock notification
       const updated = notifications.map(n => n.id === notif.id ? { ...n, is_read: true } : n);
       setNotifications(updated);
       setUnreadCount(updated.filter(n => !n.is_read).length);
@@ -365,13 +373,11 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
   const handleMarkNotificationsAsRead = async () => {
     try {
-      // 1. Mark database notifications as read
       await fetch('http://localhost:5000/api/employee/notifications/mark-read', {
         method: 'POST',
         credentials: 'include'
       });
       
-      // 2. Mark mock notifications as read in client-side state
       const updated = notifications.map(n => ({ ...n, is_read: true }));
       setNotifications(updated);
       setUnreadCount(0);
@@ -436,6 +442,22 @@ function EmployeePortal({ user, onLogoutSuccess }) {
     } catch (err) {
       setPasswordError(err.message);
     }
+  };
+
+  // Password strength calculation
+  const calculatePasswordStrength = (pwd) => {
+    if (!pwd) return { score: 0, text: 'None', color: 'bg-slate-800' };
+    let score = 0;
+    if (pwd.length >= 6) score++;
+    if (pwd.length >= 10) score++;
+    if (/[A-Z]/.test(pwd)) score++;
+    if (/[0-9]/.test(pwd)) score++;
+    if (/[^A-Za-z0-9]/.test(pwd)) score++;
+    
+    if (score <= 1) return { score, text: 'Weak', color: 'bg-red-500' };
+    if (score === 2) return { score, text: 'Fair', color: 'bg-amber-500' };
+    if (score === 3) return { score, text: 'Strong', color: 'bg-cyan-500' };
+    return { score, text: 'Very Strong', color: 'bg-emerald-500' };
   };
 
   // Client-side filtering logic for My Complaints Tab
@@ -646,11 +668,11 @@ function EmployeePortal({ user, onLogoutSuccess }) {
   ).length;
 
   return (
-    <div className="flex bg-slate-950 min-h-screen text-slate-100 font-sans w-full selection:bg-cyan-500 selection:text-slate-950">
+    <div className="flex bg-slate-955 bg-slate-950 min-h-screen text-slate-100 font-sans w-full selection:bg-cyan-500 selection:text-slate-950">
       
       {/* Toast Messages */}
       {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 p-4 rounded-xl bg-slate-900 border border-cyan-800 text-cyan-400 text-sm shadow-xl flex items-center space-x-3 animate-fade-in ring-1 ring-cyan-500/25">
+        <div className="fixed top-6 right-6 z-50 p-4 rounded-xl bg-slate-900 border border-cyan-800 text-cyan-405 text-cyan-400 text-sm shadow-xl flex items-center space-x-3 animate-fade-in ring-1 ring-cyan-500/25">
           <span className="font-semibold">{toastMessage}</span>
         </div>
       )}
@@ -686,7 +708,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
             onClick={() => { setActiveTab('Complaints'); setShowProfileDropdown(false); }}
             className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group relative ${
               activeTab === 'Complaints'
-                ? 'bg-gradient-to-r from-cyan-500/10 to-indigo-550/5 border border-cyan-500/20 text-cyan-405 text-cyan-400'
+                ? 'bg-gradient-to-r from-cyan-500/10 to-indigo-550/5 border border-cyan-500/20 text-cyan-400'
                 : 'text-slate-400 hover:bg-slate-900/40 hover:text-white border border-transparent'
             }`}
           >
@@ -732,14 +754,14 @@ function EmployeePortal({ user, onLogoutSuccess }) {
             onClick={() => { setActiveTab('Notifications'); setShowProfileDropdown(false); }}
             className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group relative ${
               activeTab === 'Notifications'
-                ? 'bg-gradient-to-r from-cyan-500/10 to-indigo-550/5 border border-cyan-500/20 text-cyan-405 text-cyan-400'
+                ? 'bg-gradient-to-r from-cyan-500/10 to-indigo-550/5 border border-cyan-500/20 text-cyan-400'
                 : 'text-slate-400 hover:bg-slate-900/40 hover:text-white border border-transparent'
             }`}
           >
             <span>🔔</span>
             <span>Notifications</span>
             {unreadCount > 0 && (
-              <span className="absolute right-3 px-1.5 py-0.5 rounded-full text-[9px] bg-red-950 border border-red-800 text-red-400 font-bold">
+              <span className="absolute right-3 px-1.5 py-0.5 rounded-full text-[9px] bg-red-955 bg-red-950 border border-red-800 text-red-400 font-bold">
                 {unreadCount}
               </span>
             )}
@@ -762,7 +784,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
         <div className="p-4 border-t border-slate-900">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-955/20 hover:bg-red-955/20 hover:text-red-300 border border-transparent transition-all"
+            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-955/20 hover:bg-red-950/20 hover:text-red-305 transition-all border border-transparent"
           >
             <span>🚪</span>
             <span>Logout Session</span>
@@ -795,7 +817,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           
           <div className="flex items-center space-x-5">
             
-            {/* Header Notification Bell Widget with vibrating/pulsing glow */}
+            {/* Header Notification Bell Widget */}
             <button
               onClick={() => { setActiveTab('Notifications'); setShowProfileDropdown(false); }}
               className={`relative p-2 rounded-xl hover:bg-slate-900 text-slate-400 hover:text-cyan-400 transition-colors flex items-center ${unreadCount > 0 ? 'animate-bounce' : ''}`}
@@ -859,7 +881,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
         </header>
 
         {/* Content Pane */}
-        <main className="flex-1 p-6 md:p-8 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto flex flex-col justify-between">
+        <main className="flex-grow p-6 md:p-8 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto flex flex-col justify-between">
           
           <div className="space-y-6">
           {/* ==============================================
@@ -1075,10 +1097,10 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
                     <div className="space-y-2.5 max-h-44 overflow-y-auto pr-1 scrollbar-thin">
                       {notifications.slice(0, 3).map(n => (
-                        <div key={n.id} className="p-3 rounded-xl bg-slate-950/40 border border-slate-900 text-[11px] flex items-start space-x-2.5">
+                        <div key={n.id} className="p-3 rounded-xl bg-slate-955/20 border border-slate-900 text-[11px] flex items-start space-x-2.5">
                           <span className="text-sm shrink-0">🔔</span>
                           <div className="space-y-0.5 flex-grow">
-                            <span className={`font-bold block ${n.is_read ? 'text-slate-400' : 'text-white'}`}>{n.title}</span>
+                            <span className={`font-bold block ${n.is_read ? 'text-slate-405' : 'text-white'}`}>{n.title}</span>
                             <p className="text-slate-505 text-slate-500 leading-snug font-light">{n.message.slice(0, 50)}...</p>
                           </div>
                         </div>
@@ -1133,7 +1155,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                     placeholder="Search complaints by ID, customer, phone, issue..."
                     value={complaintsSearch}
                     onChange={(e) => { setComplaintsSearch(e.target.value); setComplaintsCurrentPage(1); }}
-                    className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500"
+                    className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500"
                   />
                   <span className="absolute left-3.5 top-3 text-xs text-slate-500">🔍</span>
                   {complaintsSearch && (
@@ -1166,7 +1188,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   <select
                     value={complaintsPriorityFilter}
                     onChange={(e) => { setComplaintsPriorityFilter(e.target.value); setComplaintsCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-355 focus:outline-none"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-slate-355 focus:outline-none"
                   >
                     <option value="all">All Priorities</option>
                     <option value="low">Low</option>
@@ -1181,7 +1203,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   <select
                     value={complaintsDateFilter}
                     onChange={(e) => { setComplaintsDateFilter(e.target.value); setComplaintsCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-855 text-xs text-slate-355 focus:outline-none"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-355 focus:outline-none"
                   >
                     <option value="all">All Time</option>
                     <option value="today">Today</option>
@@ -1196,10 +1218,10 @@ function EmployeePortal({ user, onLogoutSuccess }) {
               <div className="space-y-4">
                 
                 {/* Desktop View Table */}
-                <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-900 bg-slate-905 bg-slate-900/10 shadow-xl">
+                <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-900 bg-slate-900/10 shadow-xl">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="border-b border-slate-900 bg-slate-955/40 bg-slate-950/40 text-slate-405 text-slate-400 font-bold uppercase">
+                      <tr className="border-b border-slate-900 bg-slate-955/40 bg-slate-950/40 text-slate-400 font-bold uppercase">
                         <th className="py-3.5 px-4">Ticket ID</th>
                         <th className="py-3.5 px-4">Customer</th>
                         <th className="py-3.5 px-4">Issue Description</th>
@@ -1214,7 +1236,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                       {currentComplaintsPageData.map((c) => (
                         <tr key={c.id} className="border-b border-slate-955/15 border-slate-950/20 text-slate-300 hover:bg-slate-900/10">
                           <td className="py-3.5 px-4 font-mono">
-                            <button onClick={() => setSelectedItem(c)} className="text-cyan-400 font-bold hover:underline">
+                            <button onClick={() => setSelectedItem(c)} className="text-cyan-405 text-cyan-400 font-bold hover:underline">
                               CMP-{c.id}
                             </button>
                           </td>
@@ -1238,7 +1260,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
                               c.priority === 'urgent' ? 'bg-red-955/30 text-red-405 border border-red-800/30' :
                               c.priority === 'high' ? 'bg-amber-955/20 text-amber-400 border border-amber-800/30' :
-                              c.priority === 'medium' ? 'bg-blue-955/25 text-blue-400' : 'bg-slate-900 text-slate-505 text-slate-500'
+                              c.priority === 'medium' ? 'bg-blue-955/25 text-blue-400' : 'bg-slate-900 text-slate-500'
                             }`}>{c.priority}</span>
                           </td>
                           <td className="py-3.5 px-4 uppercase text-[10px] font-bold text-cyan-400">
@@ -1247,7 +1269,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                           <td className="py-3.5 px-4 text-right">
                             <button
                               onClick={() => setSelectedItem(c)}
-                              className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-850 hover:bg-slate-905 text-slate-305 text-slate-300 transition-colors font-semibold"
+                              className="px-3 py-1.5 rounded-lg bg-slate-955 bg-slate-955 bg-slate-950 border border-slate-850 hover:bg-slate-900 text-slate-300 transition-colors font-semibold"
                             >
                               View Details &rarr;
                             </button>
@@ -1264,7 +1286,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                     <div key={c.id} className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 space-y-3.5 text-xs">
                       <div className="flex justify-between items-center">
                         <span className="font-mono font-bold text-cyan-405 text-cyan-400">CMP-{c.id}</span>
-                        <span className="text-[10px] text-slate-505 text-slate-500">{new Date(c.created_at).toLocaleDateString()}</span>
+                        <span className="text-[10px] text-slate-500">{new Date(c.created_at).toLocaleDateString()}</span>
                       </div>
                       
                       <div className="space-y-1">
@@ -1274,7 +1296,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
                       <div className="pt-2.5 border-t border-slate-900 space-y-2 text-slate-300">
                         <div className="flex justify-between">
-                          <span className="text-slate-505 text-slate-500">Customer:</span>
+                          <span className="text-slate-500">Customer:</span>
                           <span className="font-semibold text-white">{c.customer_name}</span>
                         </div>
                         <div className="flex justify-between">
@@ -1289,7 +1311,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
                       <div className="flex justify-between items-center pt-2.5">
                         <div className="space-x-1.5">
-                          <span className="px-1.5 py-0.5 rounded text-[8px] bg-slate-950 text-slate-400 font-bold uppercase">{c.priority}</span>
+                          <span className="px-1.5 py-0.5 rounded text-[8px] bg-slate-950 text-slate-405 text-slate-400 font-bold uppercase">{c.priority}</span>
                           <span className="px-1.5 py-0.5 rounded text-[8px] bg-cyan-950 text-cyan-400 font-bold uppercase">{c.status}</span>
                         </div>
                         <button
@@ -1305,7 +1327,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
                 {filteredComplaints.length === 0 && (
                   <div className="py-20 text-center max-w-sm mx-auto space-y-4 animate-fade-in">
-                    <div className="w-14 h-14 rounded-2xl bg-cyan-950/20 border border-cyan-900/20 flex items-center justify-center text-cyan-400 mx-auto">
+                    <div className="w-14 h-14 rounded-2xl bg-cyan-955 bg-cyan-950/20 border border-cyan-900/20 flex items-center justify-center text-cyan-400 mx-auto">
                       🎫
                     </div>
                     <div className="space-y-1.5">
@@ -1340,7 +1362,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                           className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-colors font-bold ${
                             complaintsCurrentPage === idx + 1
                               ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400'
-                              : 'bg-slate-900 border-slate-850 text-slate-400 hover:text-white hover:bg-slate-850'
+                              : 'bg-slate-900 border-slate-850 text-slate-455 text-slate-400 hover:text-white hover:bg-slate-850'
                           }`}
                         >
                           {idx + 1}
@@ -1380,7 +1402,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   <div className="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-850 text-[11px] font-semibold text-slate-400">
                     Total Jobs: <span className="text-white font-extrabold">{totalTasksCount}</span>
                   </div>
-                  <div className="px-3.5 py-1.5 rounded-xl bg-indigo-950/20 border border-indigo-900/30 text-[11px] font-semibold text-indigo-400">
+                  <div className="px-3.5 py-1.5 rounded-xl bg-indigo-950/20 border border-indigo-900/30 text-[11px] font-semibold text-indigo-405 text-indigo-400">
                     Pending: <span className="font-extrabold">{pendingTasksCountAll}</span>
                   </div>
                   <div className="px-3.5 py-1.5 rounded-xl bg-cyan-955/25 border border-cyan-900/35 text-[11px] font-semibold text-cyan-400">
@@ -1402,7 +1424,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                     placeholder="Search by Task ID, Customer or Address..."
                     value={tasksSearch}
                     onChange={(e) => { setTasksSearch(e.target.value); setTasksCurrentPage(1); }}
-                    className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-slate-950 border border-slate-855 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500"
+                    className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500"
                   />
                   <span className="absolute left-3.5 top-3 text-xs text-slate-500">🔍</span>
                   {tasksSearch && (
@@ -1420,7 +1442,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   <select
                     value={tasksStatusFilter}
                     onChange={(e) => { setTasksStatusFilter(e.target.value); setTasksCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
                   >
                     <option value="all">All Statuses</option>
                     <option value="assigned">Assigned / Pending</option>
@@ -1435,7 +1457,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   <select
                     value={tasksTypeFilter}
                     onChange={(e) => { setTasksTypeFilter(e.target.value); setTasksCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-955 bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
                   >
                     <option value="all">All Types</option>
                     <option value="Installation">Installation</option>
@@ -1468,7 +1490,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   <select
                     value={tasksDateFilter}
                     onChange={(e) => { setTasksDateFilter(e.target.value); setTasksCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-855 text-xs text-slate-350 focus:outline-none"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
                   >
                     <option value="all">All Time</option>
                     <option value="today">Today</option>
@@ -1483,7 +1505,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
               <div className="space-y-4">
                 
                 {/* Desktop view Table */}
-                <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-900 bg-slate-905 bg-slate-900/10 shadow-xl">
+                <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-900 bg-slate-900/10 shadow-xl">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="border-b border-slate-900 bg-slate-950/40 text-slate-400 font-bold uppercase">
@@ -1524,7 +1546,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                             </td>
                             <td className="py-3.5 px-4 uppercase">
                               <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                                t.priority === 'urgent' ? 'bg-red-955/30 text-red-400 border border-red-800/30' :
+                                t.priority === 'urgent' ? 'bg-red-955/30 text-red-405 border border-red-800/30' :
                                 t.priority === 'high' ? 'bg-amber-955/25 text-amber-400' : 'bg-slate-900 text-slate-500'
                               }`}>{t.priority}</span>
                             </td>
@@ -1545,7 +1567,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                             <td className="py-3.5 px-4 text-right">
                               <button
                                 onClick={() => setSelectedItem(t)}
-                                className="px-3 py-1.5 rounded-lg bg-slate-955 bg-slate-950 border border-slate-850 hover:bg-slate-900 text-slate-300 font-semibold transition-colors"
+                                className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-850 hover:bg-slate-900 text-slate-300 font-semibold transition-colors"
                               >
                                 View Details &rarr;
                               </button>
@@ -1566,8 +1588,8 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                     return (
                       <div key={t.id} className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 space-y-3 text-xs">
                         <div className="flex justify-between items-center">
-                          <span className="font-mono font-bold text-indigo-405 text-indigo-400">TSK-{t.id}</span>
-                          <span className="text-[10px] text-slate-500 uppercase font-bold">{t.task_type}</span>
+                          <span className="font-mono font-bold text-indigo-400">TSK-{t.id}</span>
+                          <span className="text-[10px] text-slate-550 uppercase font-bold">{t.task_type}</span>
                         </div>
                         
                         <div className="pt-2 border-t border-slate-950 space-y-1.5 text-slate-300">
@@ -1587,7 +1609,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
                         <div className="pt-2 border-t border-slate-900 flex justify-between items-center">
                           <div className="space-x-1.5 flex items-center">
-                            <span className="px-1.5 py-0.5 rounded text-[8px] bg-slate-950 text-slate-400 font-bold uppercase">{t.priority}</span>
+                            <span className="px-1.5 py-0.5 rounded text-[8px] bg-slate-955 bg-slate-950 text-slate-400 font-bold uppercase">{t.priority}</span>
                             <span className="px-1.5 py-0.5 rounded text-[8px] bg-indigo-950 text-indigo-400 font-bold uppercase">{t.status}</span>
                             {isOverdue && <span className="text-[9px] text-red-400 font-bold">⚠️ Overdue</span>}
                             {isDueToday && <span className="text-[9px] text-amber-400 font-bold">⚠️ Today</span>}
@@ -1607,7 +1629,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
                 {filteredTasks.length === 0 && (
                   <div className="py-20 text-center max-w-sm mx-auto space-y-4 animate-fade-in">
-                    <div className="w-14 h-14 rounded-2xl bg-indigo-950/20 border border-indigo-900/20 flex items-center justify-center text-indigo-400 mx-auto">
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-955/20 border border-indigo-900/20 flex items-center justify-center text-indigo-400 mx-auto">
                       🔧
                     </div>
                     <div className="space-y-1.5">
@@ -1630,7 +1652,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                       <button
                         onClick={() => setTasksCurrentPage(prev => Math.max(prev - 1, 1))}
                         disabled={tasksCurrentPage === 1}
-                        className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-850 hover:bg-slate-855 hover:text-white transition-colors disabled:opacity-40"
+                        className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-850 hover:bg-slate-850 hover:text-white transition-colors disabled:opacity-40"
                       >
                         Previous
                       </button>
@@ -1652,7 +1674,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                       <button
                         onClick={() => setTasksCurrentPage(prev => Math.min(prev + 1, totalTasksPages))}
                         disabled={tasksCurrentPage === totalTasksPages}
-                        className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-850 hover:bg-slate-850 hover:text-white transition-colors disabled:opacity-40"
+                        className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-855 border-slate-850 hover:bg-slate-850 hover:text-white transition-colors disabled:opacity-40"
                       >
                         Next
                       </button>
@@ -1677,7 +1699,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                 {/* Total jobs completed */}
                 <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-emerald-500/20 transition-all duration-300">
                   <div className="flex justify-between items-start">
-                    <span className="text-[10px] uppercase font-bold text-slate-505 text-slate-500 block leading-none">Total Jobs Done</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Total Jobs Done</span>
                     <span className="text-sm">📋</span>
                   </div>
                   <span className="text-2xl font-black text-white mt-2 block leading-none">{totalHistoryCount}</span>
@@ -1687,7 +1709,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                 {/* Completed this week */}
                 <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-emerald-500/25 transition-all duration-300">
                   <div className="flex justify-between items-start">
-                    <span className="text-[10px] uppercase font-bold text-slate-505 block leading-none">Resolved Week</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Resolved Week</span>
                     <span className="text-sm">📆</span>
                   </div>
                   <span className="text-2xl font-black text-emerald-450 mt-2 block leading-none">{historyCompletedThisWeek}</span>
@@ -1722,27 +1744,27 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-xs">
                   
                   <div className="p-3 bg-slate-950/45 border border-slate-900 rounded-xl">
-                    <span className="text-slate-500 block text-[9px] uppercase font-bold">Total Operations</span>
+                    <span className="text-slate-505 block text-[9px] uppercase font-bold">Total Operations</span>
                     <span className="text-base font-black text-white mt-1 block leading-none">{totalHistoryCount}</span>
                   </div>
                   
                   <div className="p-3 bg-slate-950/45 border border-slate-900 rounded-xl">
-                    <span className="text-slate-500 block text-[9px] uppercase font-bold">High Priority Jobs</span>
+                    <span className="text-slate-505 block text-[9px] uppercase font-bold">High Priority Jobs</span>
                     <span className="text-base font-black text-amber-400 mt-1 block leading-none">{performanceHighPriorityCompleted}</span>
                   </div>
 
                   <div className="p-3 bg-slate-950/45 border border-slate-900 rounded-xl">
-                    <span className="text-slate-500 block text-[9px] uppercase font-bold">Complaint Resolved</span>
+                    <span className="text-slate-550 block text-[9px] uppercase font-bold">Complaint Resolved</span>
                     <span className="text-base font-black text-cyan-400 mt-1 block leading-none">{performanceComplaintResolutions}</span>
                   </div>
 
                   <div className="p-3 bg-slate-950/45 border border-slate-900 rounded-xl">
-                    <span className="text-slate-500 block text-[9px] uppercase font-bold">Installations Done</span>
+                    <span className="text-slate-550 block text-[9px] uppercase font-bold">Installations Done</span>
                     <span className="text-base font-black text-indigo-400 mt-1 block leading-none">{performanceInstallations}</span>
                   </div>
 
                   <div className="p-3 bg-slate-950/45 border border-slate-900 rounded-xl">
-                    <span className="text-slate-505 block text-[9px] uppercase font-bold">Fiber Cable Repairs</span>
+                    <span className="text-slate-550 block text-[9px] uppercase font-bold">Fiber Cable Repairs</span>
                     <span className="text-base font-black text-emerald-450 mt-1 block leading-none">{performanceRepairs}</span>
                   </div>
 
@@ -1777,7 +1799,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   <select
                     value={historyFilterType}
                     onChange={(e) => { setHistoryFilterType(e.target.value); setHistoryCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-955 bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
                   >
                     <option value="all">All Job Types</option>
                     <option value="complaint">Complaint Resolutions</option>
@@ -1796,7 +1818,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   <select
                     value={historyFilterPriority}
                     onChange={(e) => { setHistoryFilterPriority(e.target.value); setHistoryCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
                   >
                     <option value="all">All Priorities</option>
                     <option value="low">Low</option>
@@ -1858,7 +1880,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                             {item.description}
                           </td>
                           <td className="py-3.5 px-4 uppercase">
-                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-900 text-slate-400`}>
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-900 text-slate-405 text-slate-400`}>
                               {item.priority}
                             </span>
                           </td>
@@ -1892,7 +1914,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                         <span className="font-mono font-bold text-cyan-405 text-cyan-400">
                           {item.type === 'task' ? `TSK-${item.id}` : `CMP-${item.id}`}
                         </span>
-                        <span className="text-[10px] text-slate-505 text-slate-500 uppercase font-bold">{item.work_type}</span>
+                        <span className="text-[10px] text-slate-500 uppercase font-bold">{item.work_type}</span>
                       </div>
                       
                       <div className="space-y-1">
@@ -1902,8 +1924,8 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
                       <div className="pt-2 border-t border-slate-900 flex justify-between items-center">
                         <div className="space-x-1.5">
-                          <span className="px-1.5 py-0.5 rounded text-[8px] bg-slate-950 text-slate-405 text-slate-400 font-bold uppercase">{item.priority}</span>
-                          <span className="px-1.5 py-0.5 rounded text-[8px] bg-emerald-950 text-emerald-400 font-bold uppercase">{item.status}</span>
+                          <span className="px-1.5 py-0.5 rounded text-[8px] bg-slate-950 text-slate-400 font-bold uppercase">{item.priority}</span>
+                          <span className="px-1.5 py-0.5 rounded text-[8px] bg-emerald-950 text-emerald-405 text-emerald-400 font-bold uppercase">{item.status}</span>
                         </div>
                         <button
                           onClick={() => setSelectedHistoryItem(item)}
@@ -1924,7 +1946,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                     </div>
                     <div className="space-y-1">
                       <h4 className="font-black text-white text-base">No Completed Work Yet</h4>
-                      <p className="text-xs text-slate-500 leading-relaxed">
+                      <p className="text-xs text-slate-505 text-slate-500 leading-relaxed">
                         Your completed installations, repairs and service jobs will appear here as resolving closures are committed.
                       </p>
                     </div>
@@ -1936,7 +1958,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   <div className="py-14 text-center max-w-xs mx-auto space-y-3 animate-fade-in">
                     <span className="text-xl">🔍</span>
                     <h4 className="font-bold text-white text-xs">No matching work records</h4>
-                    <p className="text-[10px] text-slate-505 text-slate-500">Try changing your search or filters.</p>
+                    <p className="text-[10px] text-slate-500">Try changing your search or filters.</p>
                     <button
                       onClick={() => { setHistorySearch(''); setHistoryFilterType('all'); setHistoryFilterPriority('all'); setHistoryFilterDate('all'); }}
                       className="px-3 py-1 rounded bg-slate-900 border border-slate-850 text-slate-300 hover:text-white"
@@ -1993,7 +2015,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           )}
 
           {/* ==============================================
-              TAB 5: NOTIFICATIONS HUB (Upgraded premium SaaS layout)
+              TAB 5: NOTIFICATIONS HUB
               ============================================== */}
           {activeTab === 'Notifications' && (
             <div className="space-y-6 animate-fade-in">
@@ -2021,7 +2043,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                 {/* 1. Unread */}
                 <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-cyan-500/20 transition-all duration-300 flex items-center justify-between group">
                   <div className="space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-slate-550 text-slate-500 block leading-none">Unread Notifications</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Unread Notifications</span>
                     <span className="text-2xl font-black text-cyan-400 block pt-1.5 leading-none">{notifUnreadCount}</span>
                   </div>
                   <div className="w-10 h-10 rounded-xl bg-cyan-950/20 border border-cyan-900/20 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
@@ -2032,10 +2054,10 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                 {/* 2. Today */}
                 <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-amber-500/20 transition-all duration-300 flex items-center justify-between group">
                   <div className="space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-slate-550 text-slate-500 block leading-none">Received Today</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Received Today</span>
                     <span className="text-2xl font-black text-amber-400 block pt-1.5 leading-none">{notifTodayCount}</span>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-amber-950/20 border border-amber-900/20 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
+                  <div className="w-10 h-10 rounded-xl bg-amber-955/20 border border-amber-900/20 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
                     📅
                   </div>
                 </div>
@@ -2043,10 +2065,10 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                 {/* 3. Important */}
                 <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-red-500/20 transition-all duration-300 flex items-center justify-between group">
                   <div className="space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-slate-550 block leading-none">Important Alerts</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Important Alerts</span>
                     <span className="text-2xl font-black text-red-400 block pt-1.5 leading-none">{notifImportantCount}</span>
                   </div>
-                  <div className="w-10 h-10 rounded-xl bg-red-950/20 border border-red-900/20 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
+                  <div className="w-10 h-10 rounded-xl bg-red-955/20 border border-red-900/20 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
                     ⚠️
                   </div>
                 </div>
@@ -2062,7 +2084,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                     <div
                       key={n.id}
                       onClick={() => handleMarkNotificationAsRead(n)}
-                      className={`p-4.5 p-4 rounded-2xl border flex items-start space-x-4 transition-all duration-200 cursor-pointer group relative ${
+                      className={`p-4 rounded-2xl border flex items-start space-x-4 transition-all duration-200 cursor-pointer group relative ${
                         n.is_read
                           ? 'bg-slate-900/10 border-slate-900 opacity-60'
                           : 'bg-slate-900/40 border-slate-850 shadow-md hover:shadow-cyan-500/5 hover:border-cyan-500/20 ring-l-2 ring-cyan-400'
@@ -2071,7 +2093,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                       {/* Left Circular Icon Container */}
                       <div className={`w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-base border ${
                         n.is_read 
-                          ? 'bg-slate-950 border-slate-850 text-slate-500' 
+                          ? 'bg-slate-955 bg-slate-950 border-slate-850 text-slate-500' 
                           : isHighPriority 
                             ? 'bg-red-950/20 border-red-900/30 text-red-400'
                             : 'bg-cyan-950/20 border-cyan-900/30 text-cyan-400'
@@ -2085,14 +2107,14 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                       {/* Notification Body */}
                       <div className="flex-grow space-y-1 text-xs">
                         <div className="flex justify-between items-start">
-                          <h4 className={`font-bold text-sm tracking-tight ${n.is_read ? 'text-slate-455 text-slate-400' : 'text-white'}`}>
+                          <h4 className={`font-bold text-sm tracking-tight ${n.is_read ? 'text-slate-400' : 'text-white'}`}>
                             {n.title}
                           </h4>
-                          <span className="text-[10px] text-slate-550 shrink-0 ml-4 font-light">
+                          <span className="text-[10px] text-slate-500 shrink-0 ml-4 font-light">
                             {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
-                        <p className={`font-light leading-relaxed ${n.is_read ? 'text-slate-505 text-slate-500' : 'text-slate-300'}`}>
+                        <p className={`font-light leading-relaxed ${n.is_read ? 'text-slate-500' : 'text-slate-300'}`}>
                           {n.message}
                         </p>
 
@@ -2147,148 +2169,382 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           )}
 
           {/* ==============================================
-              TAB 6: PROFILE & PASSWORD CONFIG
+              TAB 6: PROFILE & PASSWORD CONFIG (Redesigned SaaS dashboard)
               ============================================== */}
           {activeTab === 'Profile' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in">
+            <div className="space-y-6 animate-fade-in">
               
-              {/* Profile Details Card */}
-              <div className="p-6 rounded-3xl bg-slate-900/30 border border-slate-900 space-y-6">
-                <div>
-                  <h3 className="font-black text-white text-base">Profile Details</h3>
-                  <p className="text-[10px] text-slate-505 text-slate-500 mt-0.5">Read-only structural parameters and self-managed contacts</p>
+              {/* Premium Page Header */}
+              <div className="flex justify-between items-center flex-wrap gap-4 pb-4 border-b border-slate-900/50">
+                <div className="space-y-1">
+                  <h2 className="text-lg font-black text-white">Account Settings</h2>
+                  <p className="text-xs text-slate-500 font-light">Manage your profile, security and technician account preferences.</p>
                 </div>
-
-                {isEditingProfile ? (
-                  <form onSubmit={handleUpdateProfile} className="space-y-4 text-xs">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-505 text-slate-500 uppercase tracking-wide">Contact Phone</label>
-                      <input
-                        type="text"
-                        value={editProfileForm.phone}
-                        onChange={(e) => setEditProfileForm({ ...editProfileForm, phone: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-550 text-slate-500 uppercase tracking-wide">Residential Address</label>
-                      <textarea
-                        value={editProfileForm.address}
-                        onChange={(e) => setEditProfileForm({ ...editProfileForm, address: e.target.value })}
-                        className="w-full px-4 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500 h-20 resize-none"
-                        required
-                      />
-                    </div>
-                    <div className="pt-2 flex space-x-2">
-                      <button type="submit" className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl">Save Info</button>
-                      <button type="button" onClick={() => setIsEditingProfile(false)} className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-400 rounded-xl">Cancel</button>
-                    </div>
-                  </form>
-                ) : (
-                  <div className="space-y-4 text-xs">
-                    <div className="pt-2 flex items-center justify-between border-b border-slate-850/60 pb-3">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-500 to-indigo-655 flex items-center justify-center text-white font-bold text-lg shadow-md">
-                          {profile?.full_name?.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <h4 className="font-extrabold text-white text-sm">{profile?.full_name}</h4>
-                          <span className="text-[10px] text-cyan-400 uppercase font-semibold">{profile?.designation}</span>
-                        </div>
-                      </div>
-                      <button onClick={() => setIsEditingProfile(true)} className="px-3.5 py-1.5 bg-slate-900 border border-slate-850 hover:bg-slate-850 text-cyan-400 rounded-xl font-bold">Edit Details</button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <span className="text-slate-505 text-slate-500 text-[10px] uppercase font-bold block">Employee Code</span>
-                        <span className="text-white font-mono mt-0.5 block">{profile?.employee_code}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-505 text-slate-500 text-[10px] uppercase font-bold block">Office Email</span>
-                        <span className="text-white mt-0.5 block">{profile?.email}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-505 text-slate-500 text-[10px] uppercase font-bold block">Contact Phone</span>
-                        <span className="text-slate-300 mt-0.5 block">{profile?.phone || '-'}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-505 text-slate-500 text-[10px] uppercase font-bold block">CNIC Identifier</span>
-                        <span className="text-slate-300 font-mono mt-0.5 block">{profile?.cnic || '-'}</span>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="text-slate-505 text-slate-500 text-[10px] uppercase font-bold block">Current Residential Address</span>
-                        <span className="text-slate-300 mt-0.5 block">{profile?.address || '-'}</span>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="text-slate-505 text-slate-500 text-[10px] uppercase font-bold block">Portal Access Context</span>
-                        <span className="text-indigo-405 text-indigo-400 mt-0.5 uppercase font-bold block">ROLE: {profile?.role}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                
+                <div className="px-3.5 py-1.5 rounded-full bg-emerald-950/30 border border-emerald-800/30 text-[10px] font-bold text-emerald-400 uppercase flex items-center space-x-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  <span>🟢 Account Active</span>
+                </div>
               </div>
 
-              {/* Password Config Card */}
-              <div className="p-6 rounded-3xl bg-slate-900/30 border border-slate-900 space-y-6">
-                <div>
-                  <h3 className="font-black text-white text-base">Change Password</h3>
-                  <p className="text-[10px] text-slate-550 text-slate-500 mt-0.5">Reset your staff account portal login password</p>
+              {/* Grid: Left Column (Profile Hero & Info Tiles) | Right Column (Account Security Card) */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                
+                {/* Left Column Container */}
+                <div className="space-y-6">
+                  
+                  {/* Profile Hero Card */}
+                  <div className="p-6 rounded-3xl bg-slate-900/20 border border-slate-900 shadow-xl hover:shadow-cyan-500/5 hover:border-cyan-500/10 transition-all duration-300 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-tr from-cyan-500/10 to-indigo-500/10 rounded-full blur-xl pointer-events-none" />
+                    
+                    <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-5">
+                      
+                      {/* Large rounded avatar with glow */}
+                      <div className="relative">
+                        <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-cyan-500/20 to-indigo-650/20 border border-slate-800 flex items-center justify-center text-cyan-400 font-black text-2xl shadow-xl ring-2 ring-cyan-500/20 animate-pulse-subtle">
+                          {profile?.full_name?.slice(0, 2).toUpperCase() || 'ME'}
+                        </div>
+                        <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center" title="Online Status">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                        </span>
+                      </div>
+
+                      {/* Profile details */}
+                      <div className="text-center sm:text-left space-y-1.5 flex-grow">
+                        <div className="flex items-center justify-center sm:justify-start space-x-2">
+                          <span className="px-2 py-0.5 rounded text-[8px] bg-cyan-955 border border-cyan-800/30 text-cyan-400 font-extrabold uppercase tracking-wide">
+                            FIELD OFFICER
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-mono">
+                            {profile?.employee_code || 'EMP-928575'}
+                          </span>
+                        </div>
+                        
+                        <h3 className="text-lg font-black text-white leading-none">
+                          {profile?.full_name || 'Mehmood'}
+                        </h3>
+                        
+                        <p className="text-[11px] text-slate-400 font-light">
+                          Field Operations • Technician Portal
+                        </p>
+                      </div>
+
+                      {/* Action edit button */}
+                      <div className="shrink-0">
+                        {isEditingProfile ? (
+                          <button
+                            onClick={() => setIsEditingProfile(false)}
+                            className="px-3.5 py-1.5 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-850 text-slate-400 text-xs font-bold transition-all"
+                          >
+                            Cancel
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setIsEditingProfile(true)}
+                            className="px-3.5 py-1.5 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-850 hover:border-cyan-500/20 text-cyan-400 text-xs font-bold transition-all shadow shadow-cyan-500/5"
+                          >
+                            Edit Profile
+                          </button>
+                        )}
+                      </div>
+
+                    </div>
+                  </div>
+
+                  {/* Profile Information Grid (Tiles) */}
+                  {isEditingProfile ? (
+                    <form onSubmit={handleUpdateProfile} className="p-6 rounded-3xl bg-slate-900/20 border border-slate-900 space-y-4 text-xs">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Contact Phone</label>
+                        <input
+                          type="text"
+                          value={editProfileForm.phone}
+                          onChange={(e) => setEditProfileForm({ ...editProfileForm, phone: e.target.value })}
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Residential Address</label>
+                        <textarea
+                          value={editProfileForm.address}
+                          onChange={(e) => setEditProfileForm({ ...editProfileForm, address: e.target.value })}
+                          className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500 h-24 resize-none"
+                          required
+                        />
+                      </div>
+                      <div className="pt-2 flex space-x-2">
+                        <button type="submit" className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-indigo-650 text-white font-bold rounded-xl hover:brightness-105 active:scale-[0.99] transition-all">Save Changes</button>
+                        <button type="button" onClick={() => setIsEditingProfile(false)} className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-400 rounded-xl">Cancel</button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      
+                      {/* Tile 1: Employee Code */}
+                      <div className="p-4 rounded-2xl bg-slate-900/10 border border-slate-900/80 hover:border-slate-800 transition-all flex items-center space-x-3.5 group">
+                        <span className="text-lg">🆔</span>
+                        <div>
+                          <span className="text-[9px] uppercase font-extrabold text-slate-500 block leading-none">Employee Code</span>
+                          <span className="text-xs font-mono font-bold text-white mt-1.5 block">{profile?.employee_code || 'EMP-928575'}</span>
+                        </div>
+                      </div>
+
+                      {/* Tile 2: Office Email */}
+                      <div className="p-4 rounded-2xl bg-slate-900/10 border border-slate-900/80 hover:border-slate-800 transition-all flex items-center space-x-3.5 group">
+                        <span className="text-lg">✉️</span>
+                        <div className="min-w-0">
+                          <span className="text-[9px] uppercase font-extrabold text-slate-500 block leading-none">Office Email</span>
+                          <span className="text-xs font-bold text-white mt-1.5 block truncate" title={profile?.email}>{profile?.email || 'mehmood@gmail.com'}</span>
+                        </div>
+                      </div>
+
+                      {/* Tile 3: Contact Phone */}
+                      <div className="p-4 rounded-2xl bg-slate-900/10 border border-slate-900/80 hover:border-slate-800 transition-all flex items-center space-x-3.5 group">
+                        <span className="text-lg">📞</span>
+                        <div>
+                          <span className="text-[9px] uppercase font-extrabold text-slate-500 block leading-none">Contact Phone</span>
+                          <span className="text-xs font-bold text-white mt-1.5 block">{profile?.phone || 'Not provided'}</span>
+                        </div>
+                      </div>
+
+                      {/* Tile 4: CNIC Identifier */}
+                      <div className="p-4 rounded-2xl bg-slate-900/10 border border-slate-900/80 hover:border-slate-800 transition-all flex items-center space-x-3.5 group">
+                        <span className="text-lg">🪪</span>
+                        <div>
+                          <span className="text-[9px] uppercase font-extrabold text-slate-500 block leading-none">CNIC Identifier</span>
+                          <span className="text-xs font-mono font-bold text-white mt-1.5 block">{profile?.cnic || 'Not provided'}</span>
+                        </div>
+                      </div>
+
+                      {/* Tile 5: Residential Address */}
+                      <div className="col-span-1 sm:col-span-2 p-4 rounded-2xl bg-slate-900/10 border border-slate-900/80 hover:border-slate-800 transition-all flex items-center space-x-3.5 group">
+                        <span className="text-lg">📍</span>
+                        <div className="min-w-0">
+                          <span className="text-[9px] uppercase font-extrabold text-slate-500 block leading-none">Residential Address</span>
+                          <span className="text-xs font-bold text-slate-200 mt-1.5 block truncate" title={profile?.address}>{profile?.address || 'Peshawar'}</span>
+                        </div>
+                      </div>
+
+                      {/* Tile 6: Portal Role */}
+                      <div className="col-span-1 sm:col-span-2 p-4 rounded-2xl bg-slate-900/10 border border-slate-900/80 hover:border-slate-800 transition-all flex items-center space-x-3.5 group">
+                        <span className="text-lg">🛡️</span>
+                        <div>
+                          <span className="text-[9px] uppercase font-extrabold text-slate-500 block leading-none">Portal Access Context</span>
+                          <span className="text-xs font-bold text-cyan-400 mt-1.5 block uppercase">ROLE: {profile?.role || 'EMPLOYEE'}</span>
+                        </div>
+                      </div>
+
+                    </div>
+                  )}
+
                 </div>
 
-                {passwordError && (
-                  <div className="p-3.5 rounded-xl bg-red-955/20 border border-red-900/35 text-red-400 text-xs">
-                    {passwordError}
-                  </div>
-                )}
+                {/* Right Column Container (Account Security) */}
+                <div className="space-y-6">
+                  
+                  {/* Change Password Security Card */}
+                  <div className="p-6 rounded-3xl bg-slate-900/30 border border-slate-900 space-y-5 shadow-xl hover:shadow-cyan-500/5 hover:border-cyan-500/10 transition-all duration-300">
+                    <div className="space-y-1">
+                      <h3 className="font-black text-white text-base flex items-center space-x-2">
+                        <span>🔐 Account Security</span>
+                      </h3>
+                      <p className="text-xs text-slate-500 font-light">Keep your technician account protected with a strong password.</p>
+                    </div>
 
-                <form onSubmit={handleChangePassword} className="space-y-4 text-xs">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-505 text-slate-500 uppercase tracking-wide">Current Password</label>
-                    <input
-                      type="password"
-                      placeholder="••••••••••••"
-                      value={passwordForm.oldPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
-                      required
-                    />
+                    {passwordError && (
+                      <div className="p-3.5 rounded-xl bg-red-955/20 border border-red-900/35 text-red-405 text-red-400 text-xs">
+                        {passwordError}
+                      </div>
+                    )}
+
+                    <form onSubmit={handleChangePassword} className="space-y-4 text-xs">
+                      
+                      {/* Current Password */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Current Password</label>
+                        <div className="relative">
+                          <input
+                            type={showOldPassword ? 'text' : 'password'}
+                            placeholder="••••••••••••"
+                            value={passwordForm.oldPassword}
+                            onChange={(e) => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
+                            className="w-full pl-4 pr-10 py-2.5 rounded-xl bg-slate-955 bg-slate-905 bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowOldPassword(!showOldPassword)}
+                            className="absolute right-3.5 top-3 text-slate-500 hover:text-white"
+                          >
+                            {showOldPassword ? '👁️' : '👁️‍wagon'}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* New Password */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">New Secure Password</label>
+                        <div className="relative">
+                          <input
+                            type={showNewPassword ? 'text' : 'password'}
+                            placeholder="••••••••••••"
+                            value={passwordForm.newPassword}
+                            onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                            className="w-full pl-4 pr-10 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            className="absolute right-3.5 top-3 text-slate-500 hover:text-white"
+                          >
+                            {showNewPassword ? '👁️' : '👁️‍wagon'}
+                          </button>
+                        </div>
+                        
+                        {/* Password strength indicator */}
+                        {passwordForm.newPassword && (
+                          <div className="pt-2 space-y-1.5">
+                            <div className="flex justify-between items-center text-[10px] text-slate-500">
+                              <span>Password Strength:</span>
+                              <span className="font-bold text-slate-300">
+                                {calculatePasswordStrength(passwordForm.newPassword).text}
+                              </span>
+                            </div>
+                            <div className="w-full h-1.5 rounded-full bg-slate-955 bg-slate-950 overflow-hidden">
+                              <div 
+                                className={`h-full transition-all duration-300 ${calculatePasswordStrength(passwordForm.newPassword).color}`}
+                                style={{ width: `${(calculatePasswordStrength(passwordForm.newPassword).score / 4) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Confirm Password */}
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Confirm New Password</label>
+                        <div className="relative">
+                          <input
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            placeholder="••••••••••••"
+                            value={passwordForm.confirmPassword}
+                            onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                            className="w-full pl-4 pr-10 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-3.5 top-3 text-slate-500 hover:text-white"
+                          >
+                            {showConfirmPassword ? '👁️' : '👁️‍wagon'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="pt-2">
+                        <button
+                          type="submit"
+                          className="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-650 text-white font-bold hover:shadow hover:shadow-cyan-500/10 hover:brightness-105 transition-all"
+                        >
+                          Update Password
+                        </button>
+                      </div>
+
+                    </form>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-505 text-slate-500 uppercase tracking-wide">New Secure Password</label>
-                    <input
-                      type="password"
-                      placeholder="••••••••••••"
-                      value={passwordForm.newPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
-                      required
-                    />
+                  {/* Security Status Panel */}
+                  <div className="p-4 rounded-2xl bg-slate-900/10 border border-slate-900 space-y-3 text-xs">
+                    <h4 className="font-bold text-white text-[10px] uppercase tracking-wider">🛡️ Security Status</h4>
+                    <div className="space-y-2 text-[11px] text-slate-400">
+                      <div className="flex justify-between items-center">
+                        <span>Password Protection:</span>
+                        <span className="text-emerald-450 font-bold">🟢 Protected</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Account Access:</span>
+                        <span className="text-emerald-450 font-bold">🟢 Active</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Last Security Scan:</span>
+                        <span className="text-cyan-400 font-medium">Recently (Today)</span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-bold text-slate-550 text-slate-505 text-slate-500 uppercase tracking-wide">Confirm New Password</label>
-                    <input
-                      type="password"
-                      placeholder="••••••••••••"
-                      value={passwordForm.confirmPassword}
-                      onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                      className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
-                      required
-                    />
-                  </div>
+                </div>
 
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-655 text-white font-bold hover:shadow hover:shadow-cyan-500/10 hover:scale-[1.01] transition-all"
+              </div>
+
+              {/* Preferences Section */}
+              <div className="p-6 rounded-3xl bg-slate-900/30 border border-slate-900 space-y-5">
+                <div>
+                  <h3 className="font-black text-white text-base">Preferences</h3>
+                  <p className="text-[10px] text-slate-500 mt-0.5">Toggle optional account configurations</p>
+                </div>
+
+                <div className="divide-y divide-slate-850/40 text-xs">
+                  
+                  {/* Preference 1: Notifications */}
+                  <div className="py-3 flex justify-between items-center">
+                    <div>
+                      <span className="font-bold text-white block">🔔 Notification Preferences</span>
+                      <span className="text-[10px] text-slate-500 font-light">Choose how you receive task and complaint updates.</span>
+                    </div>
+                    <button 
+                      onClick={() => setPrefNotifications(!prefNotifications)}
+                      className={`w-11 h-6 rounded-full transition-all duration-300 relative ${prefNotifications ? 'bg-cyan-500' : 'bg-slate-950'}`}
                     >
-                      Update Password
+                      <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${prefNotifications ? 'right-1' : 'left-1'}`} />
                     </button>
                   </div>
-                </form>
+
+                  {/* Preference 2: Theme */}
+                  <div className="py-3 flex justify-between items-center">
+                    <div>
+                      <span className="font-bold text-white block">🌙 Interface Theme</span>
+                      <span className="text-[10px] text-slate-500 font-light">Dark mode enabled (System preference).</span>
+                    </div>
+                    <button 
+                      disabled
+                      className="w-11 h-6 rounded-full bg-cyan-600 opacity-60 cursor-not-allowed relative"
+                    >
+                      <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-white" />
+                    </button>
+                  </div>
+
+                  {/* Preference 3: Task Alerts */}
+                  <div className="py-3 flex justify-between items-center">
+                    <div>
+                      <span className="font-bold text-white block">⚡ Task Alerts</span>
+                      <span className="text-[10px] text-slate-500 font-light">Receive alerts for priority technical tasks.</span>
+                    </div>
+                    <button 
+                      onClick={() => setPrefAlerts(!prefAlerts)}
+                      className={`w-11 h-6 rounded-full transition-all duration-300 relative ${prefAlerts ? 'bg-cyan-500' : 'bg-slate-955 bg-slate-950'}`}
+                    >
+                      <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${prefAlerts ? 'right-1' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Danger Zone / Account Actions */}
+              <div className="p-5 rounded-3xl bg-slate-900/10 border border-slate-900/60 flex justify-between items-center flex-wrap gap-4">
+                <div className="space-y-0.5">
+                  <span className="font-bold text-white text-xs block">Account Actions</span>
+                  <span className="text-[10px] text-slate-500 font-light block">Need to change accounts? Log out of this session safely.</span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="px-5 py-2.5 rounded-xl border border-red-500/20 hover:border-red-500 bg-red-950/20 text-red-400 font-bold text-xs transition-all active:scale-[0.98]"
+                >
+                  🚪 Logout Session
+                </button>
               </div>
 
             </div>
@@ -2333,7 +2589,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
             {/* Content Details Grid */}
             <div className="grid grid-cols-2 gap-4 text-xs">
               
-              <div className="col-span-2 p-3.5 rounded-xl bg-slate-950/30 border border-slate-850 space-y-2">
+              <div className="col-span-2 p-3.5 rounded-xl bg-slate-955 bg-slate-950/30 border border-slate-850 space-y-2">
                 <h4 className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Customer Contact Profile</h4>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
@@ -2480,7 +2736,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           MODAL 2: WORK REPORT SUBMISSIONS
           ============================================== */}
       {showReportForm && selectedItem && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-955 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-[520px] max-w-full rounded-[26px] bg-slate-900 border border-slate-800 p-6 shadow-2xl relative space-y-5 animate-fade-in-up">
             
             {/* Header */}
@@ -2513,7 +2769,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   placeholder="Describe details of repairs/installations..."
                   value={reportForm.work_performed}
                   onChange={(e) => setReportForm({ ...reportForm, work_performed: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500 h-16 resize-none"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500 h-16 resize-none"
                   required
                 />
               </div>
@@ -2525,7 +2781,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   placeholder="e.g. Fiber splice replaced, signals restored to normal."
                   value={reportForm.solution}
                   onChange={(e) => setReportForm({ ...reportForm, solution: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-855 text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
                   required
                 />
               </div>
@@ -2537,7 +2793,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   placeholder="e.g. 1x ONU router, 2x fiber adapters, 15m optical patch cable."
                   value={reportForm.equipment_used}
                   onChange={(e) => setReportForm({ ...reportForm, equipment_used: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-855 text-white focus:outline-none focus:border-cyan-500"
                 />
               </div>
 
@@ -2588,11 +2844,11 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   Report #{selectedHistoryItem.type === 'task' ? `TSK-${selectedHistoryItem.id}` : `CMP-${selectedHistoryItem.id}`}
                 </h3>
                 <div className="flex items-center space-x-2 mt-2">
-                  <span className="px-2 py-0.5 rounded text-[8px] bg-emerald-955 border border-emerald-800/30 text-emerald-450 font-bold uppercase">{selectedHistoryItem.status}</span>
-                  <span className="px-2 py-0.5 rounded text-[8px] bg-slate-950 text-slate-400 font-bold uppercase">{selectedHistoryItem.priority} priority</span>
+                  <span className="px-2 py-0.5 rounded text-[8px] bg-emerald-950 border border-emerald-800/30 text-emerald-450 font-bold uppercase">{selectedHistoryItem.status}</span>
+                  <span className="px-2 py-0.5 rounded text-[8px] bg-slate-950 text-slate-405 text-slate-400 font-bold uppercase">{selectedHistoryItem.priority} priority</span>
                 </div>
               </div>
-              <button onClick={() => setSelectedHistoryItem(null)} className="text-slate-500 hover:text-white font-bold text-lg transition-colors">✕</button>
+              <button onClick={() => setSelectedHistoryItem(null)} className="text-slate-505 hover:text-white font-bold text-lg transition-colors">✕</button>
             </div>
 
             {/* Customer Details Info block */}
@@ -2620,32 +2876,32 @@ function EmployeePortal({ user, onLogoutSuccess }) {
               <div className="space-y-1.5">
                 <span className="text-slate-550 text-slate-500 text-[10px] uppercase font-bold block">Job Type & Subject</span>
                 <span className="text-white font-semibold block capitalize">{selectedHistoryItem.type} ({selectedHistoryItem.work_type})</span>
-                <p className="p-3 rounded-xl bg-slate-950/20 border border-slate-850 text-slate-350 leading-relaxed font-light mt-1">
+                <p className="p-3 rounded-xl bg-slate-950/20 border border-slate-850 text-slate-355 leading-relaxed font-light mt-1">
                   {selectedHistoryItem.description}
                 </p>
               </div>
 
               {/* Work report entries */}
-              <div className="space-y-3.5 pt-2.5 border-t border-slate-855/50 border-slate-850/60">
-                <h4 className="text-[10px] font-bold text-indigo-405 text-indigo-400 uppercase tracking-wider">Field Diagnostics & Operations</h4>
+              <div className="space-y-3.5 pt-2.5 border-t border-slate-850/60">
+                <h4 className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Field Diagnostics & Operations</h4>
                 
                 <div className="space-y-2 bg-slate-950/25 p-3.5 rounded-xl border border-slate-850">
                   <div>
-                    <span className="text-slate-500 text-[9px] uppercase font-bold">Problem Diagnosed</span>
+                    <span className="text-slate-505 text-slate-505 text-slate-500 text-[9px] uppercase font-bold">Problem Diagnosed</span>
                     <p className="text-slate-300 block font-light mt-0.5">{selectedHistoryItem.problem_found || 'Standard field diagnostics.'}</p>
                   </div>
-                  <div className="pt-2 border-t border-slate-905 border-slate-900/60">
+                  <div className="pt-2 border-t border-slate-900/60">
                     <span className="text-slate-505 text-slate-500 text-[9px] uppercase font-bold">Work Performed</span>
-                    <p className="text-slate-300 block font-light mt-0.5">{selectedHistoryItem.work_performed || 'Job completed successfully.'}</p>
+                    <p className="text-slate-305 text-slate-300 block font-light mt-0.5">{selectedHistoryItem.work_performed || 'Job completed successfully.'}</p>
                   </div>
                   <div className="pt-2 border-t border-slate-900/60">
-                    <span className="text-slate-505 text-slate-500 text-[9px] uppercase font-bold">Resolution Solution</span>
+                    <span className="text-slate-500 text-[9px] uppercase font-bold">Resolution Solution</span>
                     <p className="text-white block font-semibold mt-0.5">{selectedHistoryItem.solution || 'Connection stabilized.'}</p>
                   </div>
                   {selectedHistoryItem.equipment_used && (
-                    <div className="pt-2 border-t border-slate-900/60">
-                      <span className="text-slate-505 text-slate-500 text-[9px] uppercase font-bold">Materials / Equipment Used</span>
-                      <p className="text-slate-305 text-slate-300 block font-light mt-0.5">{selectedHistoryItem.equipment_used}</p>
+                    <div className="pt-2 border-t border-slate-905 border-slate-900/60">
+                      <span className="text-slate-500 text-[9px] uppercase font-bold">Materials / Equipment Used</span>
+                      <p className="text-slate-300 block font-light mt-0.5">{selectedHistoryItem.equipment_used}</p>
                     </div>
                   )}
                   {selectedHistoryItem.additional_notes && (
