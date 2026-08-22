@@ -109,6 +109,8 @@ function ComplaintsManagement({ user, onLogoutSuccess }) {
       navigate('/admin/employees');
     } else if (name === 'Complaints') {
       navigate('/admin/complaints');
+    } else if (name === 'Usage Monitoring') {
+      navigate('/admin/usage');
     } else {
       setToastMessage(`"${name}" module is pending development in the next phase.`);
       setTimeout(() => setToastMessage(''), 3000);

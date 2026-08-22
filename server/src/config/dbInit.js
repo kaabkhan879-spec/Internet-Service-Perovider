@@ -131,6 +131,21 @@ CREATE TABLE IF NOT EXISTS complaint_updates (
   comment TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 10. Customer Usage Table
+CREATE TABLE IF NOT EXISTS customer_usage (
+  id SERIAL PRIMARY KEY,
+  customer_id INTEGER REFERENCES customers(id) ON DELETE CASCADE,
+  subscription_id INTEGER REFERENCES subscriptions(id) ON DELETE SET NULL,
+  usage_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  download_bytes BIGINT NOT NULL DEFAULT 0,
+  upload_bytes BIGINT NOT NULL DEFAULT 0,
+  total_bytes BIGINT NOT NULL DEFAULT 0,
+  recorded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(customer_id, subscription_id, usage_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_customer_usage_date ON customer_usage(usage_date);
 `;
 
 async function initializeDatabase() {

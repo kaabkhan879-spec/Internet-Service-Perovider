@@ -27,6 +27,11 @@ const {
   changeStatus,
   addComment
 } = require('../controllers/adminComplaintController');
+const {
+  listUsage,
+  getCustomerUsageDetails,
+  getUsageReport
+} = require('../controllers/adminUsageController');
 const { requireAuth, requireAdmin } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -64,5 +69,10 @@ router.get('/complaints/:id', getComplaintDetails);
 router.patch('/complaints/:id/assign', assignComplaint);
 router.patch('/complaints/:id/status', changeStatus);
 router.post('/complaints/:id/updates', addComment);
+
+// Usage Monitoring endpoints
+router.get('/usage', listUsage);
+router.get('/usage/customer/:customerId', getCustomerUsageDetails);
+router.get('/usage/report', getUsageReport);
 
 module.exports = router;

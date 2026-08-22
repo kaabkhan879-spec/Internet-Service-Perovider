@@ -9,6 +9,7 @@ import EmployeeManagement from './components/EmployeeManagement';
 import EmployeeLogin from './components/EmployeeLogin';
 import EmployeePortal from './components/EmployeePortal';
 import ComplaintsManagement from './components/ComplaintsManagement';
+import UsageMonitoring from './components/UsageMonitoring';
 
 // Layout wrapper for consistent look and feel
 function Layout({ children, user }) {
@@ -196,6 +197,10 @@ function App() {
           <Route 
             path="/admin/complaints" 
             element={user ? <ComplaintsManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
+          />
+          <Route 
+            path="/admin/usage" 
+            element={user ? <UsageMonitoring user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
           />
           <Route 
             path="/employee/login" 

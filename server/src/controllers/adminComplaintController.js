@@ -36,8 +36,12 @@ async function listComplaints(req, res) {
     }
 
     if (status) {
-      queryParams.push(status);
-      filters.push(`comp.status = $${queryParams.length}`);
+      if (status === 'pending') {
+        filters.push(`(comp.status = 'pending' OR comp.status = 'open')`);
+      } else {
+        queryParams.push(status);
+        filters.push(`comp.status = $${queryParams.length}`);
+      }
     }
 
     if (priority) {
