@@ -32,7 +32,7 @@ function BillingManagement({ user, onLogoutSuccess }) {
   const [paymentForm, setPaymentForm] = useState({ bill_id: '', amount: '', payment_date: new Date().toISOString().split('T')[0], payment_method: 'Cash', transaction_reference: '' });
   const [actionLoading, setActionLoading] = useState(false);
 
-  // Sidebar navigation options (13 items)
+  // Sidebar navigation options (12 items)
   const sidebarItems = [
     { name: 'Dashboard', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4zM14 16a2 2 0 012-2h2a2 2 0 012 2v4a2 2 0 01-2 2h-2a2 2 0 01-2-2v-4z' },
     { name: 'Customers', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
@@ -63,8 +63,10 @@ function BillingManagement({ user, onLogoutSuccess }) {
       if (!response.ok) throw new Error('Failed to load generated invoices.');
       const data = await response.json();
       setBills(data);
+      setError('');
     } catch (err) {
-      setError(err.message);
+      console.error('[BillingManagement] Fetch bills error:', err);
+      setError(err.message || 'Unable to load packages');
     } finally {
       setLoading(false);
     }
@@ -91,6 +93,11 @@ function BillingManagement({ user, onLogoutSuccess }) {
     const val = e.target.value;
     setSearch(val);
     fetchBills(val, statusFilter, monthFilter);
+  };
+
+  const handleClearSearch = () => {
+    setSearch('');
+    fetchBills('', statusFilter, monthFilter);
   };
 
   const handleStatusTabChange = (statusVal) => {
@@ -192,7 +199,6 @@ function BillingManagement({ user, onLogoutSuccess }) {
   };
 
   const handleOpenPaymentModal = (bill) => {
-    // Calculate remaining balance dynamically
     const remaining = bill.remaining_balance !== undefined ? bill.remaining_balance : bill.amount - bill.total_paid;
     setPaymentForm({
       bill_id: bill.id,
@@ -227,7 +233,6 @@ function BillingManagement({ user, onLogoutSuccess }) {
       setShowPaymentModal(false);
       alert('Payment transaction logged successfully.');
       fetchBills(search, statusFilter, monthFilter);
-      // If view modal is open, refresh detail files
       if (showViewModal && selectedBillDetails?.bill?.id === paymentForm.bill_id) {
         fetchBillDetails(paymentForm.bill_id);
       }
@@ -252,10 +257,10 @@ function BillingManagement({ user, onLogoutSuccess }) {
       )}
 
       {/* 1. Sidebar Navigation */}
-      <aside className="w-64 border-r border-slate-900 bg-slate-950/80 backdrop-blur-md hidden md:flex flex-col h-screen sticky top-0 animate-fade-in">
+      <aside className="w-64 border-r border-slate-900 bg-slate-955/80 bg-slate-950/80 backdrop-blur-md hidden md:flex flex-col h-screen sticky top-0 z-40">
         <div className="p-6 border-b border-slate-900">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-indigo-655 flex items-center justify-center shadow-lg">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-indigo-650 flex items-center justify-center shadow-lg">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
@@ -264,31 +269,32 @@ function BillingManagement({ user, onLogoutSuccess }) {
           </div>
         </div>
 
-        {/* Scrollable sidebar items list */}
         <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
           {sidebarItems.map((item) => (
             <button
               key={item.name}
               onClick={() => handleSidebarClick(item.name)}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group ${
-                activeTab === item.name
-                  ? 'bg-gradient-to-r from-cyan-500/10 to-indigo-550/5 border border-cyan-500/20 text-cyan-400'
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group relative ${
+                activeTab === item.name || item.name === 'Billing'
+                  ? 'bg-gradient-to-r from-cyan-500/10 to-indigo-550/5 border border-cyan-500/20 text-cyan-400 shadow-md shadow-cyan-500/5'
                   : 'text-slate-400 hover:bg-slate-900/40 hover:text-white border border-transparent'
               }`}
             >
-              <svg className={`w-5 h-5 transition-transform group-hover:scale-105 ${activeTab === item.name ? 'text-cyan-400' : 'text-slate-500 group-hover:text-slate-350'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-5 h-5 transition-transform group-hover:scale-105 ${activeTab === item.name || item.name === 'Billing' ? 'text-cyan-400' : 'text-slate-500 group-hover:text-slate-350'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={item.icon} />
               </svg>
               <span>{item.name}</span>
+              {(activeTab === item.name || item.name === 'Billing') && (
+                <span className="absolute right-3 w-1.5 h-1.5 rounded-full bg-cyan-400 pulse-subtle" />
+              )}
             </button>
           ))}
         </nav>
 
-        {/* Logout at bottom */}
         <div className="p-4 border-t border-slate-900">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-950/20 hover:text-red-300 border border-transparent transition-all duration-250"
+            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-955/20 hover:bg-red-955/20 hover:bg-red-950/20 hover:text-red-305 hover:text-red-300 border border-transparent transition-all duration-250"
           >
             <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -302,7 +308,7 @@ function BillingManagement({ user, onLogoutSuccess }) {
       <div className="flex-grow flex flex-col min-w-0">
         
         {/* Header bar */}
-        <header className="border-b border-slate-900 bg-slate-950/40 backdrop-blur-md py-4 px-6 md:px-8 flex items-center justify-between sticky top-0 z-35">
+        <header className="border-b border-slate-900 bg-slate-955/40 bg-slate-955/20 bg-slate-955/80 bg-slate-950/40 backdrop-blur-md py-4 px-6 md:px-8 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center space-x-4 md:hidden">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-indigo-655 flex items-center justify-center">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -317,10 +323,14 @@ function BillingManagement({ user, onLogoutSuccess }) {
           <div className="flex items-center space-x-4">
             <div className="text-right hidden sm:block">
               <p className="text-sm font-semibold text-white leading-none">{user?.name || 'Administrator'}</p>
-              <p className="text-slate-500 text-xs mt-0.5 tracking-wider uppercase">{user?.role || 'admin'}</p>
+              <p className="text-slate-505 text-slate-500 text-xs mt-0.5 tracking-wider uppercase">{user?.role || 'admin'}</p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500/20 to-indigo-650/20 border border-slate-800 flex items-center justify-center text-cyan-400 font-extrabold text-sm">
-              {user?.name?.slice(0, 2).toUpperCase() || 'AD'}
+            {/* Admin Avatar Ring */}
+            <div className="relative">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500/20 to-indigo-650/20 border border-slate-800 flex items-center justify-center text-cyan-400 font-extrabold text-sm shadow-md ring-1 ring-cyan-500/25">
+                {user?.name?.slice(0, 2).toUpperCase() || 'AD'}
+              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-slate-950" />
             </div>
             <button onClick={handleLogout} className="md:hidden p-2 rounded-lg hover:bg-slate-900 text-slate-400 hover:text-white transition-colors">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -331,177 +341,241 @@ function BillingManagement({ user, onLogoutSuccess }) {
         </header>
 
         {/* Content Pane */}
-        <main className="flex-1 p-6 md:p-8 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-6 md:p-8 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto fade-in-up">
           
           {/* Header controls */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-slate-900">
-            <div>
-              <h2 className="text-2xl font-black text-white">Billing Management</h2>
-              <p className="text-slate-500 text-xs mt-0.5">Generate monthly customer invoices, track balances, and record payments</p>
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-slate-900/60">
+            <div className="flex items-center space-x-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-cyan-950/20 border border-cyan-800/35 flex items-center justify-center text-cyan-400 shadow-md">
+                🧾
+              </div>
+              <div>
+                <h2 className="text-2xl font-black text-white tracking-tight flex items-center space-x-2">
+                  <span>Billing Management</span>
+                </h2>
+                <p className="text-slate-500 text-xs font-light mt-0.5">Generate monthly customer invoices, track balances, and record payments.</p>
+              </div>
             </div>
             <button
               onClick={() => setShowAddModal(true)}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-655 font-semibold text-white text-xs hover:scale-[1.01] hover:shadow-lg shadow-cyan-500/10 transition-all flex items-center justify-center space-x-2"
+              disabled={actionLoading}
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-650 font-bold text-white text-xs hover:scale-[1.02] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-cyan-500/20 transition-all duration-200 flex items-center justify-center space-x-2 border border-cyan-400/20 disabled:opacity-50"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-              </svg>
+              {actionLoading ? (
+                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+              )}
               <span>Generate Bill</span>
             </button>
           </div>
 
-          {/* Filtering Area */}
-          <div className="p-4 rounded-xl bg-slate-900/30 border border-slate-900 backdrop-blur-sm space-y-4">
-            <div className="flex flex-col md:flex-row gap-4 items-center">
-              {/* Search Box */}
-              <div className="relative w-full md:flex-grow">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+          {/* Error handling recovery block */}
+          {error ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center space-y-4 border border-slate-900 bg-slate-950/20 rounded-2xl p-6">
+              <div className="w-12 h-12 rounded-xl bg-red-950/30 border border-red-900/30 flex items-center justify-center text-red-400 animate-pulse">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div className="space-y-1">
+                <h4 className="font-bold text-white text-sm">Unable to load bills</h4>
+                <p className="text-xs text-slate-500 max-w-xs leading-normal">
+                  The invoices ledger request failed. Ensure server connection is active.
+                </p>
+              </div>
+              <button
+                onClick={() => { setError(''); fetchBills(search, statusFilter, monthFilter); }}
+                className="px-4 py-2 rounded-lg bg-red-950/20 border border-red-900/30 text-red-400 text-xs font-semibold hover:bg-red-900 transition-colors"
+              >
+                Retry
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Search & Month Filter Container (Floating Panel Style) */}
+              <div className="p-4 rounded-2xl bg-slate-900/25 border border-slate-900 backdrop-blur-md space-y-4 shadow-xl">
+                <div className="flex flex-col md:flex-row gap-4 items-center">
+                  
+                  {/* Search Input Box */}
+                  <div className="relative w-full md:flex-grow">
+                    <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Search bills by customer name, customer code, or phone number..."
+                      value={search}
+                      onChange={handleSearchChange}
+                      className="w-full pl-10 pr-10 py-3 rounded-xl bg-slate-950 border border-slate-900 text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/80 transition-colors text-xs shadow-inner"
+                    />
+                    {search && (
+                      <button
+                        onClick={handleClearSearch}
+                        className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-550 hover:text-white transition-colors"
+                      >
+                        <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Month Selector Filter */}
+                  <div className="flex items-center space-x-3.5 w-full md:w-auto shrink-0 bg-slate-950 px-4 py-2.5 rounded-xl border border-slate-900">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">MONTH:</label>
+                    <input
+                      type="month"
+                      value={monthFilter}
+                      onChange={handleMonthFilterChange}
+                      className="bg-transparent text-slate-205 focus:outline-none text-xs text-white"
+                    />
+                  </div>
                 </div>
-                <input
-                  type="text"
-                  placeholder="Search bills by customer name, customer code, or phone..."
-                  value={search}
-                  onChange={handleSearchChange}
-                  className="w-full pl-9 pr-4 py-2.5 rounded-lg bg-slate-950 border border-slate-900 text-slate-100 placeholder:text-slate-655 focus:outline-none focus:border-cyan-500 transition-colors text-xs"
-                />
+
+                {/* Status Tab Filters (Pill Style Tab Row) */}
+                <div className="flex flex-wrap gap-2 pt-3.5 border-t border-slate-900/50">
+                  {[
+                    { name: 'All Invoices', value: '' },
+                    { name: 'Paid', value: 'paid' },
+                    { name: 'Unpaid', value: 'unpaid' },
+                    { name: 'Overdue', value: 'overdue' }
+                  ].map((tab) => (
+                    <button
+                      key={tab.name}
+                      onClick={() => handleStatusTabChange(tab.value)}
+                      className={`px-4 py-2 rounded-xl text-[11px] font-semibold transition-all ${
+                        statusFilter === tab.value
+                          ? 'bg-gradient-to-r from-cyan-500/10 to-indigo-500/10 border border-cyan-500/25 text-cyan-400 font-bold shadow-md shadow-cyan-500/5'
+                          : 'bg-transparent border-transparent text-slate-400 hover:text-white hover:bg-slate-900/30'
+                      }`}
+                    >
+                      {tab.name}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* Month Selector Filter */}
-              <div className="flex items-center space-x-2 w-full md:w-auto">
-                <label className="text-[10px] font-bold text-slate-500 uppercase shrink-0">Month:</label>
-                <input
-                  type="month"
-                  value={monthFilter}
-                  onChange={handleMonthFilterChange}
-                  className="w-full md:w-40 px-3 py-2 rounded-lg bg-slate-950 border border-slate-900 text-slate-350 focus:outline-none focus:border-cyan-500 text-xs"
-                />
-              </div>
-            </div>
-
-            {/* Status tab filters */}
-            <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-900/50">
-              {[
-                { name: 'All Invoices', value: '' },
-                { name: 'Paid', value: 'paid' },
-                { name: 'Unpaid', value: 'unpaid' },
-                { name: 'Overdue', value: 'overdue' }
-              ].map((tab) => (
-                <button
-                  key={tab.name}
-                  onClick={() => handleStatusTabChange(tab.value)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                    statusFilter === tab.value
-                      ? 'bg-cyan-950/40 border-cyan-800/40 text-cyan-400'
-                      : 'bg-transparent border-transparent text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {tab.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Invoices List Table */}
-          <div className="rounded-2xl border border-slate-900 bg-slate-950/20 backdrop-blur-sm overflow-hidden animate-fade-in">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="border-b border-slate-900 bg-slate-900/20 text-slate-400 font-bold uppercase tracking-wider">
-                    <th className="py-4 px-4">Customer Details</th>
-                    <th className="py-4 px-4">Internet Package</th>
-                    <th className="py-4 px-4">Billing Month</th>
-                    <th className="py-4 px-4">Amount</th>
-                    <th className="py-4 px-4">Due Date</th>
-                    <th className="py-4 px-4">Status</th>
-                    <th className="py-4 px-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+              {/* Invoices List Table */}
+              <div className="rounded-2xl border border-slate-900 bg-slate-955/20 bg-slate-950/20 backdrop-blur-sm overflow-hidden shadow-2xl">
+                <div className="overflow-x-auto">
                   {loading ? (
-                    <tr>
-                      <td colSpan="7" className="py-12 text-center text-slate-500">
-                        <div className="flex justify-center items-center space-x-2 animate-pulse">
-                          <svg className="animate-spin h-5 w-5 text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          <span>Resolving billing files...</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : error ? (
-                    <tr>
-                      <td colSpan="7" className="py-12 text-center text-red-400 font-medium italic">{error}</td>
-                    </tr>
+                    <div className="p-6 space-y-3.5">
+                      {[...Array(6)].map((_, i) => (
+                        <div key={i} className="shimmer-loader h-14 rounded-xl opacity-20" />
+                      ))}
+                    </div>
                   ) : bills.length === 0 ? (
-                    <tr>
-                      <td colSpan="7" className="py-12 text-center text-slate-650 font-medium italic">
-                        No invoices generated matching filters.
-                      </td>
-                    </tr>
+                    /* Beautiful Empty State */
+                    <div className="py-24 text-center max-w-md mx-auto space-y-6 animate-fade-in">
+                      <div className="relative w-16 h-16 rounded-full bg-cyan-950/20 border border-cyan-900/30 flex items-center justify-center text-cyan-400 mx-auto">
+                        <div className="absolute inset-0 rounded-full bg-cyan-500/5 blur-md pulse-subtle" />
+                        <svg className="w-7 h-7 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <div className="space-y-1.5">
+                        <h4 className="font-bold text-white text-base">No invoices found</h4>
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          Generate your first invoice or adjust your filters to see billing records.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setShowAddModal(true)}
+                        className="px-4 py-2 rounded-xl bg-cyan-950/25 border border-cyan-800/30 text-cyan-400 text-xs font-semibold hover:bg-cyan-900 transition-colors inline-block"
+                      >
+                        Generate Bill
+                      </button>
+                    </div>
                   ) : (
-                    bills.map((b) => (
-                      <tr key={b.id} className="border-b border-slate-950/60 hover:bg-slate-900/10 transition-colors">
-                        <td className="py-4 px-4">
-                          <div className="font-bold text-white text-sm">{b.customer_name}</div>
-                          <div className="text-slate-500 font-light text-[10px] tracking-wider uppercase mt-0.5">{b.customer_code}</div>
-                        </td>
-                        <td className="py-4 px-4 text-slate-300 font-medium">
-                          {b.package_name || <span className="text-slate-600 italic">Expired package</span>}
-                        </td>
-                        <td className="py-4 px-4 font-bold text-slate-350">{b.billing_month}</td>
-                        <td className="py-4 px-4 font-bold text-slate-200">
-                          <div>{formatPKR(b.amount)}</div>
-                          {b.remaining_balance > 0 && b.status !== 'paid' && (
-                            <div className="text-[10px] text-amber-500 font-normal">Bal: {formatPKR(b.remaining_balance)}</div>
-                          )}
-                        </td>
-                        <td className="py-4 px-4 text-slate-400">{new Date(b.due_date).toLocaleDateString()}</td>
-                        <td className="py-4 px-4">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                            b.status === 'paid'
-                              ? 'bg-emerald-950/40 border border-emerald-800/30 text-emerald-400'
-                              : b.status === 'overdue'
-                              ? 'bg-red-950/40 border border-red-800/30 text-red-400 animate-pulse'
-                              : 'bg-amber-950/40 border border-amber-800/30 text-amber-400'
-                          }`}>
-                            {b.status}
-                          </span>
-                        </td>
-                        <td className="py-4 px-4 text-right space-x-2">
-                          <button
-                            onClick={() => handleOpenViewModal(b.id)}
-                            className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-cyan-500/30 text-cyan-400 hover:text-cyan-300 transition-colors"
-                          >
-                            View
-                          </button>
-                          {b.status !== 'paid' && (
-                            <button
-                              onClick={() => handleOpenPaymentModal(b)}
-                              className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-emerald-500/30 text-emerald-400 hover:text-emerald-305 transition-colors"
-                            >
-                              Record Payment
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-900 bg-slate-900/20 text-slate-400 font-bold uppercase tracking-wider">
+                          <th className="py-4 px-4">Customer Details</th>
+                          <th className="py-4 px-4">Internet Package</th>
+                          <th className="py-4 px-4">Billing Month</th>
+                          <th className="py-4 px-4">Amount</th>
+                          <th className="py-4 px-4">Due Date</th>
+                          <th className="py-4 px-4">Status</th>
+                          <th className="py-4 px-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bills.map((b) => (
+                          <tr key={b.id} className="border-b border-slate-950/60 table-row-hover text-slate-300">
+                            <td className="py-4 px-4">
+                              <div className="font-bold text-white text-sm">{b.customer_name}</div>
+                              <div className="text-slate-500 font-light text-[10px] tracking-wider uppercase mt-0.5">{b.customer_code}</div>
+                            </td>
+                            <td className="py-4 px-4 text-slate-350 font-medium">
+                              {b.package_name || <span className="text-slate-655 text-slate-600 italic">Expired package</span>}
+                            </td>
+                            <td className="py-4 px-4 font-bold text-slate-400">{b.billing_month}</td>
+                            <td className="py-4 px-4 font-bold text-slate-200">
+                              <div className="text-sm">{formatPKR(b.amount)}</div>
+                              {b.remaining_balance > 0 && b.status !== 'paid' && (
+                                <div className="text-[10px] text-amber-500 font-medium mt-0.5">Balance: {formatPKR(b.remaining_balance)}</div>
+                              )}
+                            </td>
+                            <td className="py-4 px-4 text-slate-350">{new Date(b.due_date).toLocaleDateString()}</td>
+                            <td className="py-4 px-4">
+                              <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase flex items-center w-fit space-x-1.5 ${
+                                b.status === 'paid'
+                                  ? 'bg-emerald-950/40 border border-emerald-800/30 text-emerald-400'
+                                  : b.status === 'overdue'
+                                  ? 'bg-red-950/40 border border-red-800/30 text-red-400'
+                                  : 'bg-amber-955/30 border border-amber-800/30 text-amber-400'
+                              }`}>
+                                <span className={`w-1 h-1 rounded-full ${
+                                  b.status === 'paid' ? 'bg-emerald-400' :
+                                  b.status === 'overdue' ? 'bg-red-400 animate-ping' :
+                                  'bg-amber-400'
+                                }`} />
+                                <span>{b.status}</span>
+                              </span>
+                            </td>
+                            <td className="py-4 px-4 text-right space-x-2">
+                              <button
+                                onClick={() => handleOpenViewModal(b.id)}
+                                className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-cyan-500/30 text-cyan-400 hover:text-cyan-305 transition-all duration-200 hover:scale-105 active:scale-95"
+                                title="View Ledger"
+                              >
+                                View
+                              </button>
+                              {b.status !== 'paid' && (
+                                <button
+                                  onClick={() => handleOpenPaymentModal(b)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:border-emerald-500/30 text-emerald-400 hover:text-emerald-305 transition-all duration-200 hover:scale-105 active:scale-95"
+                                  title="Record Payment"
+                                >
+                                  Record Payment
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                </div>
+              </div>
+            </>
+          )}
 
         </main>
       </div>
 
       {/* 3. MODAL: Generate Bill */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md p-6 rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 space-y-6 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/70 backdrop-blur-sm">
+          <div className="w-full max-w-md p-6 rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 space-y-6 relative animate-fade-in">
             <div className="flex justify-between items-center pb-4 border-b border-slate-850">
               <h3 className="text-lg font-bold text-white">Generate Customer Invoice</h3>
               <button onClick={() => setShowAddModal(false)} className="text-slate-500 hover:text-white transition-colors">
@@ -518,7 +592,7 @@ function BillingManagement({ user, onLogoutSuccess }) {
                   required
                   value={addForm.customer_id}
                   onChange={(e) => setAddForm({ ...addForm, customer_id: e.target.value })}
-                  className="w-full px-3 py-2.5 rounded-lg bg-slate-950 border border-slate-805 text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full px-3 py-2.5 rounded-lg bg-slate-955 bg-slate-950 border border-slate-805 text-white focus:outline-none focus:border-cyan-500"
                 >
                   <option value="">-- Choose Customer --</option>
                   {customers.map((c) => (
@@ -553,18 +627,18 @@ function BillingManagement({ user, onLogoutSuccess }) {
                 />
               </div>
 
-              <div className="pt-4 flex space-x-3">
+              <div className="pt-4 border-t border-slate-850 flex space-x-3">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="w-1/2 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 font-semibold hover:text-white transition-colors"
+                  className="w-1/2 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-800 text-slate-400 font-semibold hover:text-white transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="w-1/2 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-655 text-white font-semibold transition-all hover:scale-[1.01] disabled:opacity-50"
+                  className="w-1/2 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-650 text-white font-bold transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
                 >
                   {actionLoading ? 'Generating...' : 'Generate Invoice'}
                 </button>
@@ -576,13 +650,13 @@ function BillingManagement({ user, onLogoutSuccess }) {
 
       {/* 4. MODAL: Bill Details */}
       {showViewModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-xl p-6 rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 space-y-6 max-h-[90vh] overflow-y-auto relative scrollbar-thin">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/70 backdrop-blur-sm">
+          <div className="w-full max-w-xl p-6 rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 space-y-6 max-h-[90vh] overflow-y-auto relative scrollbar-thin animate-fade-in">
             <div className="flex justify-between items-center pb-4 border-b border-slate-850">
               <div>
                 <h3 className="text-lg font-bold text-white">Invoice Details Sheet</h3>
                 {selectedBillDetails?.bill && (
-                  <p className="text-slate-500 text-[10px] tracking-wider uppercase mt-0.5">Month: {selectedBillDetails.bill.billing_month}</p>
+                  <p className="text-slate-505 text-slate-500 text-[10px] tracking-wider uppercase mt-0.5">Month: {selectedBillDetails.bill.billing_month}</p>
                 )}
               </div>
               <button onClick={() => { setShowViewModal(false); setSelectedBillDetails(null); }} className="text-slate-500 hover:text-white transition-colors">
@@ -596,24 +670,24 @@ function BillingManagement({ user, onLogoutSuccess }) {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Loading details ledger...</span>
+                <span className="text-xs text-slate-505 text-slate-500 font-bold uppercase tracking-wider">Loading details ledger...</span>
               </div>
             ) : (
               <div className="space-y-6">
                 
                 {/* Details Grid */}
-                <div className="grid grid-cols-2 gap-4 bg-slate-950/30 p-4 rounded-xl border border-slate-850 text-[11px]">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-950/30 p-4 rounded-xl border border-slate-850 text-xs">
                   
                   {/* Left Column: Customer Profile */}
                   <div className="space-y-2">
-                    <h4 className="font-bold text-cyan-400 uppercase tracking-wider text-[10px]">Customer Profile</h4>
+                    <h4 className="font-bold text-cyan-455 text-cyan-400 uppercase tracking-wider text-[10px]">Customer Profile</h4>
                     <div className="grid grid-cols-3 gap-1">
                       <span className="text-slate-500">Name:</span>
                       <span className="col-span-2 text-white font-medium">{selectedBillDetails.bill.customer_name}</span>
-
+ 
                       <span className="text-slate-500">Code:</span>
                       <span className="col-span-2 text-slate-300 uppercase">{selectedBillDetails.bill.customer_code}</span>
-
+ 
                       <span className="text-slate-500">Phone:</span>
                       <span className="col-span-2 text-slate-300">{selectedBillDetails.bill.customer_phone}</span>
                     </div>
@@ -621,14 +695,14 @@ function BillingManagement({ user, onLogoutSuccess }) {
 
                   {/* Right Column: Package specs */}
                   <div className="space-y-2">
-                    <h4 className="font-bold text-indigo-400 uppercase tracking-wider text-[10px]">Package Specifications</h4>
+                    <h4 className="font-bold text-indigo-405 text-indigo-400 uppercase tracking-wider text-[10px]">Package details</h4>
                     <div className="grid grid-cols-3 gap-1">
                       <span className="text-slate-500">Plan:</span>
                       <span className="col-span-2 text-white font-medium">{selectedBillDetails.bill.package_name || 'Expired Package'}</span>
-
+ 
                       <span className="text-slate-500">Speed:</span>
                       <span className="col-span-2 text-slate-300">{selectedBillDetails.bill.speed_mbps ? `${selectedBillDetails.bill.speed_mbps} Mbps` : 'N/A'}</span>
-
+ 
                       <span className="text-slate-500">Price:</span>
                       <span className="col-span-2 text-slate-350">{selectedBillDetails.bill.package_price ? formatPKR(selectedBillDetails.bill.package_price) : 'Rs. 0'}</span>
                     </div>
@@ -637,18 +711,18 @@ function BillingManagement({ user, onLogoutSuccess }) {
                 </div>
 
                 {/* Ledger metrics */}
-                <div className="p-4 rounded-xl bg-slate-950/30 border border-slate-850 space-y-2.5 text-[11px]">
+                <div className="p-4 rounded-xl bg-slate-950/30 border border-slate-850 space-y-2.5 text-xs">
                   <h4 className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Invoice Summary</h4>
                   <div className="grid grid-cols-2 gap-y-2">
                     <span className="text-slate-500">Billing Month:</span>
                     <span className="text-white font-bold text-right">{selectedBillDetails.bill.billing_month}</span>
-
+ 
                     <span className="text-slate-500">Total Invoice Amount:</span>
                     <span className="text-white font-black text-right">{formatPKR(selectedBillDetails.bill.amount)}</span>
-
+ 
                     <span className="text-slate-500">Due Date:</span>
                     <span className="text-slate-300 text-right">{new Date(selectedBillDetails.bill.due_date).toLocaleDateString()}</span>
-
+ 
                     <span className="text-slate-500">Status:</span>
                     <span className="text-right">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
@@ -657,16 +731,15 @@ function BillingManagement({ user, onLogoutSuccess }) {
                         {selectedBillDetails.bill.status}
                       </span>
                     </span>
-
+ 
                     <span className="text-slate-500">Paid Date:</span>
                     <span className="text-slate-300 text-right">
                       {selectedBillDetails.bill.paid_at ? new Date(selectedBillDetails.bill.paid_at).toLocaleDateString() : 'N/A'}
                     </span>
-
-                    {/* Show remaining balance if unpaid */}
+ 
                     {selectedBillDetails.bill.status !== 'paid' && (
                       <>
-                        <span className="text-slate-450 font-bold border-t border-slate-900 pt-2">Remaining Balance:</span>
+                        <span className="text-slate-505 font-bold border-t border-slate-900 pt-2">Remaining Balance:</span>
                         <span className="text-amber-400 font-extrabold text-right border-t border-slate-900 pt-2">
                           {formatPKR(selectedBillDetails.bill.remaining_balance)}
                         </span>
@@ -678,8 +751,8 @@ function BillingManagement({ user, onLogoutSuccess }) {
                 {/* Payments logged subtable */}
                 <div className="space-y-2">
                   <h4 className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">Payments Recorded</h4>
-                  <div className="max-h-36 overflow-y-auto rounded-xl border border-slate-850">
-                    <table className="w-full text-left border-collapse text-[11px]">
+                  <div className="max-h-36 overflow-y-auto rounded-xl border border-slate-855 border-slate-900">
+                    <table className="w-full text-left border-collapse text-xs">
                       <thead>
                         <tr className="border-b border-slate-850 bg-slate-950/40 text-slate-500 font-bold uppercase">
                           <th className="py-2.5 px-3">Date</th>
@@ -700,7 +773,7 @@ function BillingManagement({ user, onLogoutSuccess }) {
                           ))
                         ) : (
                           <tr>
-                            <td colSpan="4" className="py-4 text-center text-slate-600 italic">No payments have been recorded for this bill.</td>
+                            <td colSpan="4" className="py-4 text-center text-slate-600 italic">No payments recorded for this bill.</td>
                           </tr>
                         )}
                       </tbody>
@@ -716,8 +789,8 @@ function BillingManagement({ user, onLogoutSuccess }) {
 
       {/* 5. MODAL: Record Payment */}
       {showPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md p-6 rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 space-y-6 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-955/70 bg-slate-950/70 backdrop-blur-sm">
+          <div className="w-full max-w-md p-6 rounded-2xl bg-slate-900 border border-slate-800 text-slate-100 space-y-6 relative animate-fade-in">
             <div className="flex justify-between items-center pb-4 border-b border-slate-850">
               <h3 className="text-lg font-bold text-white">Record Bill Payment</h3>
               <button onClick={() => setShowPaymentModal(false)} className="text-slate-500 hover:text-white transition-colors">
@@ -783,18 +856,18 @@ function BillingManagement({ user, onLogoutSuccess }) {
                 />
               </div>
 
-              <div className="pt-4 flex space-x-3">
+              <div className="pt-4 border-t border-slate-850 flex space-x-3">
                 <button
                   type="button"
                   onClick={() => setShowPaymentModal(false)}
-                  className="w-1/2 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 font-semibold hover:text-white transition-colors"
+                  className="w-1/2 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-800 text-slate-400 font-semibold hover:text-white transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="w-1/2 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-650 text-white font-semibold transition-all hover:scale-[1.01] disabled:opacity-50"
+                  className="w-1/2 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-650 text-white font-bold transition-all hover:scale-[1.01] active:scale-[0.99] disabled:opacity-50"
                 >
                   {actionLoading ? 'Recording...' : 'Commit Payment'}
                 </button>
