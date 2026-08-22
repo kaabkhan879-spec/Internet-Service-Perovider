@@ -92,6 +92,8 @@ function AdminDashboard({ user, onLogoutSuccess }) {
       navigate('/admin');
     } else if (name === 'Customers') {
       navigate('/admin/customers');
+    } else if (name === 'Packages') {
+      navigate('/admin/packages');
     } else {
       setToastMessage(`"${name}" module is pending development in the next phase.`);
       setTimeout(() => setToastMessage(''), 3000);

@@ -4,6 +4,7 @@ const authRouter = require('./auth');
 const dashboardRouter = require('./dashboard');
 const customerRouter = require('./customer');
 const packageRouter = require('./package');
+const adminRouter = require('./admin');
 
 const router = express.Router();
 
@@ -13,5 +14,6 @@ router.use('/auth', authRouter);
 router.use('/dashboard', dashboardRouter);
 router.use('/customers', customerRouter);
 router.use('/packages', packageRouter);
+router.use('/admin', adminRouter);
 
 module.exports = router;

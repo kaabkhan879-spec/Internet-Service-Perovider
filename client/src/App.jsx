@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-ro
 import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
 import CustomerManagement from './components/CustomerManagement';
+import PackageManagement from './components/PackageManagement';
 
 // Layout wrapper for consistent look and feel
 function Layout({ children, user }) {
@@ -167,6 +168,10 @@ function App() {
           <Route 
             path="/admin/customers" 
             element={user ? <CustomerManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
+          />
+          <Route 
+            path="/admin/packages" 
+            element={user ? <PackageManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
