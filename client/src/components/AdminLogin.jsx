@@ -38,9 +38,15 @@ function AdminLogin({ onLoginSuccess }) {
         throw new Error(data.error || 'Login failed. Please try again.');
       }
 
-      // Execute login parent callback and redirect to admin dashboard
+      // Execute login parent callback and redirect to appropriate dashboard
       onLoginSuccess(data.user);
-      navigate('/admin');
+      if (data.user.role === 'admin') {
+        navigate('/admin');
+      } else if (data.user.role === 'employee') {
+        navigate('/employee');
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       setError(err.message);
     } finally {

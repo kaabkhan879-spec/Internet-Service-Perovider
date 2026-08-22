@@ -18,22 +18,35 @@ async function login(req, res) {
   }
 
   try {
-    // 2. Lookup the user record
-    const userResult = await db.query('SELECT * FROM users WHERE email = $1', [email]);
+    // 2. Lookup the user and employee record
+    const queryStr = `
+      SELECT u.id, u.name, u.email, u.password_hash, u.role, u.status as user_status,
+             e.status as employee_status
+      FROM users u
+      LEFT JOIN employees e ON e.user_id = u.id
+      WHERE u.email = $1;
+    `;
+    const userResult = await db.query(queryStr, [email.trim().toLowerCase()]);
     if (userResult.rows.length === 0) {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
     const user = userResult.rows[0];
 
-    // 3. Confirm role is admin
-    if (user.role !== 'admin') {
-      return res.status(403).json({ error: 'Forbidden. Access restricted to administrators.' });
+    // 3. Confirm role is admin or employee
+    if (user.role !== 'admin' && user.role !== 'employee') {
+      return res.status(403).json({ error: 'Forbidden. Access restricted to administrator or employee accounts.' });
     }
 
     // 4. Verify account status
-    if (user.status !== 'active') {
-      return res.status(403).json({ error: 'Account is inactive. Please contact support.' });
+    if (user.role === 'admin') {
+      if (user.user_status !== 'active') {
+        return res.status(403).json({ error: 'Account is inactive. Please contact support.' });
+      }
+    } else if (user.role === 'employee') {
+      if (user.user_status !== 'active' || user.employee_status !== 'active') {
+        return res.status(403).json({ error: 'Account is inactive. Please contact support.' });
+      }
     }
 
     // 5. Verify the password

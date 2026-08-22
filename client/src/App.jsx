@@ -173,47 +173,47 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route 
             path="/admin/login" 
-            element={user ? <Navigate to="/admin" replace /> : <AdminLogin onLoginSuccess={(u) => setUser(u)} />} 
+            element={user ? (user.role === 'admin' ? <Navigate to="/admin" replace /> : <Navigate to="/employee" replace />) : <AdminLogin onLoginSuccess={(u) => setUser(u)} />} 
           />
           <Route 
             path="/admin" 
-            element={user ? <AdminDashboard user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
+            element={user ? (user.role === 'admin' ? <AdminDashboard user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/employee" replace />) : <Navigate to="/admin/login" replace />} 
           />
           <Route 
             path="/admin/customers" 
-            element={user ? <CustomerManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
+            element={user ? (user.role === 'admin' ? <CustomerManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/employee" replace />) : <Navigate to="/admin/login" replace />} 
           />
           <Route 
             path="/admin/packages" 
-            element={user ? <PackageManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
+            element={user ? (user.role === 'admin' ? <PackageManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/employee" replace />) : <Navigate to="/admin/login" replace />} 
           />
           <Route 
             path="/admin/billing" 
-            element={user ? <BillingManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
+            element={user ? (user.role === 'admin' ? <BillingManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/employee" replace />) : <Navigate to="/admin/login" replace />} 
           />
           <Route 
             path="/admin/employees" 
-            element={user ? <EmployeeManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
+            element={user ? (user.role === 'admin' ? <EmployeeManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/employee" replace />) : <Navigate to="/admin/login" replace />} 
           />
           <Route 
             path="/admin/complaints" 
-            element={user ? <ComplaintsManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
+            element={user ? (user.role === 'admin' ? <ComplaintsManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/employee" replace />) : <Navigate to="/admin/login" replace />} 
           />
           <Route 
             path="/admin/usage" 
-            element={user ? <UsageMonitoring user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
+            element={user ? (user.role === 'admin' ? <UsageMonitoring user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/employee" replace />) : <Navigate to="/admin/login" replace />} 
           />
           <Route 
             path="/admin/payments" 
-            element={user ? <PaymentsManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
+            element={user ? (user.role === 'admin' ? <PaymentsManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/employee" replace />) : <Navigate to="/admin/login" replace />} 
           />
           <Route 
             path="/employee/login" 
-            element={user ? <Navigate to="/employee" replace /> : <EmployeeLogin onLoginSuccess={(u) => setUser(u)} />} 
+            element={user ? (user.role === 'admin' ? <Navigate to="/admin" replace /> : <Navigate to="/employee" replace />) : <EmployeeLogin onLoginSuccess={(u) => setUser(u)} />} 
           />
           <Route 
             path="/employee" 
-            element={user ? <EmployeePortal user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/employee/login" replace />} 
+            element={user ? (user.role === 'employee' ? <EmployeePortal user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin" replace />) : <Navigate to="/employee/login" replace />} 
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
