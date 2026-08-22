@@ -36,6 +36,7 @@ const {
   listPayments,
   getPaymentDetails,
   getBillPayments,
+  recordPayment: recordAdminPayment
 } = require('../controllers/adminPaymentController');
 const { triggerStatusCheck } = require('../controllers/adminSubscriptionController');
 const { requireAuth, requireAdmin } = require('../middleware/authMiddleware');
