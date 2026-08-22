@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+const formatPKR = (amount) => {
+  const val = parseFloat(amount) || 0;
+  return `Rs. ${val.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+};
+
 function AdminDashboard({ user, onLogoutSuccess }) {
   const [stats, setStats] = useState({ totalCustomers: 0, activeCustomers: 0, pendingBills: 0, openComplaints: 0 });
   const [charts, setCharts] = useState({ customerGrowth: [], monthlyRevenue: [] });
@@ -373,9 +378,9 @@ function AdminDashboard({ user, onLogoutSuccess }) {
                         <line x1="50" y1="165" x2="480" y2="165" stroke="#334155" />
 
                         {/* Y-axis Labels */}
-                        <text x="35" y="35" fill="#64748b" fontSize="10" textAnchor="end">${maxRevenue}</text>
-                        <text x="35" y="100" fill="#64748b" fontSize="10" textAnchor="end">${Math.round(maxRevenue / 2)}</text>
-                        <text x="35" y="165" fill="#64748b" fontSize="10" textAnchor="end">$0</text>
+                        <text x="35" y="35" fill="#64748b" fontSize="10" textAnchor="end">Rs. {maxRevenue.toLocaleString()}</text>
+                        <text x="35" y="100" fill="#64748b" fontSize="10" textAnchor="end">Rs. {Math.round(maxRevenue / 2).toLocaleString()}</text>
+                        <text x="35" y="165" fill="#64748b" fontSize="10" textAnchor="end">Rs. 0</text>
 
                         {/* Bar columns */}
                         {(() => {
@@ -433,7 +438,7 @@ function AdminDashboard({ user, onLogoutSuccess }) {
                             <tr key={p.id} className="border-b border-slate-950/50 hover:bg-slate-900/10 transition-colors">
                               <td className="py-3.5 pl-2 font-medium text-white">{p.customer_name}</td>
                               <td className="py-3.5 text-slate-450 uppercase">{p.payment_method}</td>
-                              <td className="py-3.5 font-bold text-slate-300">${p.amount.toFixed(2)}</td>
+                              <td className="py-3.5 font-bold text-slate-300">{formatPKR(p.amount)}</td>
                               <td className="py-3.5">
                                 <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                                   p.status === 'completed' ? 'bg-emerald-950/50 border border-emerald-800/30 text-emerald-400' : 'bg-amber-950/50 border border-amber-800/30 text-amber-400'

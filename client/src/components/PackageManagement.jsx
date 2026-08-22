@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+const formatPKR = (amount) => {
+  const val = parseFloat(amount) || 0;
+  return `Rs. ${val.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+};
+
 function PackageManagement({ user, onLogoutSuccess }) {
   const [packages, setPackages] = useState([]);
   const [customers, setCustomers] = useState([]); // Loaded for package assignments
@@ -449,7 +454,7 @@ function PackageManagement({ user, onLogoutSuccess }) {
                           {p.description && <div className="text-slate-500 font-light text-[10px] truncate max-w-xs mt-0.5">{p.description}</div>}
                         </td>
                         <td className="py-4 px-4 text-slate-300 font-medium">{p.speed_mbps} Mbps</td>
-                        <td className="py-4 px-4 font-bold text-slate-200">${p.monthly_price.toFixed(2)}/mo</td>
+                        <td className="py-4 px-4 font-bold text-slate-200">{formatPKR(p.monthly_price)}/mo</td>
                         <td className="py-4 px-4 text-slate-350">
                           {p.data_limit_gb ? `${p.data_limit_gb} GB` : <span className="text-cyan-400 font-medium">Unlimited</span>}
                         </td>
@@ -528,7 +533,7 @@ function PackageManagement({ user, onLogoutSuccess }) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Monthly Price ($)</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Monthly Price (Rs.)</label>
                   <input
                     type="number"
                     required
@@ -633,7 +638,7 @@ function PackageManagement({ user, onLogoutSuccess }) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Monthly Price ($)</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Monthly Price (Rs.)</label>
                   <input
                     type="number"
                     required
@@ -739,12 +744,18 @@ function PackageManagement({ user, onLogoutSuccess }) {
                   onChange={(e) => setAssignForm({ ...assignForm, package_id: e.target.value })}
                   className="w-full px-3 py-2.5 rounded-lg bg-slate-950 border border-slate-805 text-white focus:outline-none focus:border-cyan-500"
                 >
-                  <option value="">-- Choose Package --</option>
-                  {packages.filter(p => p.status === 'active').map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} - ${p.monthly_price.toFixed(2)}/mo
-                    </option>
-                  ))}
+                  {packages.filter(p => p.status === 'active').length === 0 ? (
+                    <option value="">No active packages available.</option>
+                  ) : (
+                    <>
+                      <option value="">-- Choose Package --</option>
+                      {packages.filter(p => p.status === 'active').map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} - {formatPKR(p.monthly_price)}/mo
+                        </option>
+                      ))}
+                    </>
+                  )}
                 </select>
               </div>
 

@@ -144,14 +144,26 @@ async function initializeDatabase() {
     // Seed packages if table is empty
     const checkPackages = await db.query('SELECT COUNT(*) FROM packages');
     if (parseInt(checkPackages.rows[0].count, 10) === 0) {
-      console.log('[Database] Seeding default package tiers...');
+      console.log('[Database] Seeding default package tiers in PKR...');
       await db.query(`
         INSERT INTO packages (name, speed_mbps, monthly_price, data_limit_gb, description, status) VALUES
-        ('Starter Fiber (10 Mbps)', 10, 15.00, NULL, 'Ideal for light browsing and streaming', 'active'),
-        ('Standard Fiber (25 Mbps)', 25, 25.00, NULL, 'Best for families and smart devices', 'active'),
-        ('Premium Fiber (50 Mbps)', 50, 40.00, NULL, 'High speed for gaming and 4K streaming', 'active')
+        ('Starter Fiber (10 Mbps)', 10, 1500.00, NULL, 'Ideal for light browsing and streaming', 'active'),
+        ('Standard Fiber (25 Mbps)', 25, 2500.00, NULL, 'Best for families and smart devices', 'active'),
+        ('Premium Fiber (50 Mbps)', 50, 4000.00, NULL, 'High speed for gaming and 4K streaming', 'active')
       `);
       console.log('[Database] Default package tiers seeded successfully.');
+    } else {
+      // Check and update legacy prices from early seeds
+      const checkUsdPrices = await db.query("SELECT COUNT(*) FROM packages WHERE monthly_price IN (15.00, 25.00, 40.00)");
+      if (parseInt(checkUsdPrices.rows[0].count, 10) > 0) {
+        console.log('[Database] Migrating legacy packages prices to PKR Rs. units...');
+        await db.query(`
+          UPDATE packages SET monthly_price = 1500.00 WHERE name = 'Starter Fiber (10 Mbps)' AND monthly_price = 15.00;
+          UPDATE packages SET monthly_price = 2500.00 WHERE name = 'Standard Fiber (25 Mbps)' AND monthly_price = 25.00;
+          UPDATE packages SET monthly_price = 4000.00 WHERE name = 'Premium Fiber (50 Mbps)' AND monthly_price = 40.00;
+        `);
+        console.log('[Database] Package prices updated to PKR successfully.');
+      }
     }
 
     return true;

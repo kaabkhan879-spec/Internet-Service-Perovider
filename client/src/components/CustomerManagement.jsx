@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+const formatPKR = (amount) => {
+  const val = parseFloat(amount) || 0;
+  return `Rs. ${val.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+};
+
 function CustomerManagement({ user, onLogoutSuccess }) {
   const [customers, setCustomers] = useState([]);
   const [packages, setPackages] = useState([]);
@@ -61,7 +66,7 @@ function CustomerManagement({ user, onLogoutSuccess }) {
 
   const fetchPackages = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/packages', { credentials: 'include' });
+      const response = await fetch('http://localhost:5000/api/admin/packages?status=active', { credentials: 'include' });
       if (response.ok) {
         const data = await response.json();
         setPackages(data);
@@ -429,9 +434,9 @@ function CustomerManagement({ user, onLogoutSuccess }) {
                         </td>
                         <td className="py-4 px-4 font-bold text-slate-300">
                           {c.outstanding_balance > 0 ? (
-                            <span className="text-amber-400">${c.outstanding_balance.toFixed(2)}</span>
+                            <span className="text-amber-400">{formatPKR(c.outstanding_balance)}</span>
                           ) : (
-                            <span className="text-slate-600">$0.00</span>
+                            <span className="text-slate-600">Rs. 0</span>
                           )}
                         </td>
                         <td className="py-4 px-4 text-right space-x-2">
@@ -567,12 +572,18 @@ function CustomerManagement({ user, onLogoutSuccess }) {
                   onChange={(e) => setAddForm({ ...addForm, package_id: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-805 text-xs focus:outline-none focus:border-cyan-500 text-white"
                 >
-                  <option value="">-- No Internet Package --</option>
-                  {packages.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} - ${p.monthly_price.toFixed(2)}/mo
-                    </option>
-                  ))}
+                  {packages.length === 0 ? (
+                    <option value="">No active packages available.</option>
+                  ) : (
+                    <>
+                      <option value="">-- No Internet Package --</option>
+                      {packages.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} - {formatPKR(p.monthly_price)}/mo
+                        </option>
+                      ))}
+                    </>
+                  )}
                 </select>
               </div>
 
@@ -757,12 +768,12 @@ function CustomerManagement({ user, onLogoutSuccess }) {
 
                         <span className="text-slate-500">Monthly Price:</span>
                         <span className="col-span-2 text-slate-200 font-bold">
-                          {customerDetails.customer.monthly_price ? `$${customerDetails.customer.monthly_price.toFixed(2)}` : '$0.00'}
+                          {customerDetails.customer.monthly_price ? formatPKR(customerDetails.customer.monthly_price) : 'Rs. 0'}
                         </span>
 
                         <span className="text-slate-500">Outstanding:</span>
                         <span className="col-span-2 font-black text-amber-400">
-                          ${customerDetails.customer.outstanding_balance.toFixed(2)}
+                          {formatPKR(customerDetails.customer.outstanding_balance)}
                         </span>
                       </div>
                     </div>
@@ -776,12 +787,18 @@ function CustomerManagement({ user, onLogoutSuccess }) {
                           onChange={(e) => setAssignPackageId(e.target.value)}
                           className="flex-grow px-3 py-2 rounded-lg bg-slate-950 border border-slate-800 text-[11px] focus:outline-none focus:border-cyan-500 text-white"
                         >
-                          <option value="">-- No Internet Package --</option>
-                          {packages.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name} - ${p.monthly_price.toFixed(2)}/mo
-                            </option>
-                          ))}
+                          {packages.length === 0 ? (
+                            <option value="">No active packages available.</option>
+                          ) : (
+                            <>
+                              <option value="">-- No Internet Package --</option>
+                              {packages.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.name} - {formatPKR(p.monthly_price)}/mo
+                                </option>
+                              ))}
+                            </>
+                          )}
                         </select>
                         <button
                           type="submit"
@@ -814,7 +831,7 @@ function CustomerManagement({ user, onLogoutSuccess }) {
                           customerDetails.bills.map((b) => (
                             <tr key={b.id} className="border-b border-slate-950/20 hover:bg-slate-900/5 text-slate-300">
                               <td className="py-2.5 px-3 font-semibold text-white">{b.billing_month}</td>
-                              <td className="py-2.5 px-3">${b.amount.toFixed(2)}</td>
+                              <td className="py-2.5 px-3">{formatPKR(b.amount)}</td>
                               <td className="py-2.5 px-3">{new Date(b.due_date).toLocaleDateString()}</td>
                               <td className="py-2.5 px-3">
                                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
@@ -859,7 +876,7 @@ function CustomerManagement({ user, onLogoutSuccess }) {
                               <td className="py-2.5 px-3">{new Date(p.payment_date).toLocaleDateString()}</td>
                               <td className="py-2.5 px-3 uppercase">{p.payment_method}</td>
                               <td className="py-2.5 px-3 text-slate-500 font-mono">{p.transaction_reference || 'N/A'}</td>
-                              <td className="py-2.5 px-3 font-bold text-slate-200">${p.amount.toFixed(2)}</td>
+                              <td className="py-2.5 px-3 font-bold text-slate-200">{formatPKR(p.amount)}</td>
                               <td className="py-2.5 px-3">
                                 <span className="text-emerald-400">{p.status}</span>
                               </td>
