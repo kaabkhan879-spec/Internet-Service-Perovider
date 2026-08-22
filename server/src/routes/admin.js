@@ -32,6 +32,12 @@ const {
   getCustomerUsageDetails,
   getUsageReport
 } = require('../controllers/adminUsageController');
+const {
+  listPayments,
+  getPaymentDetails,
+  getBillPayments,
+  recordPayment: recordAdminPayment
+} = require('../controllers/adminPaymentController');
 const { requireAuth, requireAdmin } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -74,5 +80,11 @@ router.post('/complaints/:id/updates', addComment);
 router.get('/usage', listUsage);
 router.get('/usage/customer/:customerId', getCustomerUsageDetails);
 router.get('/usage/report', getUsageReport);
+
+// Payments Management endpoints
+router.get('/payments', listPayments);
+router.get('/payments/:id', getPaymentDetails);
+router.post('/payments', recordAdminPayment);
+router.get('/bills/:billId/payments', getBillPayments);
 
 module.exports = router;

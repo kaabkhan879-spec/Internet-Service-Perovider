@@ -31,8 +31,8 @@ async function listBills(req, res) {
         b.id, b.customer_id, b.subscription_id, b.billing_month, b.amount::float as amount, b.due_date, b.status, b.paid_at,
         c.full_name as customer_name, c.customer_code, c.phone as customer_phone,
         p.name as package_name,
-        COALESCE((SELECT SUM(amount) FROM payments WHERE bill_id = b.id AND status = 'completed'), 0)::float as total_paid,
-        (b.amount - COALESCE((SELECT SUM(amount) FROM payments WHERE bill_id = b.id AND status = 'completed'), 0))::float as remaining_balance
+        COALESCE((SELECT SUM(amount) FROM payments WHERE bill_id = b.id AND status != 'Failed'), 0)::float as total_paid,
+        (b.amount - COALESCE((SELECT SUM(amount) FROM payments WHERE bill_id = b.id AND status != 'Failed'), 0))::float as remaining_balance
       FROM bills b
       JOIN customers c ON b.customer_id = c.id
       LEFT JOIN subscriptions s ON b.subscription_id = s.id
@@ -206,7 +206,7 @@ async function recordPayment(req, res) {
     const billQuery = `
       SELECT 
         b.id, b.customer_id, b.amount, b.due_date, b.status,
-        COALESCE((SELECT SUM(amount) FROM payments WHERE bill_id = b.id AND status = 'completed'), 0)::float as total_paid
+        COALESCE((SELECT SUM(amount) FROM payments WHERE bill_id = b.id AND status != 'Failed'), 0)::float as total_paid
       FROM bills b
       WHERE b.id = $1;
     `;

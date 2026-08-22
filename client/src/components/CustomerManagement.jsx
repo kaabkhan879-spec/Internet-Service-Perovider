@@ -102,6 +102,8 @@ function CustomerManagement({ user, onLogoutSuccess }) {
       navigate('/admin/complaints');
     } else if (name === 'Usage Monitoring') {
       navigate('/admin/usage');
+    } else if (name === 'Payments') {
+      navigate('/admin/payments');
     } else {
       setToastMessage(`"${name}" module is pending development in the next phase.`);
       setTimeout(() => setToastMessage(''), 3000);

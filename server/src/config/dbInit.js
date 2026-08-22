@@ -101,7 +101,8 @@ CREATE TABLE IF NOT EXISTS payments (
   payment_method VARCHAR(50) NOT NULL,
   transaction_reference VARCHAR(100),
   payment_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-  status VARCHAR(20) DEFAULT 'completed' CHECK (status IN ('completed', 'failed', 'pending')),
+  status VARCHAR(20) DEFAULT 'Paid' CHECK (status IN ('Paid', 'Partial', 'Failed', 'completed', 'failed', 'pending')),
+  notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -176,6 +177,13 @@ async function initializeDatabase() {
 
       ALTER TABLE complaint_updates DROP CONSTRAINT IF EXISTS complaint_updates_status_check;
       ALTER TABLE complaint_updates ADD CONSTRAINT complaint_updates_status_check CHECK (status IN ('pending', 'open', 'in_progress', 'resolved', 'closed'));
+    `);
+
+    // Sync payments table alterations (if table already exists)
+    await db.query(`
+      ALTER TABLE payments ADD COLUMN IF NOT EXISTS notes TEXT;
+      ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_status_check;
+      ALTER TABLE payments ADD CONSTRAINT payments_status_check CHECK (status IN ('Paid', 'Partial', 'Failed', 'completed', 'failed', 'pending'));
     `);
 
     // Seed packages if table is empty
