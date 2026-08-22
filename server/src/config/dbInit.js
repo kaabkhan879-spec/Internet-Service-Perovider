@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS customers (
   email VARCHAR(100) NOT NULL,
   address TEXT,
   cnic VARCHAR(20),
-  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'suspended')),
   installation_date TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -185,6 +185,28 @@ async function initializeDatabase() {
       ALTER TABLE payments DROP CONSTRAINT IF EXISTS payments_status_check;
       ALTER TABLE payments ADD CONSTRAINT payments_status_check CHECK (status IN ('Paid', 'Partial', 'Failed', 'completed', 'failed', 'pending'));
     `);
+
+    // Sync customers status check constraint to support 'suspended'
+    await db.query(`
+      ALTER TABLE customers DROP CONSTRAINT IF EXISTS customers_status_check;
+      ALTER TABLE customers ADD CONSTRAINT customers_status_check CHECK (status IN ('active', 'inactive', 'suspended'));
+    `);
+
+    // Create settings table if not exists
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS settings (
+        key VARCHAR(100) PRIMARY KEY,
+        value VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    // Seed default grace period if not exists
+    const checkGracePeriod = await db.query("SELECT COUNT(*) FROM settings WHERE key = 'grace_period'");
+    if (parseInt(checkGracePeriod.rows[0].count, 10) === 0) {
+      await db.query("INSERT INTO settings (key, value) VALUES ('grace_period', '3')");
+    }
 
     // Seed packages if table is empty
     const checkPackages = await db.query('SELECT COUNT(*) FROM packages');

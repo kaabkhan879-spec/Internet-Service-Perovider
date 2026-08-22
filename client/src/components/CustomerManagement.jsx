@@ -129,6 +129,15 @@ function CustomerManagement({ user, onLogoutSuccess }) {
   // Status Toggles
   const handleToggleStatus = async (id, currentStatus) => {
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    if (newStatus === 'active') {
+      const customer = customers.find(c => c.id === id);
+      if (customer && customer.outstanding_balance > 0) {
+        const confirmed = window.confirm(
+          "Customer has an outstanding unpaid bill. Automatic suspension may occur again after the configured grace period. Do you want to proceed with activation?"
+        );
+        if (!confirmed) return;
+      }
+    }
     try {
       const response = await fetch(`http://localhost:5000/api/customers/${id}/status`, {
         method: 'PATCH',
@@ -439,7 +448,9 @@ function CustomerManagement({ user, onLogoutSuccess }) {
                         </td>
                         <td className="py-4 px-4">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            c.status === 'active' ? 'bg-emerald-950/40 border border-emerald-800/30 text-emerald-400' : 'bg-red-950/40 border border-red-800/30 text-red-400'
+                            c.status === 'active' ? 'bg-emerald-950/40 border border-emerald-800/30 text-emerald-400' :
+                            c.status === 'suspended' ? 'bg-amber-950/40 border border-amber-800/30 text-amber-400' :
+                            'bg-red-950/40 border border-red-800/30 text-red-400'
                           }`}>
                             {c.status}
                           </span>
@@ -768,6 +779,33 @@ function CustomerManagement({ user, onLogoutSuccess }) {
                       <span className="col-span-2 text-slate-200">
                         {customerDetails.customer.installation_date ? new Date(customerDetails.customer.installation_date).toLocaleDateString() : 'N/A'}
                       </span>
+
+                      <span className="text-slate-500">Service Status:</span>
+                      <span className="col-span-2">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                          customerDetails.customer.status === 'active' ? 'bg-emerald-950/40 border border-emerald-800/30 text-emerald-400' :
+                          customerDetails.customer.status === 'suspended' ? 'bg-amber-950/40 border border-amber-800/30 text-amber-400' :
+                          'bg-red-950/40 border border-red-800/30 text-red-400'
+                        }`}>
+                          {customerDetails.customer.status}
+                        </span>
+                      </span>
+
+                      {customerDetails.customer.status === 'suspended' && (
+                        <>
+                          <span className="text-amber-400 font-bold">Reason:</span>
+                          <span className="col-span-2 text-amber-400 font-medium">Suspended due to unpaid bill</span>
+
+                          {customerDetails.customer.suspension_message && (
+                            <>
+                              <span className="text-amber-405 font-bold">Portal Message:</span>
+                              <span className="col-span-2 text-amber-300 italic text-[11px] leading-tight bg-amber-950/20 p-2 rounded border border-amber-900/30">
+                                "{customerDetails.customer.suspension_message}"
+                              </span>
+                            </>
+                          )}
+                        </>
+                      )}
                     </div>
                   </div>
 

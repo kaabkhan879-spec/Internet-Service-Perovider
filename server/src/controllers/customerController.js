@@ -19,7 +19,7 @@ async function listCustomers(req, res) {
           WHERE b.customer_id = c.id AND b.status IN ('unpaid', 'overdue')
         ), 0)::float as outstanding_balance
       FROM customers c
-      LEFT JOIN subscriptions s ON s.customer_id = c.id AND s.status = 'active'
+      LEFT JOIN subscriptions s ON s.customer_id = c.id AND (s.status = 'active' OR s.status = 'suspended')
       LEFT JOIN packages p ON s.package_id = p.id
     `;
 
@@ -63,7 +63,7 @@ async function getCustomerDetails(req, res) {
           WHERE b.customer_id = c.id AND b.status IN ('unpaid', 'overdue')
         ), 0)::float as outstanding_balance
       FROM customers c
-      LEFT JOIN subscriptions s ON s.customer_id = c.id AND s.status = 'active'
+      LEFT JOIN subscriptions s ON s.customer_id = c.id AND (s.status = 'active' OR s.status = 'suspended')
       LEFT JOIN packages p ON s.package_id = p.id
       WHERE c.id = $1;
     `;
@@ -74,6 +74,9 @@ async function getCustomerDetails(req, res) {
     }
 
     const customer = customerRes.rows[0];
+    if (customer.status === 'suspended') {
+      customer.suspension_message = "Your internet service has been suspended due to an unpaid bill. Please make the outstanding payment to restore your service.";
+    }
 
     // 2. Fetch bills history
     const billsQuery = `
@@ -335,9 +338,9 @@ async function assignPackage(req, res) {
     try {
       await client.query('BEGIN');
 
-      // 1. Expire existing active subscription(s)
+      // 1. Expire existing active/suspended subscription(s)
       await client.query(
-        "UPDATE subscriptions SET status = 'expired', end_date = CURRENT_DATE, updated_at = CURRENT_TIMESTAMP WHERE customer_id = $1 AND status = 'active'",
+        "UPDATE subscriptions SET status = 'expired', end_date = CURRENT_DATE, updated_at = CURRENT_TIMESTAMP WHERE customer_id = $1 AND (status = 'active' OR status = 'suspended')",
         [id]
       );
 

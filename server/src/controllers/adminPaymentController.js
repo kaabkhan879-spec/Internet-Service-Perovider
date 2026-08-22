@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { calculateReactivationAndSubscription } = require('../services/subscriptionService');
 
 /**
  * List all payments with search and status/payment-method filters
@@ -203,23 +204,19 @@ async function recordPayment(req, res) {
 
       const newPaymentId = insertResult.rows[0].id;
 
-      // If payment did not fail, update the bill's state
-      if (finalStatus !== 'Failed') {
-        const nextBillStatus = remainingAfter === 0 ? 'paid' : 'unpaid';
-        const paidAtVal = nextBillStatus === 'paid' ? pDate : null;
+      let finalRemaining = remainingAfter;
 
-        await client.query(`
-          UPDATE bills
-          SET status = $1, paid_at = COALESCE($2, paid_at), updated_at = CURRENT_TIMESTAMP
-          WHERE id = $3;
-        `, [nextBillStatus, paidAtVal, bill_id]);
+      // If payment did not fail, update the bill's state and reactivate/renew
+      if (finalStatus !== 'Failed') {
+        const result = await calculateReactivationAndSubscription(client, bill_id, pDate);
+        finalRemaining = result.remainingBalance;
       }
 
       await client.query('COMMIT');
       return res.status(201).json({
         message: 'Payment recorded successfully.',
         paymentId: newPaymentId,
-        remainingBalance: remainingAfter,
+        remainingBalance: finalRemaining,
         paymentStatus: finalStatus
       });
     } catch (txErr) {

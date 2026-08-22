@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { calculateReactivationAndSubscription } = require('../services/subscriptionService');
 
 /**
  * Sync overdue statuses in database for any unpaid bills whose due date has passed
@@ -239,30 +240,13 @@ async function recordPayment(req, res) {
         VALUES ($1, $2, $3, $4, $5, $6, 'completed')
       `, [id, customer_id, paymentAmount, payment_method, transaction_reference || null, paymentDateVal]);
 
-      // 4. Update bill status
-      let newStatus = 'unpaid';
-      let paidAtVal = null;
-
-      if (newRemaining <= 0) {
-        newStatus = 'paid';
-        paidAtVal = paymentDateVal;
-      } else {
-        // If unpaid and past due, mark as overdue, else unpaid
-        const today = new Date().toISOString().split('T')[0];
-        const dueDateStr = new Date(due_date).toISOString().split('T')[0];
-        newStatus = dueDateStr < today ? 'overdue' : 'unpaid';
-      }
-
-      await client.query(`
-        UPDATE bills
-        SET status = $1, paid_at = $2, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $3
-      `, [newStatus, paidAtVal, id]);
+      // 4. Update bill status & reactivate/renew subscription if fully paid
+      const { remainingBalance: finalRemaining, billStatus: newStatus } = await calculateReactivationAndSubscription(client, id, paymentDateVal);
 
       await client.query('COMMIT');
       return res.status(201).json({
         message: 'Payment logged successfully.',
-        remaining_balance: newRemaining,
+        remaining_balance: finalRemaining,
         bill_status: newStatus
       });
     } catch (txErr) {

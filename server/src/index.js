@@ -4,6 +4,7 @@ const cookieParser = require('cookie-parser');
 require('dotenv').config();
 
 const { initializeDatabase } = require('./config/dbInit');
+const { startScheduler } = require('./utils/scheduler');
 const apiRouter = require('./routes/api');
 
 const app = express();
@@ -37,4 +38,7 @@ app.listen(PORT, async () => {
   
   // Run DB schema build checks
   await initializeDatabase();
+  
+  // Start scheduled background tasks
+  startScheduler();
 });
