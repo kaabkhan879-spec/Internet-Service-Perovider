@@ -307,3 +307,16 @@
   transform-origin: top right;
   transition: all 0.15s ease-out;
 }
+
+/* Package Speed Tier Visual Accent Indicators */
+.tier-entry {
+  border-left: 3px solid #64748b;
+}
+
+.tier-standard {
+  border-left: 3px solid #6366f1;
+}
+
+.tier-premium {
+  border-left: 3px solid #06b6d4;
+}
