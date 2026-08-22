@@ -4,6 +4,7 @@ import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
 import CustomerManagement from './components/CustomerManagement';
 import PackageManagement from './components/PackageManagement';
+import BillingManagement from './components/BillingManagement';
 
 // Layout wrapper for consistent look and feel
 function Layout({ children, user }) {
@@ -172,6 +173,10 @@ function App() {
           <Route 
             path="/admin/packages" 
             element={user ? <PackageManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
+          />
+          <Route 
+            path="/admin/billing" 
+            element={user ? <BillingManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
