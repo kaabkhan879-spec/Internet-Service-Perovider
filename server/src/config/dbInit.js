@@ -41,7 +41,10 @@ CREATE TABLE IF NOT EXISTS employees (
   employee_code VARCHAR(50) UNIQUE NOT NULL,
   full_name VARCHAR(100) NOT NULL,
   phone VARCHAR(20) NOT NULL,
+  cnic VARCHAR(20),
+  address TEXT,
   designation VARCHAR(100),
+  role VARCHAR(50) DEFAULT 'employee',
   status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -140,6 +143,13 @@ async function initializeDatabase() {
   try {
     await db.query(schemaSql);
     console.log('[Database] Database tables, relationships, and indexes checked/created successfully.');
+
+    // Sync employees table schema changes (if table already exists)
+    await db.query(`
+      ALTER TABLE employees ADD COLUMN IF NOT EXISTS cnic VARCHAR(20);
+      ALTER TABLE employees ADD COLUMN IF NOT EXISTS address TEXT;
+      ALTER TABLE employees ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'employee';
+    `);
 
     // Seed packages if table is empty
     const checkPackages = await db.query('SELECT COUNT(*) FROM packages');

@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const db = require('../config/db');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -11,7 +12,7 @@ if (!JWT_SECRET) {
  * Middleware to enforce authentication using JWT token.
  * Extracts token from HTTP-only cookie or Authorization header.
  */
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   let token = null;
 
   // 1. Try to read token from cookies
@@ -29,6 +30,16 @@ function requireAuth(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET || 'fallback_secret_only_for_dev');
+    
+    // Validate that the user account status in database is active
+    const userStatus = await db.query('SELECT status FROM users WHERE id = $1', [decoded.id]);
+    if (userStatus.rows.length === 0 || userStatus.rows[0].status !== 'active') {
+      return res.status(401).json({ 
+        error: 'Account Deactivated', 
+        message: 'Your account has been deactivated by the administrator. Please contact your administrator for assistance.' 
+      });
+    }
+
     req.user = decoded; // Attaches { id, name, email, role }
     next();
   } catch (err) {

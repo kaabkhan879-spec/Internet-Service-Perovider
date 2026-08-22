@@ -1,13 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
 import AdminLogin from './components/AdminLogin';
 import AdminDashboard from './components/AdminDashboard';
 import CustomerManagement from './components/CustomerManagement';
 import PackageManagement from './components/PackageManagement';
 import BillingManagement from './components/BillingManagement';
+import EmployeeManagement from './components/EmployeeManagement';
+import EmployeeLogin from './components/EmployeeLogin';
+import EmployeePortal from './components/EmployeePortal';
 
 // Layout wrapper for consistent look and feel
 function Layout({ children, user }) {
+  const location = useLocation();
+  const isNoLayoutPage = location.pathname.startsWith('/admin') || location.pathname.startsWith('/employee');
+
+  if (isNoLayoutPage) {
+    return <>{children}</>;
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-cyan-500 selection:text-slate-950 relative">
       {/* Background gradients */}
@@ -177,6 +187,18 @@ function App() {
           <Route 
             path="/admin/billing" 
             element={user ? <BillingManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
+          />
+          <Route 
+            path="/admin/employees" 
+            element={user ? <EmployeeManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
+          />
+          <Route 
+            path="/employee/login" 
+            element={user ? <Navigate to="/employee" replace /> : <EmployeeLogin onLoginSuccess={(u) => setUser(u)} />} 
+          />
+          <Route 
+            path="/employee" 
+            element={user ? <EmployeePortal user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/employee/login" replace />} 
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
