@@ -189,14 +189,52 @@ async function getWorkHistory(req, res) {
   try {
     const employeeId = await getEmployeeId(req.user.id);
     const queryStr = `
-      SELECT t.id, 'task' as type, t.task_type as work_type, t.description, t.priority, t.status, t.completed_at as completed_date, cust.full_name as customer_name
+      SELECT 
+        t.id, 
+        'task' as type, 
+        t.task_type as work_type, 
+        t.description, 
+        t.priority, 
+        t.status, 
+        t.created_at,
+        t.completed_at as completed_date, 
+        cust.full_name as customer_name,
+        cust.phone as customer_phone,
+        cust.address as customer_address,
+        cust.customer_code,
+        wr.problem_found, 
+        wr.work_performed, 
+        wr.solution, 
+        wr.equipment_used, 
+        wr.additional_notes,
+        wr.created_at as report_created_at
       FROM technical_tasks t
       JOIN customers cust ON cust.id = t.customer_id
+      LEFT JOIN work_reports wr ON wr.task_id = t.id
       WHERE t.assigned_employee_id = $1 AND t.status = 'completed'
       UNION ALL
-      SELECT c.id, 'complaint' as type, c.subject as work_type, c.description, c.priority, c.status, c.resolved_at as completed_date, cust.full_name as customer_name
+      SELECT 
+        c.id, 
+        'complaint' as type, 
+        c.subject as work_type, 
+        c.description, 
+        c.priority, 
+        c.status, 
+        c.created_at,
+        c.resolved_at as completed_date, 
+        cust.full_name as customer_name,
+        cust.phone as customer_phone,
+        cust.address as customer_address,
+        cust.customer_code,
+        wr.problem_found, 
+        wr.work_performed, 
+        wr.solution, 
+        wr.equipment_used, 
+        wr.additional_notes,
+        wr.created_at as report_created_at
       FROM complaints c
       JOIN customers cust ON cust.id = c.customer_id
+      LEFT JOIN work_reports wr ON wr.complaint_id = c.id
       WHERE c.assigned_employee_id = $1 AND c.status = 'resolved'
       ORDER BY completed_date DESC;
     `;

@@ -19,6 +19,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
   // Modals & Forms States
   const [selectedItem, setSelectedItem] = useState(null); // Selected task or complaint for details
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState(null); // Selected history record for work report view
   const [showReportForm, setShowReportForm] = useState(false);
   const [reportType, setReportType] = useState('complaint'); // 'complaint' or 'task'
   const [reportForm, setReportForm] = useState({
@@ -53,8 +54,11 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
   // History filters states
   const [historySearch, setHistorySearch] = useState('');
-  const [historyFilterType, setHistoryFilterType] = useState('all'); // 'all' | 'task' | 'complaint'
+  const [historyFilterType, setHistoryFilterType] = useState('all'); // 'all' | 'task' | 'complaint' | 'Installation' | 'Fiber Repair' ...
   const [historyFilterPriority, setHistoryFilterPriority] = useState('all'); // 'all' | 'low' | 'medium' | 'high' | 'urgent'
+  const [historyFilterDate, setHistoryFilterDate] = useState('all'); // 'all' | 'today' | 'week' | 'month'
+  const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
+  const historyPerPage = 8;
 
   const showToast = (msg) => {
     setToastMessage(msg);
@@ -346,18 +350,6 @@ function EmployeePortal({ user, onLogoutSuccess }) {
     }
   };
 
-  // Filtered History
-  const filteredHistory = history.filter(item => {
-    const matchesSearch = item.customer_name?.toLowerCase().includes(historySearch.toLowerCase()) ||
-                          item.work_type?.toLowerCase().includes(historySearch.toLowerCase()) ||
-                          item.description?.toLowerCase().includes(historySearch.toLowerCase());
-    
-    const matchesType = historyFilterType === 'all' || item.type === historyFilterType;
-    const matchesPriority = historyFilterPriority === 'all' || item.priority === historyFilterPriority;
-
-    return matchesSearch && matchesType && matchesPriority;
-  });
-
   // Client-side filtering logic for My Complaints Tab
   const filteredComplaints = complaints.filter(c => {
     const query = complaintsSearch.toLowerCase().trim();
@@ -392,23 +384,16 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
   // Client-side filtering logic for Technical Tasks Tab
   const filteredTasks = tasks.filter(t => {
-    // 1. Text Search (ID, Customer Name, Address)
     const query = tasksSearch.toLowerCase().trim();
     const matchesSearch = !query ||
       t.id.toString().includes(query) ||
       t.customer_name?.toLowerCase().includes(query) ||
       t.customer_address?.toLowerCase().includes(query);
 
-    // 2. Status Filter
     const matchesStatus = tasksStatusFilter === 'all' || t.status === tasksStatusFilter;
-
-    // 3. Task Type Filter
     const matchesType = tasksTypeFilter === 'all' || t.task_type === tasksTypeFilter;
-
-    // 4. Priority Filter
     const matchesPriority = tasksPriorityFilter === 'all' || t.priority === tasksPriorityFilter;
 
-    // 5. Date Filter
     let matchesDate = true;
     if (tasksDateFilter !== 'all') {
       const createdDate = new Date(t.created_at);
@@ -429,6 +414,53 @@ function EmployeePortal({ user, onLogoutSuccess }) {
     return matchesSearch && matchesStatus && matchesType && matchesPriority && matchesDate;
   });
 
+  // Filtered History (Upgraded client-side filtering)
+  const filteredHistory = history.filter(item => {
+    // 1. Text Search (ID, customer name, description)
+    const query = historySearch.toLowerCase().trim();
+    const matchesSearch = !query ||
+      item.id.toString().includes(query) ||
+      item.customer_name?.toLowerCase().includes(query) ||
+      item.work_type?.toLowerCase().includes(query) ||
+      item.description?.toLowerCase().includes(query);
+    
+    // 2. Type Filter (All, task sub-categories, complaint sub-categories)
+    let matchesType = true;
+    if (historyFilterType !== 'all') {
+      if (historyFilterType === 'complaint') {
+        matchesType = item.type === 'complaint';
+      } else if (historyFilterType === 'task') {
+        matchesType = item.type === 'task';
+      } else {
+        // checks specific task type labels (e.g. Fiber Repair)
+        matchesType = item.work_type === historyFilterType;
+      }
+    }
+
+    // 3. Priority Filter
+    const matchesPriority = historyFilterPriority === 'all' || item.priority === historyFilterPriority;
+
+    // 4. Date Filter
+    let matchesDate = true;
+    if (historyFilterDate !== 'all') {
+      const completedDate = new Date(item.completed_date);
+      const today = new Date();
+      if (historyFilterDate === 'today') {
+        matchesDate = completedDate.toDateString() === today.toDateString();
+      } else if (historyFilterDate === 'week') {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(today.getDate() - 7);
+        matchesDate = completedDate >= sevenDaysAgo;
+      } else if (historyFilterDate === 'month') {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+        matchesDate = completedDate >= thirtyDaysAgo;
+      }
+    }
+
+    return matchesSearch && matchesType && matchesPriority && matchesDate;
+  });
+
   // Pagination for Complaints
   const totalComplaintsPages = Math.ceil(filteredComplaints.length / complaintsPerPage) || 1;
   const indexOfLastComplaint = complaintsCurrentPage * complaintsPerPage;
@@ -440,6 +472,12 @@ function EmployeePortal({ user, onLogoutSuccess }) {
   const indexOfLastTask = tasksCurrentPage * tasksPerPage;
   const indexOfFirstTask = indexOfLastTask - tasksPerPage;
   const currentTasksPageData = filteredTasks.slice(indexOfFirstTask, indexOfLastTask);
+
+  // Pagination for Work History
+  const totalHistoryPages = Math.ceil(filteredHistory.length / historyPerPage) || 1;
+  const indexOfLastHistory = historyCurrentPage * historyPerPage;
+  const indexOfFirstHistory = indexOfLastHistory - historyPerPage;
+  const currentHistoryPageData = filteredHistory.slice(indexOfFirstHistory, indexOfLastHistory);
 
   // Statistics summaries
   const totalAssigned = complaints.length;
@@ -453,6 +491,48 @@ function EmployeePortal({ user, onLogoutSuccess }) {
   const pendingTasksCountAll = tasks.filter(t => t.status === 'assigned' || t.status === 'pending').length;
   const inProgressTasksCount = tasks.filter(t => t.status === 'in_progress' || t.status === 'on_the_way').length;
   const completedTasksCount = tasks.filter(t => t.status === 'completed').length;
+
+  // Work History stats
+  const totalHistoryCount = history.length;
+  
+  const historyCompletedThisWeek = history.filter(h => {
+    const diff = new Date() - new Date(h.completed_date);
+    return diff > 0 && diff <= 1000 * 60 * 60 * 24 * 7;
+  }).length;
+
+  const historyCompletedThisMonth = history.filter(h => {
+    const diff = new Date() - new Date(h.completed_date);
+    return diff > 0 && diff <= 1000 * 60 * 60 * 24 * 30;
+  }).length;
+
+  // Average Resolution duration calculation
+  const calculateAvgDuration = () => {
+    if (!history || history.length === 0) return '0 Hours';
+    let totalMs = 0;
+    let count = 0;
+    history.forEach(h => {
+      if (h.completed_date && h.created_at) {
+        const diff = new Date(h.completed_date) - new Date(h.created_at);
+        if (diff > 0) {
+          totalMs += diff;
+          count++;
+        }
+      }
+    });
+    if (count === 0) return '0 Hours';
+    const avgHours = totalMs / (1000 * 60 * 60 * count);
+    return avgHours > 24 
+      ? `${(avgHours / 24).toFixed(1)} Days`
+      : `${avgHours.toFixed(1)} Hours`;
+  };
+
+  const avgCompletionTime = calculateAvgDuration();
+
+  // Performance Insight calculations
+  const performanceHighPriorityCompleted = history.filter(h => h.priority === 'urgent' || h.priority === 'high').length;
+  const performanceComplaintResolutions = history.filter(h => h.type === 'complaint').length;
+  const performanceInstallations = history.filter(h => h.type === 'task' && h.work_type === 'Installation').length;
+  const performanceRepairs = history.filter(h => h.type === 'task' && h.work_type === 'Fiber Repair').length;
 
   // Aggregate action alerts
   const actionAlerts = [
@@ -473,7 +553,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
   ];
 
   return (
-    <div className="flex bg-slate-950 min-h-screen text-slate-100 font-sans w-full selection:bg-cyan-500 selection:text-slate-950">
+    <div className="flex bg-slate-955 bg-slate-950 min-h-screen text-slate-100 font-sans w-full selection:bg-cyan-500 selection:text-slate-950">
       
       {/* Toast Messages */}
       {toastMessage && (
@@ -483,7 +563,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
       )}
 
       {/* 1. Sidebar Navigation */}
-      <aside className="w-64 border-r border-slate-900 bg-slate-955 bg-slate-950/80 backdrop-blur-md hidden md:flex flex-col h-screen sticky top-0 z-40">
+      <aside className="w-64 border-r border-slate-900 bg-slate-950/80 backdrop-blur-md hidden md:flex flex-col h-screen sticky top-0 z-40">
         <div className="p-6 border-b border-slate-900">
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-indigo-655 flex items-center justify-center shadow-lg">
@@ -589,7 +669,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
         <div className="p-4 border-t border-slate-900">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-955/20 hover:bg-red-950/20 hover:text-red-300 border border-transparent transition-all"
+            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-955/20 hover:bg-red-950/20 hover:text-red-305 transition-all"
           >
             <span>🚪</span>
             <span>Logout Session</span>
@@ -615,7 +695,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
             {activeTab === 'Dashboard' && 'Field Operations Dashboard'}
             {activeTab === 'Complaints' && 'Assigned Complaints'}
             {activeTab === 'Tasks' && 'Technical Tasks'}
-            {activeTab === 'History' && 'Completed Work Audits'}
+            {activeTab === 'History' && 'Completed Work History'}
             {activeTab === 'Notifications' && 'Notifications Hub'}
             {activeTab === 'Profile' && 'Account Settings'}
           </h1>
@@ -625,7 +705,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
             {/* Header Notification Bell Widget */}
             <button
               onClick={() => { setActiveTab('Notifications'); setShowProfileDropdown(false); }}
-              className="relative p-2 rounded-xl hover:bg-slate-900 text-slate-405 text-slate-400 hover:text-cyan-400 transition-colors flex items-center"
+              className="relative p-2 rounded-xl hover:bg-slate-900 text-slate-400 hover:text-cyan-400 transition-colors flex items-center"
               title="Notifications"
             >
               <span className="text-lg">🔔</span>
@@ -655,11 +735,11 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                 <div className="absolute right-0 mt-2 w-48 rounded-xl bg-slate-900 border border-slate-800 shadow-2xl py-1.5 z-50 text-xs animate-fade-in ring-1 ring-cyan-500/10">
                   <div className="px-3.5 py-2 border-b border-slate-850/60">
                     <p className="font-semibold text-white truncate">{profile?.full_name || user?.name}</p>
-                    <p className="text-[10px] text-slate-555 text-slate-500 uppercase mt-0.5">{profile?.employee_code}</p>
+                    <p className="text-[10px] text-slate-500 uppercase mt-0.5">{profile?.employee_code}</p>
                   </div>
                   <button
                     onClick={() => { setActiveTab('Profile'); setShowProfileDropdown(false); }}
-                    className="w-full text-left px-3.5 py-2.5 text-slate-300 hover:bg-slate-850 hover:text-cyan-400 transition-colors flex items-center space-x-2"
+                    className="w-full text-left px-3.5 py-2.5 text-slate-300 hover:bg-slate-855 hover:bg-slate-850 hover:text-cyan-400 transition-colors flex items-center space-x-2"
                   >
                     <span>👤</span>
                     <span>My Profile</span>
@@ -673,7 +753,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   </button>
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left px-3.5 py-2.5 text-red-400 hover:bg-red-955/20 hover:bg-red-955/20 hover:text-red-305 transition-colors border-t border-slate-850/40 flex items-center space-x-2"
+                    className="w-full text-left px-3.5 py-2.5 text-red-400 hover:bg-red-955/20 hover:bg-red-950/20 hover:text-red-305 transition-colors border-t border-slate-850/40 flex items-center space-x-2"
                   >
                     <span>🚪</span>
                     <span>Logout Session</span>
@@ -686,8 +766,9 @@ function EmployeePortal({ user, onLogoutSuccess }) {
         </header>
 
         {/* Content Pane */}
-        <main className="flex-1 p-6 md:p-8 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto">
-
+        <main className="flex-grow p-6 md:p-8 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto flex flex-col justify-between">
+          
+          <div className="space-y-6">
           {/* ==============================================
               TAB 1: FIELD OPERATIONS DASHBOARD (WORKSPACE)
               ============================================== */}
@@ -699,11 +780,11 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                 
                 {/* 1. Assigned Complaints */}
                 <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-cyan-500/20 transition-all duration-300 flex items-center space-x-3.5 group">
-                  <div className="w-10 h-10 rounded-xl bg-cyan-950/30 border border-cyan-900/30 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
+                  <div className="w-10 h-10 rounded-xl bg-cyan-955 bg-cyan-950/30 border border-cyan-900/30 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
                     🎫
                   </div>
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Assigned</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-505 text-slate-500 block leading-none">Assigned</span>
                     <span className="text-2xl font-black text-white mt-1 block leading-none">{totalAssigned}</span>
                     <span className="text-[9px] text-slate-550 block mt-0.5">Complaints</span>
                   </div>
@@ -727,7 +808,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                     ⚡
                   </div>
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">In Progress</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-505 text-slate-500 block leading-none">In Progress</span>
                     <span className="text-2xl font-black text-cyan-400 mt-1 block leading-none">{inProgressComplaintsCount}</span>
                     <span className="text-[9px] text-slate-550 block mt-0.5">On Job</span>
                   </div>
@@ -739,7 +820,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                     ✓
                   </div>
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Resolved</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-505 text-slate-500 block leading-none">Resolved</span>
                     <span className="text-2xl font-black text-emerald-450 mt-1 block leading-none">{resolvedComplaintsCount}</span>
                     <span className="text-[9px] text-slate-550 block mt-0.5">Complaints</span>
                   </div>
@@ -751,7 +832,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                     🛠️
                   </div>
                   <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Pending Tasks</span>
+                    <span className="text-[10px] uppercase font-bold text-slate-505 text-slate-500 block leading-none">Pending Tasks</span>
                     <span className="text-2xl font-black text-indigo-400 mt-1 block leading-none">{pendingTasksCount}</span>
                     <span className="text-[9px] text-slate-550 block mt-0.5">Deployments</span>
                   </div>
@@ -783,7 +864,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                         </thead>
                         <tbody>
                           {complaints.slice(0, 4).map(c => (
-                            <tr key={c.id} className="border-b border-slate-950/20 text-slate-300">
+                            <tr key={c.id} className="border-b border-slate-955/25 border-slate-950/20 text-slate-300">
                               <td className="py-2.5 font-bold text-white">CMP-{c.id}</td>
                               <td className="py-2.5 truncate max-w-[90px]" title={c.customer_name}>{c.customer_name}</td>
                               <td className="py-2.5 uppercase">
@@ -795,7 +876,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                               <td className="py-2.5 text-right">
                                 <button
                                   onClick={() => setSelectedItem(c)}
-                                  className="px-2 py-0.5 rounded bg-slate-950 hover:bg-slate-900 border border-slate-850 text-slate-350 hover:text-white"
+                                  className="px-2 py-0.5 rounded bg-slate-950 hover:bg-slate-900 border border-slate-850 text-slate-355 hover:text-white"
                                 >
                                   View
                                 </button>
@@ -872,7 +953,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                       {actionAlerts.map((alert) => (
                         <div
                           key={alert.id}
-                          className="p-3 rounded-xl bg-red-955/20 border border-red-900/30 text-red-455 text-red-450 text-red-400 text-[11px] font-medium flex items-center justify-between animate-pulse"
+                          className="p-3 rounded-xl bg-red-955/20 border border-red-900/30 text-red-400 text-[11px] font-medium flex items-center justify-between animate-pulse"
                         >
                           <span className="truncate max-w-[200px]" title={alert.message}>⚠️ {alert.message}</span>
                           <button
@@ -885,7 +966,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                       ))}
 
                       {actionAlerts.length === 0 && (
-                        <div className="p-3.5 rounded-xl bg-emerald-955/15 border border-emerald-900/25 text-emerald-450 text-xs text-center font-semibold">
+                        <div className="p-3.5 rounded-xl bg-emerald-955/15 border border-emerald-900/25 text-emerald-400 text-xs text-center font-semibold">
                           ✓ No urgent actions required.
                         </div>
                       )}
@@ -896,7 +977,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   <div className="p-5 rounded-2xl bg-slate-900/15 border border-slate-900/80 backdrop-blur-sm space-y-4">
                     <div className="flex justify-between items-center">
                       <h3 className="font-bold text-white text-xs uppercase tracking-wider">Latest Notifications</h3>
-                      <button onClick={() => setActiveTab('Notifications')} className="text-slate-500 text-xs font-semibold hover:underline">View All</button>
+                      <button onClick={() => setActiveTab('Notifications')} className="text-slate-505 text-slate-500 text-xs font-semibold hover:underline">View All</button>
                     </div>
 
                     <div className="space-y-2.5 max-h-44 overflow-y-auto pr-1 scrollbar-thin">
@@ -905,7 +986,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                           <span className="text-sm shrink-0">🔔</span>
                           <div className="space-y-0.5 flex-grow">
                             <span className={`font-bold block ${n.is_read ? 'text-slate-400' : 'text-white'}`}>{n.title}</span>
-                            <p className="text-slate-505 text-slate-500 leading-snug font-light">{n.message.slice(0, 50)}...</p>
+                            <p className="text-slate-500 leading-snug font-light">{n.message.slice(0, 50)}...</p>
                           </div>
                         </div>
                       ))}
@@ -937,7 +1018,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                 </div>
                 
                 <div className="flex items-center space-x-2.5">
-                  <div className="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-850 text-[11px] font-semibold text-slate-400">
+                  <div className="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-855 border-slate-850 text-[11px] font-semibold text-slate-400">
                     Assigned: <span className="text-white font-extrabold">{totalAssigned}</span>
                   </div>
                   <div className="px-3.5 py-1.5 rounded-xl bg-amber-955/25 border border-amber-900/35 text-[11px] font-semibold text-amber-400">
@@ -959,7 +1040,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                     placeholder="Search complaints by ID, customer, phone, issue..."
                     value={complaintsSearch}
                     onChange={(e) => { setComplaintsSearch(e.target.value); setComplaintsCurrentPage(1); }}
-                    className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500"
+                    className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500"
                   />
                   <span className="absolute left-3.5 top-3 text-xs text-slate-500">🔍</span>
                   {complaintsSearch && (
@@ -977,7 +1058,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   <select
                     value={complaintsStatusFilter}
                     onChange={(e) => { setComplaintsStatusFilter(e.target.value); setComplaintsCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-955 bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
                   >
                     <option value="all">All Statuses</option>
                     <option value="pending">Assigned / Pending</option>
@@ -1062,7 +1143,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                           </td>
                           <td className="py-3.5 px-4 uppercase">
                             <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                              c.priority === 'urgent' ? 'bg-red-955/30 text-red-400 border border-red-800/30' :
+                              c.priority === 'urgent' ? 'bg-red-955/30 text-red-405 border border-red-800/30' :
                               c.priority === 'high' ? 'bg-amber-955/20 text-amber-400 border border-amber-800/30' :
                               c.priority === 'medium' ? 'bg-blue-955/25 text-blue-400' : 'bg-slate-900 text-slate-500'
                             }`}>{c.priority}</span>
@@ -1073,7 +1154,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                           <td className="py-3.5 px-4 text-right">
                             <button
                               onClick={() => setSelectedItem(c)}
-                              className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-850 hover:bg-slate-900 text-slate-300 transition-colors font-semibold"
+                              className="px-3 py-1.5 rounded-lg bg-slate-955 bg-slate-950 border border-slate-850 hover:bg-slate-900 text-slate-300 transition-colors font-semibold"
                             >
                               View Details &rarr;
                             </button>
@@ -1095,28 +1176,28 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                       
                       <div className="space-y-1">
                         <h4 className="font-extrabold text-white text-sm">{c.subject}</h4>
-                        <p className="text-slate-405 text-slate-400 leading-snug font-light line-clamp-2">{c.description}</p>
+                        <p className="text-slate-400 leading-snug font-light line-clamp-2">{c.description}</p>
                       </div>
 
                       <div className="pt-2.5 border-t border-slate-900 space-y-2 text-slate-300">
                         <div className="flex justify-between">
-                          <span className="text-slate-500">Customer:</span>
+                          <span className="text-slate-505 text-slate-550 text-slate-500">Customer:</span>
                           <span className="font-semibold text-white">{c.customer_name}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-505 text-slate-550 text-slate-500">Phone:</span>
+                          <span className="text-slate-500">Phone:</span>
                           <span>{c.customer_phone}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-slate-505 text-slate-500">Address:</span>
+                          <span className="text-slate-500">Address:</span>
                           <span className="truncate max-w-[180px]">{c.customer_address}</span>
                         </div>
                       </div>
 
                       <div className="flex justify-between items-center pt-2.5">
                         <div className="space-x-1.5">
-                          <span className="px-1.5 py-0.5 rounded text-[8px] bg-slate-950 text-slate-400 font-bold uppercase">{c.priority}</span>
-                          <span className="px-1.5 py-0.5 rounded text-[8px] bg-cyan-955 bg-cyan-950 text-cyan-400 font-bold uppercase">{c.status}</span>
+                          <span className="px-1.5 py-0.5 rounded text-[8px] bg-slate-955 bg-slate-950 text-slate-400 font-bold uppercase">{c.priority}</span>
+                          <span className="px-1.5 py-0.5 rounded text-[8px] bg-cyan-950 text-cyan-400 font-bold uppercase">{c.status}</span>
                         </div>
                         <button
                           onClick={() => setSelectedItem(c)}
@@ -1131,7 +1212,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
                 {filteredComplaints.length === 0 && (
                   <div className="py-20 text-center max-w-sm mx-auto space-y-4 animate-fade-in">
-                    <div className="w-14 h-14 rounded-2xl bg-cyan-955/20 bg-cyan-950/20 border border-cyan-900/20 flex items-center justify-center text-cyan-400 mx-auto">
+                    <div className="w-14 h-14 rounded-2xl bg-cyan-950/20 border border-cyan-900/20 flex items-center justify-center text-cyan-400 mx-auto">
                       🎫
                     </div>
                     <div className="space-y-1.5">
@@ -1154,7 +1235,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                       <button
                         onClick={() => setComplaintsCurrentPage(prev => Math.max(prev - 1, 1))}
                         disabled={complaintsCurrentPage === 1}
-                        className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-850 hover:bg-slate-850 hover:text-white transition-colors disabled:opacity-40"
+                        className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-850 hover:bg-slate-855 hover:bg-slate-850 hover:text-white transition-colors disabled:opacity-40"
                       >
                         Previous
                       </button>
@@ -1166,7 +1247,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                           className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-colors font-bold ${
                             complaintsCurrentPage === idx + 1
                               ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400'
-                              : 'bg-slate-900 border-slate-850 text-slate-400 hover:text-white hover:bg-slate-855 hover:bg-slate-850'
+                              : 'bg-slate-900 border-slate-850 text-slate-400 hover:text-white hover:bg-slate-850'
                           }`}
                         >
                           {idx + 1}
@@ -1190,7 +1271,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           )}
 
           {/* ==============================================
-              TAB 3: TECHNICAL TASKS REGISTER (Field dashboard style)
+              TAB 3: TECHNICAL TASKS REGISTER
               ============================================== */}
           {activeTab === 'Tasks' && (
             <div className="space-y-6 animate-fade-in">
@@ -1199,7 +1280,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
               <div className="flex justify-between items-center flex-wrap gap-4 pb-4 border-b border-slate-900/50">
                 <div className="space-y-1">
                   <h2 className="text-lg font-black text-white">Technical Tasks Dashboard</h2>
-                  <p className="text-xs text-slate-505 text-slate-500 font-light">Installation, repair and service jobs assigned to you.</p>
+                  <p className="text-xs text-slate-500 font-light">Installation, repair and service jobs assigned to you.</p>
                 </div>
                 
                 <div className="flex items-center space-x-2.5">
@@ -1228,13 +1309,13 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                     placeholder="Search by Task ID, Customer or Address..."
                     value={tasksSearch}
                     onChange={(e) => { setTasksSearch(e.target.value); setTasksCurrentPage(1); }}
-                    className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-slate-950 border border-slate-855 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500"
+                    className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500"
                   />
                   <span className="absolute left-3.5 top-3 text-xs text-slate-500">🔍</span>
                   {tasksSearch && (
                     <button
                       onClick={() => { setTasksSearch(''); setTasksCurrentPage(1); }}
-                      className="absolute right-3 top-2.5 text-xs text-slate-550 hover:text-white"
+                      className="absolute right-3 top-2.5 text-xs text-slate-500 hover:text-white"
                     >
                       ✕
                     </button>
@@ -1246,7 +1327,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   <select
                     value={tasksStatusFilter}
                     onChange={(e) => { setTasksStatusFilter(e.target.value); setTasksCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
                   >
                     <option value="all">All Statuses</option>
                     <option value="assigned">Assigned / Pending</option>
@@ -1261,7 +1342,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   <select
                     value={tasksTypeFilter}
                     onChange={(e) => { setTasksTypeFilter(e.target.value); setTasksCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-955 bg-slate-955 bg-slate-955 bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
                   >
                     <option value="all">All Types</option>
                     <option value="Installation">Installation</option>
@@ -1279,7 +1360,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   <select
                     value={tasksPriorityFilter}
                     onChange={(e) => { setTasksPriorityFilter(e.target.value); setTasksCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-955 bg-slate-955 bg-slate-955 bg-slate-955 bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-slate-355 focus:outline-none"
                   >
                     <option value="all">All Priorities</option>
                     <option value="low">Low</option>
@@ -1294,7 +1375,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   <select
                     value={tasksDateFilter}
                     onChange={(e) => { setTasksDateFilter(e.target.value); setTasksCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-855 text-xs text-slate-355 focus:outline-none"
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
                   >
                     <option value="all">All Time</option>
                     <option value="today">Today</option>
@@ -1309,7 +1390,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
               <div className="space-y-4">
                 
                 {/* Desktop view Table */}
-                <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-900 bg-slate-905 bg-slate-900/10 shadow-xl">
+                <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-900 bg-slate-900/10 shadow-xl">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="border-b border-slate-900 bg-slate-950/40 text-slate-400 font-bold uppercase">
@@ -1330,7 +1411,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                         const isDueToday = t.due_date && new Date(t.due_date).toDateString() === new Date().toDateString() && t.status !== 'completed';
                         
                         return (
-                          <tr key={t.id} className="border-b border-slate-955/15 border-slate-950/20 text-slate-300 hover:bg-slate-900/10">
+                          <tr key={t.id} className="border-b border-slate-955/15 border-slate-955/20 border-slate-950/20 text-slate-300 hover:bg-slate-900/10">
                             <td className="py-3.5 px-4 font-mono">
                               <button onClick={() => setSelectedItem(t)} className="text-cyan-400 font-bold hover:underline">
                                 TSK-{t.id}
@@ -1339,7 +1420,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                             <td className="py-3.5 px-4 font-bold text-white uppercase text-[10px]">
                               {t.task_type}
                             </td>
-                            <td className="py-3.5 px-4 font-medium text-slate-202">
+                            <td className="py-3.5 px-4 font-medium text-slate-200">
                               <span>👤</span> {t.customer_name}
                             </td>
                             <td className="py-3.5 px-4">
@@ -1350,8 +1431,8 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                             </td>
                             <td className="py-3.5 px-4 uppercase">
                               <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                                t.priority === 'urgent' ? 'bg-red-955/30 text-red-405 border border-red-800/30' :
-                                t.priority === 'high' ? 'bg-amber-955/25 text-amber-400' : 'bg-slate-900 text-slate-500'
+                                t.priority === 'urgent' ? 'bg-red-955/30 text-red-400 border border-red-800/30' :
+                                t.priority === 'high' ? 'bg-amber-955/25 text-amber-400' : 'bg-slate-900 text-slate-505 text-slate-500'
                               }`}>{t.priority}</span>
                             </td>
                             <td className="py-3.5 px-4 uppercase text-[10px] font-bold text-indigo-400">
@@ -1371,7 +1452,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                             <td className="py-3.5 px-4 text-right">
                               <button
                                 onClick={() => setSelectedItem(t)}
-                                className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-850 hover:bg-slate-900 text-slate-300 font-semibold transition-colors"
+                                className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-850 hover:bg-slate-900 text-slate-305 text-slate-300 font-semibold transition-colors"
                               >
                                 View Details &rarr;
                               </button>
@@ -1398,15 +1479,15 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                         
                         <div className="pt-2 border-t border-slate-950 space-y-1.5 text-slate-300">
                           <div className="flex justify-between">
-                            <span className="text-slate-505">Customer:</span>
+                            <span className="text-slate-550 text-slate-500">Customer:</span>
                             <span className="text-white font-semibold">{t.customer_name}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-505">Address:</span>
+                            <span className="text-slate-550">Address:</span>
                             <span className="truncate max-w-[180px]">{t.customer_address}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-slate-505">Target Date:</span>
+                            <span className="text-slate-550">Target Date:</span>
                             <span>{t.due_date ? new Date(t.due_date).toLocaleDateString() : 'N/A'}</span>
                           </div>
                         </div>
@@ -1438,7 +1519,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                     </div>
                     <div className="space-y-1.5">
                       <h4 className="font-black text-white text-base">You're All Caught Up</h4>
-                      <p className="text-xs text-slate-500 leading-relaxed">
+                      <p className="text-xs text-slate-550 text-slate-500 leading-relaxed">
                         No installation or service tasks are currently assigned to you. New technical jobs assigned by your administrator will appear here.
                       </p>
                     </div>
@@ -1456,7 +1537,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                       <button
                         onClick={() => setTasksCurrentPage(prev => Math.max(prev - 1, 1))}
                         disabled={tasksCurrentPage === 1}
-                        className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-850 hover:bg-slate-850 hover:text-white transition-colors disabled:opacity-40"
+                        className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-855 border-slate-850 hover:bg-slate-850 hover:text-white transition-colors disabled:opacity-40"
                       >
                         Previous
                       </button>
@@ -1468,7 +1549,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                           className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-colors font-bold ${
                             tasksCurrentPage === idx + 1
                               ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
-                              : 'bg-slate-900 border-slate-850 text-slate-400 hover:text-white hover:bg-slate-850'
+                              : 'bg-slate-900 border-slate-855 border-slate-850 text-slate-400 hover:text-white hover:bg-slate-850'
                           }`}
                         >
                           {idx + 1}
@@ -1492,40 +1573,137 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           )}
 
           {/* ==============================================
-              TAB 4: WORK HISTORY AUDITS
+              TAB 4: WORK HISTORY & PERFORMANCE RECORDS (Upgraded visual layout)
               ============================================== */}
           {activeTab === 'History' && (
             <div className="space-y-6 animate-fade-in">
               
-              {/* Filter controls glass panel */}
-              <div className="p-4 rounded-2xl bg-slate-900/20 border border-slate-900 flex flex-wrap gap-4 items-center">
-                <div className="flex-grow min-w-[200px]">
-                  <input
-                    type="text"
-                    placeholder="Search by customer name or description..."
-                    value={historySearch}
-                    onChange={(e) => setHistorySearch(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500"
-                  />
+              {/* Summary Metrics Cards Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                
+                {/* Total jobs completed */}
+                <div className="p-4.5 p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-emerald-500/20 transition-all duration-300">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Total Jobs Done</span>
+                    <span className="text-sm">📋</span>
+                  </div>
+                  <span className="text-2xl font-black text-white mt-2 block leading-none">{totalHistoryCount}</span>
+                  <span className="text-[9px] text-slate-550 block mt-1.5">Resolved operations</span>
                 </div>
 
-                <div className="w-40">
+                {/* Completed this week */}
+                <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-emerald-500/25 transition-all duration-300">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Resolved Week</span>
+                    <span className="text-sm">📆</span>
+                  </div>
+                  <span className="text-2xl font-black text-emerald-450 mt-2 block leading-none">{historyCompletedThisWeek}</span>
+                  <span className="text-[9px] text-slate-550 block mt-1.5">Last 7 calendar days</span>
+                </div>
+
+                {/* Completed this month */}
+                <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-emerald-500/25 transition-all duration-300">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[10px] uppercase font-bold text-slate-505 block leading-none">Resolved Month</span>
+                    <span className="text-sm">📅</span>
+                  </div>
+                  <span className="text-2xl font-black text-emerald-400 mt-2 block leading-none">{historyCompletedThisMonth}</span>
+                  <span className="text-[9px] text-slate-550 block mt-1.5">Last 30 calendar days</span>
+                </div>
+
+                {/* Avg resolution duration */}
+                <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-cyan-500/20 transition-all duration-300">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[10px] uppercase font-bold text-slate-505 block leading-none">Avg Closure Time</span>
+                    <span className="text-sm">⏱️</span>
+                  </div>
+                  <span className="text-2xl font-black text-cyan-400 mt-2 block leading-none">{avgCompletionTime}</span>
+                  <span className="text-[9px] text-slate-550 block mt-1.5">Avg resolution span</span>
+                </div>
+
+              </div>
+
+              {/* Performance insight overview widget panel */}
+              <div className="p-5 rounded-2xl bg-slate-900/15 border border-slate-900/80 backdrop-blur-sm space-y-4">
+                <h3 className="font-bold text-white text-xs uppercase tracking-wider">Technician Performance Audits Overview</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-xs">
+                  
+                  <div className="p-3 bg-slate-950/45 border border-slate-900 rounded-xl">
+                    <span className="text-slate-500 block text-[9px] uppercase font-bold">Total Operations</span>
+                    <span className="text-base font-black text-white mt-1 block leading-none">{totalHistoryCount}</span>
+                  </div>
+                  
+                  <div className="p-3 bg-slate-950/45 border border-slate-900 rounded-xl">
+                    <span className="text-slate-500 block text-[9px] uppercase font-bold">High Priority Jobs</span>
+                    <span className="text-base font-black text-amber-400 mt-1 block leading-none">{performanceHighPriorityCompleted}</span>
+                  </div>
+
+                  <div className="p-3 bg-slate-950/45 border border-slate-900 rounded-xl">
+                    <span className="text-slate-500 block text-[9px] uppercase font-bold">Complaint Resolved</span>
+                    <span className="text-base font-black text-cyan-400 mt-1 block leading-none">{performanceComplaintResolutions}</span>
+                  </div>
+
+                  <div className="p-3 bg-slate-950/45 border border-slate-900 rounded-xl">
+                    <span className="text-slate-500 block text-[9px] uppercase font-bold">Installations Done</span>
+                    <span className="text-base font-black text-indigo-400 mt-1 block leading-none">{performanceInstallations}</span>
+                  </div>
+
+                  <div className="p-3 bg-slate-950/45 border border-slate-900 rounded-xl">
+                    <span className="text-slate-500 block text-[9px] uppercase font-bold">Fiber Cable Repairs</span>
+                    <span className="text-base font-black text-emerald-400 mt-1 block leading-none">{performanceRepairs}</span>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Advanced Audits Search & Filtering Toolbar */}
+              <div className="p-4 rounded-2xl bg-slate-900/20 border border-slate-900 flex flex-wrap gap-4 items-center">
+                
+                {/* Text query input */}
+                <div className="flex-grow min-w-[200px] relative">
+                  <input
+                    type="text"
+                    placeholder="Search history by Customer, Work description or ID..."
+                    value={historySearch}
+                    onChange={(e) => { setHistorySearch(e.target.value); setHistoryCurrentPage(1); }}
+                    className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500"
+                  />
+                  <span className="absolute left-3.5 top-3 text-xs text-slate-550">🔍</span>
+                  {historySearch && (
+                    <button
+                      onClick={() => { setHistorySearch(''); setHistoryCurrentPage(1); }}
+                      className="absolute right-3 top-2.5 text-xs text-slate-550 hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                {/* Job type selection */}
+                <div className="w-40 shrink-0">
                   <select
                     value={historyFilterType}
-                    onChange={(e) => setHistoryFilterType(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-955 bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-slate-400 focus:outline-none"
+                    onChange={(e) => { setHistoryFilterType(e.target.value); setHistoryCurrentPage(1); }}
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
                   >
-                    <option value="all">All Types</option>
+                    <option value="all">All Job Types</option>
+                    <option value="complaint">Complaint Resolutions</option>
                     <option value="task">Technical Tasks</option>
-                    <option value="complaint">Complaint Tickets</option>
+                    <option value="Installation">Installation jobs</option>
+                    <option value="Fiber Repair">Fiber Cable repair</option>
+                    <option value="Router Replacement">Router replacement</option>
+                    <option value="ONU/ONT Replacement">ONU/ONT replace</option>
+                    <option value="Configuration">Configurations</option>
+                    <option value="Service Restoration">Restorations</option>
                   </select>
                 </div>
 
-                <div className="w-40">
+                {/* Priority Selection */}
+                <div className="w-36 shrink-0">
                   <select
                     value={historyFilterPriority}
-                    onChange={(e) => setHistoryFilterPriority(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-955 bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-slate-400 focus:outline-none"
+                    onChange={(e) => { setHistoryFilterPriority(e.target.value); setHistoryCurrentPage(1); }}
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
                   >
                     <option value="all">All Priorities</option>
                     <option value="low">Low</option>
@@ -1534,50 +1712,188 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                     <option value="urgent">Urgent</option>
                   </select>
                 </div>
+
+                {/* Date filter dropdown */}
+                <div className="w-36 shrink-0">
+                  <select
+                    value={historyFilterDate}
+                    onChange={(e) => { setHistoryFilterDate(e.target.value); setHistoryCurrentPage(1); }}
+                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
+                  >
+                    <option value="all">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                  </select>
+                </div>
+
               </div>
 
-              {/* History Audits Table */}
-              <div className="overflow-x-auto rounded-2xl border border-slate-900 bg-slate-900/10">
-                <table className="w-full text-left border-collapse text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-900 bg-slate-950/40 text-slate-400 font-bold uppercase">
-                      <th className="py-3 px-4">ID</th>
-                      <th className="py-3 px-4">Job Type</th>
-                      <th className="py-3 px-4">Description / Subject</th>
-                      <th className="py-3 px-4">Customer</th>
-                      <th className="py-3 px-4">Priority</th>
-                      <th className="py-3 px-4">Final Status</th>
-                      <th className="py-3 px-4 text-right">Completed Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredHistory.length > 0 ? (
-                      filteredHistory.map((item, idx) => (
+              {/* History Audits List (Desktop Table / Mobile Cards) */}
+              <div className="space-y-4">
+                
+                {/* Desktop View Table */}
+                <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-900 bg-slate-900/10 shadow-xl">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-900 bg-slate-950/40 text-slate-400 font-bold uppercase">
+                        <th className="py-3.5 px-4">Job ID</th>
+                        <th className="py-3.5 px-4">Job Type</th>
+                        <th className="py-3.5 px-4">Customer</th>
+                        <th className="py-3.5 px-4">Description / Subject</th>
+                        <th className="py-3.5 px-4">Priority</th>
+                        <th className="py-3.5 px-4">Final Status</th>
+                        <th className="py-3.5 px-4">Completed Date</th>
+                        <th className="py-3.5 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentHistoryPageData.map((item, idx) => (
                         <tr key={idx} className="border-b border-slate-955/20 text-slate-300 hover:bg-slate-900/10">
-                          <td className="py-3.5 px-4 font-mono">{item.type === 'task' ? `TSK-${item.id}` : `CMP-${item.id}`}</td>
-                          <td className="py-3.5 px-4 font-bold text-white capitalize">{item.type} ({item.work_type})</td>
-                          <td className="py-3.5 px-4 max-w-[200px] truncate" title={item.description}>{item.description}</td>
-                          <td className="py-3.5 px-4">{item.customer_name}</td>
-                          <td className="py-3.5 px-4 uppercase">
-                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
-                              item.priority === 'urgent' || item.priority === 'high' ? 'bg-red-955/20 text-red-400' : 'bg-slate-900 text-slate-405 text-slate-400'
-                            }`}>{item.priority}</span>
+                          <td className="py-3.5 px-4 font-mono">
+                            <button onClick={() => setSelectedHistoryItem(item)} className="text-cyan-400 font-bold hover:underline">
+                              {item.type === 'task' ? `TSK-${item.id}` : `CMP-${item.id}`}
+                            </button>
+                          </td>
+                          <td className="py-3.5 px-4 font-bold text-white uppercase text-[10px]">
+                            {item.type} ({item.work_type})
+                          </td>
+                          <td className="py-3.5 px-4">
+                            👤 {item.customer_name}
+                          </td>
+                          <td className="py-3.5 px-4 truncate max-w-[200px]" title={item.description}>
+                            {item.description}
                           </td>
                           <td className="py-3.5 px-4 uppercase">
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-950/40 border border-emerald-800/30 text-emerald-400">
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-950 text-slate-400`}>
+                              {item.priority}
+                            </span>
+                          </td>
+                          <td className="py-3.5 px-4 uppercase">
+                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-950/40 border border-emerald-800/30 text-emerald-400">
                               {item.status}
                             </span>
                           </td>
-                          <td className="py-3.5 px-4 text-right text-slate-500">{new Date(item.completed_date).toLocaleDateString()}</td>
+                          <td className="py-3.5 px-4 text-slate-500 font-medium">
+                            {new Date(item.completed_date).toLocaleString()}
+                          </td>
+                          <td className="py-3.5 px-4 text-right">
+                            <button
+                              onClick={() => setSelectedHistoryItem(item)}
+                              className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-850 hover:bg-slate-900 text-slate-300 font-bold transition-colors"
+                            >
+                              View Report
+                            </button>
+                          </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="7" className="py-12 text-center text-slate-600 italic">No completed work records matching filters.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile View Cards Layout */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
+                  {currentHistoryPageData.map((item, idx) => (
+                    <div key={idx} className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 space-y-3 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="font-mono font-bold text-cyan-405 text-cyan-400">
+                          {item.type === 'task' ? `TSK-${item.id}` : `CMP-${item.id}`}
+                        </span>
+                        <span className="text-[10px] text-slate-505 text-slate-500 uppercase font-bold">{item.work_type}</span>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-slate-500 capitalize block">Customer Profile:</span>
+                        <span className="font-bold text-white block">👤 {item.customer_name}</span>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-900 flex justify-between items-center">
+                        <div className="space-x-1.5">
+                          <span className="px-1.5 py-0.5 rounded text-[8px] bg-slate-950 text-slate-400 font-bold uppercase">{item.priority}</span>
+                          <span className="px-1.5 py-0.5 rounded text-[8px] bg-emerald-950 text-emerald-400 font-bold uppercase">{item.status}</span>
+                        </div>
+                        <button
+                          onClick={() => setSelectedHistoryItem(item)}
+                          className="px-3 py-1 bg-slate-900 border border-slate-850 text-slate-300 font-bold rounded-lg"
+                        >
+                          View Report
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Empty State registers */}
+                {history.length === 0 && (
+                  <div className="py-24 text-center max-w-sm mx-auto space-y-4 animate-fade-in">
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-955/20 border border-emerald-900/20 flex items-center justify-center text-emerald-450 text-lg mx-auto">
+                      📋
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="font-black text-white text-base">No Completed Work Yet</h4>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        Your completed installations, repairs and service jobs will appear here as resolving closures are committed.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Filter Empty Results State */}
+                {history.length > 0 && filteredHistory.length === 0 && (
+                  <div className="py-14 text-center max-w-xs mx-auto space-y-3 animate-fade-in">
+                    <span className="text-xl">🔍</span>
+                    <h4 className="font-bold text-white text-xs">No matching work records</h4>
+                    <p className="text-[10px] text-slate-500">Try changing your search or filters.</p>
+                    <button
+                      onClick={() => { setHistorySearch(''); setHistoryFilterType('all'); setHistoryFilterPriority('all'); setHistoryFilterDate('all'); }}
+                      className="px-3 py-1 rounded bg-slate-900 border border-slate-850 text-slate-300 hover:text-white"
+                    >
+                      Clear Filters
+                    </button>
+                  </div>
+                )}
+
+                {/* Pagination Controls */}
+                {filteredHistory.length > 0 && (
+                  <div className="flex justify-between items-center text-xs text-slate-550 pt-2">
+                    <span>
+                      Showing {indexOfFirstHistory + 1}–{Math.min(indexOfLastHistory, filteredHistory.length)} of {filteredHistory.length} completed records
+                    </span>
+                    
+                    <div className="flex items-center space-x-1.5">
+                      <button
+                        onClick={() => setHistoryCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={historyCurrentPage === 1}
+                        className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-855 border-slate-850 hover:bg-slate-850 hover:text-white transition-colors disabled:opacity-40"
+                      >
+                        Previous
+                      </button>
+                      
+                      {[...Array(totalHistoryPages)].map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setHistoryCurrentPage(idx + 1)}
+                          className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-colors font-bold ${
+                            historyCurrentPage === idx + 1
+                              ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400'
+                              : 'bg-slate-900 border-slate-850 text-slate-405 text-slate-400 hover:text-white hover:bg-slate-850'
+                          }`}
+                        >
+                          {idx + 1}
+                        </button>
+                      ))}
+
+                      <button
+                        onClick={() => setHistoryCurrentPage(prev => Math.min(prev + 1, totalHistoryPages))}
+                        disabled={historyCurrentPage === totalHistoryPages}
+                        className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-850 hover:bg-slate-850 hover:text-white transition-colors disabled:opacity-40"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+
               </div>
 
             </div>
@@ -1589,11 +1905,11 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           {activeTab === 'Notifications' && (
             <div className="space-y-6 animate-fade-in">
               <div className="flex justify-between items-center">
-                <p className="text-xs text-slate-505 text-slate-500 font-light">Unread notifications count: {unreadCount}</p>
+                <p className="text-xs text-slate-500">Unread notifications count: {unreadCount}</p>
                 {unreadCount > 0 && (
                   <button
                     onClick={handleMarkNotificationsAsRead}
-                    className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-855 border-slate-850 text-cyan-405 text-cyan-400 font-bold text-xs transition-colors"
+                    className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-805 border border-slate-850 text-cyan-405 text-cyan-400 font-bold text-xs transition-colors"
                   >
                     Mark All as Read
                   </button>
@@ -1664,7 +1980,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                     </div>
                     <div className="pt-2 flex space-x-2">
                       <button type="submit" className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl">Save Info</button>
-                      <button type="button" onClick={() => setIsEditingProfile(false)} className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-400 rounded-xl">Cancel</button>
+                      <button type="button" onClick={() => setIsEditingProfile(false)} className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-405 text-slate-400 rounded-xl">Cancel</button>
                     </div>
                   </form>
                 ) : (
@@ -1679,7 +1995,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                           <span className="text-[10px] text-cyan-405 text-cyan-400 uppercase font-semibold">{profile?.designation}</span>
                         </div>
                       </div>
-                      <button onClick={() => setIsEditingProfile(true)} className="px-3.5 py-1.5 bg-slate-900 border border-slate-850 hover:bg-slate-850 text-cyan-405 text-cyan-400 rounded-xl font-bold">Edit Details</button>
+                      <button onClick={() => setIsEditingProfile(true)} className="px-3.5 py-1.5 bg-slate-900 border border-slate-855 border-slate-850 hover:bg-slate-850 text-cyan-455 text-cyan-450 text-cyan-400 rounded-xl font-bold font-semibold">Edit Details</button>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -1776,6 +2092,13 @@ function EmployeePortal({ user, onLogoutSuccess }) {
             </div>
           )}
 
+          </div>
+
+          <div className="pt-8 border-t border-slate-900/40 text-[10px] text-slate-600 flex justify-between items-center">
+            <span>ISP Operational Technician Client Dashboard (NOC Console)</span>
+            <span>Local Time: {new Date().toLocaleTimeString()}</span>
+          </div>
+
         </main>
       </div>
 
@@ -1856,14 +2179,14 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
             {/* Quick Actions Workflow Panels */}
             <div className="p-4 rounded-xl bg-slate-950/30 border border-slate-850 space-y-3.5 text-xs">
-              <h4 className="font-bold text-slate-550 uppercase tracking-wider text-[9px]">Technician Operations Action Toolbar</h4>
+              <h4 className="font-bold text-slate-555 text-slate-550 uppercase tracking-wider text-[9px]">Technician Operations Action Toolbar</h4>
               
               <div className="flex flex-wrap gap-2.5">
                 
                 {/* 1. Quick call customer (mock) */}
                 <button
                   onClick={() => alert(`Dialing customer ${selectedItem.customer_name} at: ${selectedItem.customer_phone}`)}
-                  className="px-3.5 py-2 bg-slate-900 border border-slate-855 border-slate-850 hover:bg-slate-850 text-slate-300 hover:text-white rounded-xl font-bold flex items-center space-x-1.5 transition-all active:scale-[0.98]"
+                  className="px-3.5 py-2 bg-slate-900 border border-slate-850 hover:bg-slate-855 text-slate-300 hover:text-white rounded-xl font-bold flex items-center space-x-1.5 transition-all active:scale-[0.98]"
                 >
                   <span>📞</span>
                   <span>Call Customer</span>
@@ -1955,13 +2278,13 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           MODAL 2: WORK REPORT SUBMISSIONS
           ============================================== */}
       {showReportForm && selectedItem && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-[520px] max-w-full rounded-[26px] bg-slate-900 border border-slate-800 p-6 shadow-2xl relative space-y-5 animate-fade-in-up">
             
             {/* Header */}
             <div className="flex justify-between items-start pb-3 border-b border-slate-850/60">
               <div>
-                <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest block">WORK COMPLETION REPORT</span>
+                <span className="text-[9px] font-mono text-slate-550 uppercase tracking-widest block">WORK COMPLETION REPORT</span>
                 <h3 className="font-extrabold text-white text-lg mt-0.5">
                   Log report for: {selectedItem.task_type || selectedItem.subject}
                 </h3>
@@ -1977,7 +2300,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   placeholder="Describe the root issue diagnosed..."
                   value={reportForm.problem_found}
                   onChange={(e) => setReportForm({ ...reportForm, problem_found: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500 h-16 resize-none"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500 h-16 resize-none"
                   required
                 />
               </div>
@@ -1988,7 +2311,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   placeholder="Describe details of repairs/installations..."
                   value={reportForm.work_performed}
                   onChange={(e) => setReportForm({ ...reportForm, work_performed: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-855 border-slate-850 text-white focus:outline-none focus:border-cyan-500 h-16 resize-none"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500 h-16 resize-none"
                   required
                 />
               </div>
@@ -2000,7 +2323,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   placeholder="e.g. Fiber splice replaced, signals restored to normal."
                   value={reportForm.solution}
                   onChange={(e) => setReportForm({ ...reportForm, solution: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
                   required
                 />
               </div>
@@ -2012,7 +2335,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   placeholder="e.g. 1x ONU router, 2x fiber adapters, 15m optical patch cable."
                   value={reportForm.equipment_used}
                   onChange={(e) => setReportForm({ ...reportForm, equipment_used: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-855 text-white focus:outline-none focus:border-cyan-500"
                 />
               </div>
 
@@ -2023,7 +2346,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   placeholder="Extra observations or admin warnings..."
                   value={reportForm.additional_notes}
                   onChange={(e) => setReportForm({ ...reportForm, additional_notes: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
                 />
               </div>
 
@@ -2044,6 +2367,121 @@ function EmployeePortal({ user, onLogoutSuccess }) {
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==============================================
+          MODAL 3: VIEW COMPLETED WORK REPORT DRAWER
+          ============================================== */}
+      {selectedHistoryItem && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex justify-end">
+          <div className="w-[500px] max-w-full h-full bg-slate-900 border-l border-slate-850 p-6 shadow-2xl overflow-y-auto space-y-6 relative animate-fade-in-up scrollbar-thin">
+            
+            {/* Header drawer */}
+            <div className="flex justify-between items-start pb-4 border-b border-slate-850/60">
+              <div>
+                <span className="text-[9px] font-mono text-slate-500 uppercase tracking-wider block">COMPLETED FIELD OPERATIONS REPORT</span>
+                <h3 className="font-extrabold text-white text-lg mt-1">
+                  Report #{selectedHistoryItem.type === 'task' ? `TSK-${selectedHistoryItem.id}` : `CMP-${selectedHistoryItem.id}`}
+                </h3>
+                <div className="flex items-center space-x-2 mt-2">
+                  <span className="px-2 py-0.5 rounded text-[8px] bg-emerald-950 border border-emerald-800/30 text-emerald-400 font-bold uppercase">{selectedHistoryItem.status}</span>
+                  <span className="px-2 py-0.5 rounded text-[8px] bg-slate-950 text-slate-405 text-slate-400 font-bold uppercase">{selectedHistoryItem.priority} priority</span>
+                </div>
+              </div>
+              <button onClick={() => setSelectedHistoryItem(null)} className="text-slate-500 hover:text-white font-bold text-lg transition-colors">✕</button>
+            </div>
+
+            {/* Customer Details Info block */}
+            <div className="space-y-4 text-xs">
+              
+              <div className="p-4 rounded-xl bg-slate-950/30 border border-slate-850 space-y-2.5">
+                <h4 className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Customer Details</h4>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-slate-550 block text-[10px]">Name:</span>
+                    <span className="text-white block font-bold mt-0.5">{selectedHistoryItem.customer_name}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-550 block text-[10px]">Phone Number:</span>
+                    <span className="text-white block font-medium mt-0.5">{selectedHistoryItem.customer_phone}</span>
+                  </div>
+                  <div className="col-span-2 pt-2 border-t border-slate-900/60">
+                    <span className="text-slate-550 block text-[10px]">Residential Address:</span>
+                    <span className="text-slate-300 block leading-relaxed mt-0.5">{selectedHistoryItem.customer_address}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Job description details */}
+              <div className="space-y-1.5">
+                <span className="text-slate-500 text-[10px] uppercase font-bold block">Job Type & Subject</span>
+                <span className="text-white font-semibold block capitalize">{selectedHistoryItem.type} ({selectedHistoryItem.work_type})</span>
+                <p className="p-3 rounded-xl bg-slate-950/20 border border-slate-850 text-slate-350 leading-relaxed font-light mt-1">
+                  {selectedHistoryItem.description}
+                </p>
+              </div>
+
+              {/* Work report entries */}
+              <div className="space-y-3.5 pt-2.5 border-t border-slate-850/60">
+                <h4 className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Field Diagnostics & Operations</h4>
+                
+                <div className="space-y-2 bg-slate-950/25 p-3.5 rounded-xl border border-slate-850">
+                  <div>
+                    <span className="text-slate-500 text-[9px] uppercase font-bold">Problem Diagnosed</span>
+                    <p className="text-slate-300 block font-light mt-0.5">{selectedHistoryItem.problem_found || 'Standard field diagnostics.'}</p>
+                  </div>
+                  <div className="pt-2 border-t border-slate-900/60">
+                    <span className="text-slate-500 text-[9px] uppercase font-bold">Work Performed</span>
+                    <p className="text-slate-300 block font-light mt-0.5">{selectedHistoryItem.work_performed || 'Job completed successfully.'}</p>
+                  </div>
+                  <div className="pt-2 border-t border-slate-900/60">
+                    <span className="text-slate-500 text-[9px] uppercase font-bold">Resolution Solution</span>
+                    <p className="text-white block font-semibold mt-0.5">{selectedHistoryItem.solution || 'Connection stabilized.'}</p>
+                  </div>
+                  {selectedHistoryItem.equipment_used && (
+                    <div className="pt-2 border-t border-slate-900/60">
+                      <span className="text-slate-500 text-[9px] uppercase font-bold">Materials / Equipment Used</span>
+                      <p className="text-slate-300 block font-light mt-0.5">{selectedHistoryItem.equipment_used}</p>
+                    </div>
+                  )}
+                  {selectedHistoryItem.additional_notes && (
+                    <div className="pt-2 border-t border-slate-900/60">
+                      <span className="text-slate-500 text-[9px] uppercase font-bold">Additional notes</span>
+                      <p className="text-slate-400 block font-light italic mt-0.5">{selectedHistoryItem.additional_notes}</p>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
+              {/* Completion Timeline Tracker */}
+              <div className="space-y-3.5 pt-2.5 border-t border-slate-850/60">
+                <h4 className="text-[10px] font-bold text-emerald-450 uppercase tracking-wider">Completion Operation Timeline</h4>
+                
+                <div className="space-y-4 pl-4 relative border-l border-slate-800">
+                  
+                  {/* Step 1: Created */}
+                  <div className="relative text-xs">
+                    <div className="absolute -left-[21px] top-0.5 w-2.5 h-2.5 rounded-full bg-slate-800 border-2 border-slate-900" />
+                    <span className="text-slate-500 block text-[9px] uppercase font-bold">Assigned</span>
+                    <span className="text-slate-350 block mt-0.5">{new Date(selectedHistoryItem.created_at).toLocaleString()}</span>
+                  </div>
+
+                  {/* Step 2: Completed */}
+                  <div className="relative text-xs">
+                    <div className="absolute -left-[21px] top-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-slate-900" />
+                    <span className="text-emerald-400 block text-[9px] uppercase font-bold">Resolved / Completed</span>
+                    <span className="text-white block mt-0.5">{new Date(selectedHistoryItem.completed_date).toLocaleString()}</span>
+                  </div>
+
+                </div>
+
+              </div>
+
+            </div>
+
           </div>
         </div>
       )}
