@@ -112,8 +112,8 @@ CREATE TABLE IF NOT EXISTS complaints (
   assigned_employee_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
   subject VARCHAR(200) NOT NULL,
   description TEXT NOT NULL,
-  priority VARCHAR(20) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
-  status VARCHAR(20) DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')),
+  priority VARCHAR(20) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'open', 'in_progress', 'resolved', 'closed')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
   resolved_at TIMESTAMP WITH TIME ZONE
@@ -127,7 +127,7 @@ CREATE TABLE IF NOT EXISTS complaint_updates (
   id SERIAL PRIMARY KEY,
   complaint_id INTEGER REFERENCES complaints(id) ON DELETE CASCADE,
   employee_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
-  status VARCHAR(20) NOT NULL CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')),
+  status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'open', 'in_progress', 'resolved', 'closed')),
   comment TEXT NOT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -149,6 +149,18 @@ async function initializeDatabase() {
       ALTER TABLE employees ADD COLUMN IF NOT EXISTS cnic VARCHAR(20);
       ALTER TABLE employees ADD COLUMN IF NOT EXISTS address TEXT;
       ALTER TABLE employees ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'employee';
+    `);
+
+    // Sync complaints check constraints (if tables already exist)
+    await db.query(`
+      ALTER TABLE complaints DROP CONSTRAINT IF EXISTS complaints_priority_check;
+      ALTER TABLE complaints ADD CONSTRAINT complaints_priority_check CHECK (priority IN ('low', 'medium', 'high', 'urgent'));
+
+      ALTER TABLE complaints DROP CONSTRAINT IF EXISTS complaints_status_check;
+      ALTER TABLE complaints ADD CONSTRAINT complaints_status_check CHECK (status IN ('pending', 'open', 'in_progress', 'resolved', 'closed'));
+
+      ALTER TABLE complaint_updates DROP CONSTRAINT IF EXISTS complaint_updates_status_check;
+      ALTER TABLE complaint_updates ADD CONSTRAINT complaint_updates_status_check CHECK (status IN ('pending', 'open', 'in_progress', 'resolved', 'closed'));
     `);
 
     // Seed packages if table is empty

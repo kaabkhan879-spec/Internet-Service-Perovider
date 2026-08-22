@@ -20,6 +20,13 @@ const {
   toggleEmployeeStatus,
   changeEmployeePassword
 } = require('../controllers/adminEmployeeController');
+const {
+  listComplaints,
+  getComplaintDetails,
+  assignComplaint,
+  changeStatus,
+  addComment
+} = require('../controllers/adminComplaintController');
 const { requireAuth, requireAdmin } = require('../middleware/authMiddleware');
 
 const router = express.Router();
@@ -50,5 +57,12 @@ router.post('/employees', createEmployee);
 router.put('/employees/:id', updateEmployee);
 router.patch('/employees/:id/status', toggleEmployeeStatus);
 router.patch('/employees/:id/password', changeEmployeePassword);
+
+// Complaint administration endpoints
+router.get('/complaints', listComplaints);
+router.get('/complaints/:id', getComplaintDetails);
+router.patch('/complaints/:id/assign', assignComplaint);
+router.patch('/complaints/:id/status', changeStatus);
+router.post('/complaints/:id/updates', addComment);
 
 module.exports = router;

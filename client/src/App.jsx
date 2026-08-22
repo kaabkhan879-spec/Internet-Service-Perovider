@@ -8,6 +8,7 @@ import BillingManagement from './components/BillingManagement';
 import EmployeeManagement from './components/EmployeeManagement';
 import EmployeeLogin from './components/EmployeeLogin';
 import EmployeePortal from './components/EmployeePortal';
+import ComplaintsManagement from './components/ComplaintsManagement';
 
 // Layout wrapper for consistent look and feel
 function Layout({ children, user }) {
@@ -191,6 +192,10 @@ function App() {
           <Route 
             path="/admin/employees" 
             element={user ? <EmployeeManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
+          />
+          <Route 
+            path="/admin/complaints" 
+            element={user ? <ComplaintsManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin/login" replace />} 
           />
           <Route 
             path="/employee/login" 

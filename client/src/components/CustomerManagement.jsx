@@ -98,6 +98,8 @@ function CustomerManagement({ user, onLogoutSuccess }) {
       navigate('/admin/billing');
     } else if (name === 'Employees') {
       navigate('/admin/employees');
+    } else if (name === 'Complaints') {
+      navigate('/admin/complaints');
     } else {
       setToastMessage(`"${name}" module is pending development in the next phase.`);
       setTimeout(() => setToastMessage(''), 3000);
