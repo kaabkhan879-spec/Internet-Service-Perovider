@@ -138,6 +138,19 @@ function EmployeePortal({ user, onLogoutSuccess }) {
   const [billingSortFilter, setBillingSortFilter] = useState('newest');
   const [selectedBillingItem, setSelectedBillingItem] = useState(null);
 
+  // Installations Tab specific search/filter/calendar/wizard states
+  const [installSearch, setInstallSearch] = useState('');
+  const [installStatusFilter, setInstallStatusFilter] = useState('all');
+  const [installTypeFilter, setInstallTypeFilter] = useState('all');
+  const [installTechFilter, setInstallTechFilter] = useState('all');
+  const [installDateFilter, setInstallDateFilter] = useState('');
+  const [selectedInstallTask, setSelectedInstallTask] = useState(null);
+  const [calendarView, setCalendarView] = useState('week');
+  const [calendarAnchorDate, setCalendarAnchorDate] = useState(new Date());
+  const [showCreateInstallWizard, setShowCreateInstallWizard] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const [wizardForm, setWizardForm] = useState({ customerId: '', requestType: 'Installation', description: '', priority: 'medium', dueDate: '', technicianId: '' });
+
   // Complaints Tab specific filter/search/pagination states
   const [complaintsSearch, setComplaintsSearch] = useState('');
   const [complaintsStatusFilter, setComplaintsStatusFilter] = useState('all'); 
@@ -4018,48 +4031,803 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           {/* ==============================================
               TAB 8: INSTALLATIONS SCHEDULES
               ============================================== */}
-          {activeTab === 'Installations' && (
-            <div className="space-y-6 animate-fade-in-up">
-              <div className="pb-4 border-b border-[#111827]">
-                <h2 className="text-lg font-bold text-white">Installations Calendar Schedules</h2>
-                <p className="text-xs text-slate-400">Track and monitor connection installations pipeline and schedule timelines.</p>
-              </div>
+          {activeTab === 'Installations' && (() => {
+            // Helper for date equality
+            const isSameDay = (d1, d2) => {
+              const date1 = new Date(d1);
+              const date2 = new Date(d2);
+              return date1.getFullYear() === date2.getFullYear() &&
+                     date1.getMonth() === date2.getMonth() &&
+                     date1.getDate() === date2.getDate();
+            };
 
-              {loading ? (
-                <div className="h-44 bg-slate-900/30 rounded-2xl animate-pulse" />
-              ) : todayInstallationsList.length > 0 ? (
-                <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-[#111827] space-y-6 shadow-xl">
-                  <div className="relative pl-6 border-l-2 border-slate-850 space-y-6">
-                    {todayInstallationsList.map((inst, idx) => (
-                      <div key={idx} className="relative text-xs animate-fade-in-up">
-                        <div className="absolute -left-[31px] top-1 w-3.5 h-3.5 rounded-full bg-slate-950 border-2 border-cyan-500 shadow-md shadow-cyan-500/20" />
-                        <span className="text-[10px] font-bold text-cyan-400 block leading-none">{new Date(inst.due_date).toLocaleDateString()}</span>
-                        <h4 className="font-extrabold text-white text-sm mt-1.5">New Connection</h4>
-                        <p className="text-slate-350 mt-1">Customer Client Profile: <strong className="text-white">{inst.customer_name}</strong></p>
-                        <p className="text-slate-350">Assigned Technician: <span className="font-medium text-slate-300">{inst.technician_name || 'Unassigned'}</span></p>
-                        <p className="text-slate-400">Service address: <span className="font-light text-slate-400">{inst.customer_address || 'N/A'}</span></p>
-                        <div className="mt-2.5">
-                          <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
-                            inst.status === 'completed' ? 'bg-emerald-950 text-emerald-450 border border-emerald-900/40 text-emerald-400' : 'bg-slate-900 text-slate-500'
-                          }`}>
-                            {inst.status}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="py-20 text-center border border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center space-y-3">
-                  <span className="text-3xl opacity-60">📅</span>
+            // Today's date reference
+            const todayDate = new Date();
+
+            // Filter raw installation/connection tasks from recentRequests
+            const allInstallations = recentRequests.filter(r => 
+              r.task_type === 'Installation' || r.task_type === 'New Connection' || r.task_type === 'Fiber Repair'
+            );
+
+            // Compute statistics dynamically
+            const todayInstalls = allInstallations.filter(r => isSameDay(r.due_date, todayDate));
+            const totalScheduledCount = allInstallations.filter(r => r.status === 'pending').length;
+            const totalInProgressCount = allInstallations.filter(r => r.status === 'in_progress').length;
+            const totalCompletedCount = allInstallations.filter(r => r.status === 'completed' && isSameDay(r.due_date, todayDate)).length;
+
+            // Apply search & filters
+            const filteredInstalls = allInstallations.filter(r => {
+              const q = installSearch.toLowerCase().trim();
+              const matchQ = !q || 
+                r.customer_name?.toLowerCase().includes(q) || 
+                r.technician_name?.toLowerCase().includes(q) || 
+                r.id?.toString().includes(q) ||
+                r.task_type?.toLowerCase().includes(q);
+
+              const matchStatus = installStatusFilter === 'all' || r.status === installStatusFilter;
+              const matchType = installTypeFilter === 'all' || r.task_type === installTypeFilter;
+              
+              // Filter by ONLY actual technicians
+              const matchTech = installTechFilter === 'all' || r.assigned_employee_id?.toString() === installTechFilter;
+              
+              const matchDate = !installDateFilter || isSameDay(r.due_date, installDateFilter);
+
+              return matchQ && matchStatus && matchType && matchTech && matchDate;
+            });
+
+            // Generate calendar weekly dates array starting from anchor date
+            const startOfWeek = new Date(calendarAnchorDate);
+            const dayOfWeek = startOfWeek.getDay(); // 0 is Sunday
+            // Adjust to start from Monday
+            const diff = startOfWeek.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+            startOfWeek.setDate(diff);
+
+            const weeklyDates = [...Array(7)].map((_, i) => {
+              const d = new Date(startOfWeek);
+              d.setDate(startOfWeek.getDate() + i);
+              return d;
+            });
+
+            // Generate monthly dates array
+            const year = calendarAnchorDate.getFullYear();
+            const month = calendarAnchorDate.getMonth();
+            const firstDayOfMonth = new Date(year, month, 1);
+            const startOffset = firstDayOfMonth.getDay() === 0 ? 6 : firstDayOfMonth.getDay() - 1;
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            
+            const monthlyDates = [];
+            // Add padding days from previous month
+            for (let i = startOffset; i > 0; i--) {
+              const d = new Date(year, month, 1 - i);
+              monthlyDates.push(d);
+            }
+            // Add current month days
+            for (let i = 1; i <= daysInMonth; i++) {
+              const d = new Date(year, month, i);
+              monthlyDates.push(d);
+            }
+
+            // Conflict detection warning helper
+            const checkTechConflict = (techId, dueDateStr, excludeTaskId = null) => {
+              if (!techId || !dueDateStr) return false;
+              return allInstallations.some(task => 
+                task.id !== excludeTaskId &&
+                task.assigned_employee_id?.toString() === techId.toString() &&
+                isSameDay(task.due_date, dueDateStr) &&
+                task.status !== 'completed' &&
+                task.status !== 'cancelled'
+              );
+            };
+
+            return (
+              <div className="space-y-6 animate-fade-in-up">
+                
+                {/* 1. Page Header & Actions */}
+                <div className="pb-4 border-b border-[#111827] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
-                    <h4 className="font-extrabold text-white text-sm">No installations scheduled</h4>
-                    <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">Today's installation schedule is clear.</p>
+                    <h2 className="text-xl font-bold text-white tracking-tight">Installation Command Center</h2>
+                    <p className="text-xs text-slate-400">Plan installations, coordinate technicians, and manage today's field operations.</p>
+                  </div>
+                  <div className="flex space-x-2.5">
+                    <button
+                      onClick={() => setCalendarAnchorDate(new Date())}
+                      className="px-4 py-2 bg-slate-955 hover:bg-slate-900 border border-slate-850 text-xs font-bold rounded-xl text-slate-300 transition-colors"
+                    >
+                      Today
+                    </button>
+                    <button
+                      onClick={() => {
+                        setWizardForm({ customerId: customersList[0]?.id.toString() || '', requestType: 'Installation', description: '', priority: 'medium', dueDate: '', technicianId: techniciansList[0]?.id.toString() || '' });
+                        setWizardStep(1);
+                        setShowCreateInstallWizard(true);
+                      }}
+                      className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:brightness-105 text-white font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/10 hover:-translate-y-0.5 active:scale-[0.98] transition-all"
+                    >
+                      + Schedule Installation
+                    </button>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
+
+                {/* 2. Top KPI Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in-up">
+                  {[
+                    { label: "TODAY'S OPERATIONS", val: todayInstalls.length, icon: '📅', desc: 'Scheduled for today' },
+                    { label: 'AWAITING DISPATCH', val: totalScheduledCount, icon: '📋', desc: 'Pending installations' },
+                    { label: 'ON FIELD ACTIVE', val: totalInProgressCount, icon: '⚡', desc: 'Crews en route / active' },
+                    { label: 'COMPLETED TODAY', val: totalCompletedCount, icon: '🟢', desc: 'Finished service connections' }
+                  ].map((k, idx) => (
+                    <div key={idx} className="p-4 rounded-2xl bg-[#090d16]/30 border border-slate-850 flex flex-col justify-between hover:shadow-md transition-all duration-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-bold tracking-wider text-slate-500 uppercase">{k.label}</span>
+                        <span className="text-xs">{k.icon}</span>
+                      </div>
+                      <div className="mt-3">
+                        {loading ? (
+                          <div className="w-12 h-5 bg-slate-900 rounded animate-pulse" />
+                        ) : (
+                          <div className="text-lg font-black text-white">
+                            <AnimatedNumber value={k.val} />
+                          </div>
+                        )}
+                        <span className="text-[8px] text-slate-550 block mt-1">{k.desc}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 3. Search & Filter Bar */}
+                <div className="p-4 rounded-2xl bg-[#090d16]/30 border border-[#111827] flex flex-wrap gap-4 items-center justify-between">
+                  <div className="flex flex-wrap gap-3 items-center flex-grow">
+                    
+                    {/* Search Field */}
+                    <div className="min-w-[260px] flex-grow md:flex-grow-0 relative">
+                      <input
+                        type="text"
+                        placeholder="Search customer name or technician..."
+                        value={installSearch}
+                        onChange={(e) => setInstallSearch(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500/60 transition-all"
+                      />
+                      <span className="absolute left-3 top-2.5 text-xs opacity-50">🔍</span>
+                    </div>
+
+                    {/* Status Filter */}
+                    <div className="w-36">
+                      <select
+                        value={installStatusFilter}
+                        onChange={(e) => setInstallStatusFilter(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="all">All Statuses</option>
+                        <option value="pending">Scheduled</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                      </select>
+                    </div>
+
+                    {/* Type Filter */}
+                    <div className="w-36">
+                      <select
+                        value={installTypeFilter}
+                        onChange={(e) => setInstallTypeFilter(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="all">All Types</option>
+                        <option value="Installation">Installation</option>
+                        <option value="New Connection">New Connection</option>
+                        <option value="Fiber Repair">Fiber Repair</option>
+                      </select>
+                    </div>
+
+                    {/* Technician Filter */}
+                    <div className="w-36">
+                      <select
+                        value={installTechFilter}
+                        onChange={(e) => setInstallTechFilter(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="all">All Crews</option>
+                        {techniciansList.map(t => (
+                          <option key={t.id} value={t.id.toString()}>{t.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Date Picker Filter */}
+                    <div className="w-36">
+                      <input
+                        type="date"
+                        value={installDateFilter}
+                        onChange={(e) => setInstallDateFilter(e.target.value)}
+                        className="w-full px-3 py-1.5 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      />
+                    </div>
+
+                  </div>
+
+                  {(installSearch || installStatusFilter !== 'all' || installTypeFilter !== 'all' || installTechFilter !== 'all' || installDateFilter) && (
+                    <button
+                      onClick={() => {
+                        setInstallSearch('');
+                        setInstallStatusFilter('all');
+                        setInstallTypeFilter('all');
+                        setInstallTechFilter('all');
+                        setInstallDateFilter('');
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-slate-955 hover:bg-slate-900 border border-slate-850 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                    >
+                      Clear Filters
+                    </button>
+                  )}
+                </div>
+
+                {/* 4. Split Grid: Calendar (Left) & Today's Field Operations (Right) */}
+                <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start">
+                  
+                  {/* Calendar Workspace */}
+                  <div className="xl:col-span-3 p-5 rounded-2xl bg-[#090d16]/30 border border-slate-850 space-y-4">
+                    
+                    {/* Calendar Control Panel */}
+                    <div className="flex justify-between items-center border-b border-slate-900 pb-3">
+                      <div className="flex items-center space-x-1.5">
+                        <button
+                          onClick={() => {
+                            const d = new Date(calendarAnchorDate);
+                            if (calendarView === 'week') d.setDate(d.getDate() - 7);
+                            else if (calendarView === 'month') d.setMonth(d.getMonth() - 1);
+                            else d.setDate(d.getDate() - 1);
+                            setCalendarAnchorDate(d);
+                          }}
+                          className="p-1.5 rounded-lg bg-slate-955 border border-slate-850 hover:bg-slate-900 text-xs"
+                        >
+                          ◀ Prev
+                        </button>
+                        <span className="text-xs font-bold text-white px-2">
+                          {calendarAnchorDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                        </span>
+                        <button
+                          onClick={() => {
+                            const d = new Date(calendarAnchorDate);
+                            if (calendarView === 'week') d.setDate(d.getDate() + 7);
+                            else if (calendarView === 'month') d.setMonth(d.getMonth() + 1);
+                            else d.setDate(d.getDate() + 1);
+                            setCalendarAnchorDate(d);
+                          }}
+                          className="p-1.5 rounded-lg bg-slate-955 border border-slate-850 hover:bg-slate-900 text-xs"
+                        >
+                          Next ▶
+                        </button>
+                      </div>
+                      
+                      <div className="flex space-x-1">
+                        {['day', 'week', 'month'].map(v => (
+                          <button
+                            key={v}
+                            onClick={() => setCalendarView(v)}
+                            className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${
+                              calendarView === v ? 'bg-cyan-600 text-white' : 'bg-slate-955 text-slate-400 hover:text-white border border-slate-850'
+                            }`}
+                          >
+                            {v}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Render Calendar Content */}
+                    {calendarView === 'week' ? (
+                      <div className="grid grid-cols-7 gap-2">
+                        {weeklyDates.map((day, idx) => {
+                          const isToday = isSameDay(day, todayDate);
+                          const dayTasks = filteredInstalls.filter(t => isSameDay(t.due_date, day));
+
+                          return (
+                            <div key={idx} className="min-h-[220px] rounded-xl bg-slate-955/20 border border-slate-850/40 p-2 flex flex-col space-y-2">
+                              <div className="text-center pb-2 border-b border-slate-900">
+                                <span className="text-[9px] text-slate-500 uppercase block font-bold">
+                                  {day.toLocaleDateString('default', { weekday: 'short' })}
+                                </span>
+                                <span className={`inline-block w-5 h-5 rounded-full text-xs font-bold mt-1 text-center leading-5 ${
+                                  isToday ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20' : 'text-slate-300'
+                                }`}>
+                                  {day.getDate()}
+                                </span>
+                              </div>
+
+                              <div className="flex-grow space-y-1.5 overflow-y-auto custom-scrollbar pr-0.5">
+                                {dayTasks.map(task => {
+                                  const isPending = task.status === 'pending';
+                                  const isInProgress = task.status === 'in_progress';
+                                  
+                                  return (
+                                    <div
+                                      key={task.id}
+                                      onClick={() => setSelectedInstallTask(task)}
+                                      className={`p-2 rounded-lg cursor-pointer border hover:-translate-y-0.5 transition-all text-[10px] space-y-1 ${
+                                        isPending ? 'bg-blue-955/15 border-blue-900/30 hover:border-blue-700/60' :
+                                        isInProgress ? 'bg-amber-955/15 border-amber-900/30 hover:border-amber-700/60' :
+                                        'bg-emerald-955/15 border-emerald-900/30 hover:border-emerald-700/60'
+                                      }`}
+                                    >
+                                      <div className="flex justify-between font-bold">
+                                        <span className="text-white truncate block w-2/3">{task.customer_name}</span>
+                                        <span className={`text-[8px] px-1 rounded uppercase ${
+                                          isPending ? 'text-blue-400' : isInProgress ? 'text-amber-400' : 'text-emerald-400'
+                                        }`}>{task.status}</span>
+                                      </div>
+                                      <p className="text-slate-400 truncate block">{task.task_type}</p>
+                                      <span className="text-[8px] text-slate-500 block truncate">👷 {task.technician_name || 'Unassigned'}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : calendarView === 'month' ? (
+                      <div className="grid grid-cols-7 gap-1">
+                        {monthlyDates.map((day, idx) => {
+                          const isCurrentMonth = day.getMonth() === calendarAnchorDate.getMonth();
+                          const isToday = isSameDay(day, todayDate);
+                          const dayTasks = filteredInstalls.filter(t => isSameDay(t.due_date, day));
+
+                          return (
+                            <div key={idx} className={`min-h-[70px] rounded-lg border p-1 flex flex-col justify-between ${
+                              isCurrentMonth ? 'bg-slate-955/10 border-slate-900' : 'bg-slate-955/5 border-slate-950 opacity-40'
+                            }`}>
+                              <span className={`text-[9px] font-bold block ${isToday ? 'text-cyan-405' : 'text-slate-500'}`}>
+                                {day.getDate()}
+                              </span>
+                              <div className="space-y-0.5">
+                                {dayTasks.slice(0, 2).map(task => (
+                                  <div
+                                    key={task.id}
+                                    onClick={() => setSelectedInstallTask(task)}
+                                    className="px-1 py-0.5 rounded bg-slate-950 border border-slate-850 text-[8px] text-slate-300 truncate cursor-pointer hover:text-white"
+                                  >
+                                    {task.customer_name}
+                                  </div>
+                                ))}
+                                {dayTasks.length > 2 && (
+                                  <span className="text-[7px] text-cyan-405 font-bold block text-center">+{dayTasks.length - 2} more</span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      // Day View
+                      <div className="space-y-3.5 max-h-[360px] overflow-y-auto custom-scrollbar pr-2">
+                        {filteredInstalls.filter(t => isSameDay(t.due_date, calendarAnchorDate)).map(task => (
+                          <div
+                            key={task.id}
+                            onClick={() => setSelectedInstallTask(task)}
+                            className="p-4 rounded-xl bg-slate-955 border border-slate-850 hover:border-slate-800 cursor-pointer flex justify-between items-center transition-all"
+                          >
+                            <div className="space-y-1">
+                              <span className="text-[9px] text-cyan-400 font-bold uppercase tracking-widest">{task.task_type}</span>
+                              <h4 className="text-white font-extrabold text-sm">{task.customer_name}</h4>
+                              <p className="text-xs text-slate-400 leading-none">Service Address: {task.customer_address || 'N/A'}</p>
+                            </div>
+                            <div className="text-right space-y-1">
+                              <span className="text-xs font-bold text-white block">Crews Assigned: {task.technician_name || 'Unassigned'}</span>
+                              <span className={`inline-block px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
+                                task.status === 'completed' ? 'bg-emerald-955 text-emerald-450' : 'bg-slate-900 text-slate-400'
+                              }`}>{task.status}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                  </div>
+
+                  {/* Right Column: Today's Field Operations Timeline */}
+                  <div className="p-5 rounded-2xl bg-[#090d16]/30 border border-slate-850 space-y-4">
+                    <h3 className="text-xs font-bold text-white uppercase tracking-wider">Today's Operations Timeline</h3>
+                    <div className="relative pl-3 border-l border-slate-850 space-y-5">
+                      {todayInstalls.length > 0 ? (
+                        todayInstalls.map((inst, idx) => {
+                          const isPending = inst.status === 'pending';
+                          return (
+                            <div key={idx} className="relative text-xs">
+                              <span className={`absolute -left-[16.5px] top-1 w-2 h-2 rounded-full border border-slate-900 ${
+                                isPending ? 'bg-blue-500' : inst.status === 'in_progress' ? 'bg-amber-500' : 'bg-emerald-500'
+                              }`} />
+                              <div className="space-y-1">
+                                <span className="font-semibold text-white block">{inst.customer_name}</span>
+                                <span className="text-[10px] text-slate-400 block font-light">{inst.task_type} &mdash; 👷 {inst.technician_name || 'Crew unassigned'}</span>
+                                <span className="text-[9px] text-slate-550 block uppercase font-bold">{inst.status}</span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-[10px] text-slate-555 italic">No scheduled tasks logged for today.</p>
+                      )}
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* 5. Right-Side detailed appointment profile drawer */}
+                {selectedInstallTask && (() => {
+                  const techConflictWarning = checkTechConflict(
+                    selectedInstallTask.assigned_employee_id,
+                    selectedInstallTask.due_date,
+                    selectedInstallTask.id
+                  );
+
+                  return (
+                    <div className="fixed inset-0 z-[60] bg-slate-955/80 backdrop-blur-sm flex justify-end">
+                      <div className="w-[480px] max-w-full h-full bg-[#080d16] border-l border-slate-850 shadow-2xl flex flex-col p-6 space-y-6 overflow-y-auto custom-scrollbar animate-slide-in-right">
+                        
+                        <div className="flex justify-between items-center border-b border-slate-850 pb-4">
+                          <h3 className="text-base font-extrabold text-white">Installation Details</h3>
+                          <button onClick={() => setSelectedInstallTask(null)} className="text-slate-400 hover:text-white text-base font-bold">✕ Close</button>
+                        </div>
+
+                        {techConflictWarning && (
+                          <div className="p-3.5 rounded-2xl bg-amber-955/20 border border-amber-900/40 text-xs text-amber-400 space-y-1">
+                            <span className="font-bold block">⚠️ Schedule Conflict Warning</span>
+                            <p className="text-[10px] leading-relaxed">
+                              {selectedInstallTask.technician_name} is already assigned to another field operation schedule on this date.
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Customer details */}
+                        <div className="p-4 rounded-2xl bg-slate-955 border border-slate-850 space-y-3.5 text-xs">
+                          <span className="text-[9px] text-slate-500 block uppercase font-bold tracking-wider">Subscriber Parameters</span>
+                          <div className="space-y-2.5 text-slate-300">
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Name</span>
+                              <span className="font-semibold text-white">{selectedInstallTask.customer_name}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">ID Reference</span>
+                              <span className="font-mono text-cyan-405">CUST-{selectedInstallTask.customer_id}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Contact Number</span>
+                              <span>{selectedInstallTask.customer_phone || 'N/A'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Installation parameters */}
+                        <div className="p-4 rounded-2xl bg-slate-955 border border-slate-850 space-y-3.5 text-xs">
+                          <span className="text-[9px] text-slate-500 block uppercase font-bold tracking-wider">Field parameters</span>
+                          <div className="space-y-2.5 text-slate-300">
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Installation Type</span>
+                              <span className="font-semibold text-white">{selectedInstallTask.task_type}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-505 text-slate-500">Target Date</span>
+                              <span>{new Date(selectedInstallTask.due_date).toLocaleDateString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Current Status</span>
+                              <span className="font-bold uppercase text-cyan-405">{selectedInstallTask.status}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-505">Address Coordinates</span>
+                              <span className="truncate block max-w-[240px]">{selectedInstallTask.customer_address || 'N/A'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Reassign Tech Dropdown */}
+                        <div className="space-y-2 pt-2 border-t border-slate-850">
+                          <span className="text-[9px] text-slate-550 block font-semibold uppercase">Reassign Crew Dispatch</span>
+                          <div className="space-y-2">
+                            <select
+                              id="installAssignTechSelector"
+                              className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-855 text-slate-300 text-xs focus:outline-none"
+                              defaultValue={selectedInstallTask.assigned_employee_id || (techniciansList[0]?.id || '')}
+                            >
+                              {techniciansList.map((t) => (
+                                <option key={t.id} value={t.id.toString()}>
+                                  {t.name} ({t.active_jobs} active jobs)
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={async () => {
+                                const techSel = document.getElementById('installAssignTechSelector');
+                                if (techSel) {
+                                  const val = techSel.value;
+                                  try {
+                                    const response = await fetch('http://localhost:5000/api/employee/assign-technician', {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({
+                                        type: 'task',
+                                        ticketId: parseInt(selectedInstallTask.id, 10),
+                                        technicianId: parseInt(val, 10)
+                                      }),
+                                      credentials: 'include'
+                                    });
+                                    if (!response.ok) {
+                                      const err = await response.json();
+                                      throw new Error(err.error || 'Assignment failed.');
+                                    }
+                                    showToast(`Technician assigned successfully.`);
+                                    loadPortalData(true);
+                                    setSelectedInstallTask(null);
+                                  } catch (err) {
+                                    alert(err.message);
+                                  }
+                                }
+                              }}
+                              className="w-full py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold rounded-xl transition-all shadow-md shadow-cyan-500/10 hover:-translate-y-0.5 active:scale-[0.98] duration-150"
+                            >
+                              Update Assigned Crew
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Lifecycle update actions */}
+                        <div className="pt-4 border-t border-slate-850 flex flex-col space-y-2 mt-auto">
+                          {selectedInstallTask.status === 'pending' && (
+                            <button
+                              onClick={() => {
+                                handleUpdateTaskStatus(selectedInstallTask.id, 'in_progress');
+                                setSelectedInstallTask(null);
+                              }}
+                              className="w-full py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-xl"
+                            >
+                              Mark In Progress
+                            </button>
+                          )}
+                          {selectedInstallTask.status !== 'completed' && (
+                            <button
+                              onClick={() => {
+                                handleUpdateTaskStatus(selectedInstallTask.id, 'completed');
+                                setSelectedInstallTask(null);
+                              }}
+                              className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl"
+                            >
+                              Mark Completed
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setSelectedInstallTask(null)}
+                            className="w-full py-2 bg-slate-900 hover:bg-slate-850 text-slate-450 hover:text-white font-bold text-xs rounded-xl transition-all"
+                          >
+                            Close Drawer
+                          </button>
+                        </div>
+
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 6. Multi-Step "+ Schedule Installation" Wizard Modal */}
+                {showCreateInstallWizard && (
+                  <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="w-[500px] max-w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4">
+                      
+                      {/* Wizard Header */}
+                      <div className="flex justify-between items-center border-b border-slate-805 pb-3">
+                        <div>
+                          <h3 className="font-extrabold text-white text-base">Schedule Connection Installation</h3>
+                          <span className="text-[10px] text-slate-500">Step {wizardStep} of 5 &mdash; Scheduling wizard</span>
+                        </div>
+                        <button onClick={() => setShowCreateInstallWizard(false)} className="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+                      </div>
+
+                      {/* Wizard Steps */}
+                      <div className="text-xs min-h-[220px]">
+                        
+                        {/* Step 1: Customer */}
+                        {wizardStep === 1 && (
+                          <div className="space-y-4">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Step 1: Select Customer</span>
+                            <div className="space-y-2">
+                              <label className="text-[9px] font-bold text-slate-500">Subscriber Name</label>
+                              <select
+                                value={wizardForm.customerId}
+                                onChange={(e) => setWizardForm({ ...wizardForm, customerId: e.target.value })}
+                                className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-800 text-slate-300 text-xs focus:outline-none"
+                              >
+                                {customersList.map(c => (
+                                  <option key={c.id} value={c.id.toString()}>{c.name} ({c.email})</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Step 2: Installation parameters */}
+                        {wizardStep === 2 && (
+                          <div className="space-y-4">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Step 2: Field parameters</span>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-2">
+                                <label className="text-[9px] font-bold text-slate-500">Installation Type</label>
+                                <select
+                                  value={wizardForm.requestType}
+                                  onChange={(e) => setWizardForm({ ...wizardForm, requestType: e.target.value })}
+                                  className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-805 text-slate-350 text-xs focus:outline-none"
+                                >
+                                  <option value="Installation">Installation</option>
+                                  <option value="New Connection">New Connection</option>
+                                  <option value="Fiber Repair">Fiber Repair</option>
+                                </select>
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-[9px] font-bold text-slate-550">Severity priority</label>
+                                <select
+                                  value={wizardForm.priority}
+                                  onChange={(e) => setWizardForm({ ...wizardForm, priority: e.target.value })}
+                                  className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-805 text-slate-350 text-xs focus:outline-none"
+                                >
+                                  <option value="low">Low</option>
+                                  <option value="medium">Medium</option>
+                                  <option value="high">High</option>
+                                  <option value="urgent">Urgent</option>
+                                </select>
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[9px] font-bold text-slate-550">Task Description Notes</label>
+                              <textarea
+                                placeholder="Describe connection requirements..."
+                                value={wizardForm.description}
+                                onChange={(e) => setWizardForm({ ...wizardForm, description: e.target.value })}
+                                rows="3"
+                                className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-855 text-white placeholder-slate-600 focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Step 3: Schedule Date */}
+                        {wizardStep === 3 && (
+                          <div className="space-y-4">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Step 3: Schedule Date</span>
+                            <div className="space-y-2">
+                              <label className="text-[9px] font-bold text-slate-500">Installation Target Date</label>
+                              <input
+                                type="date"
+                                required
+                                value={wizardForm.dueDate}
+                                onChange={(e) => setWizardForm({ ...wizardForm, dueDate: e.target.value })}
+                                className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-805 text-white focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Step 4: Technician Assignment */}
+                        {wizardStep === 4 && (
+                          <div className="space-y-4">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Step 4: Select crew dispatch</span>
+                            <div className="space-y-2">
+                              <label className="text-[9px] font-bold text-slate-500">Select crew dispatcher</label>
+                              <select
+                                value={wizardForm.technicianId}
+                                onChange={(e) => setWizardForm({ ...wizardForm, technicianId: e.target.value })}
+                                className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-805 text-slate-350 text-xs focus:outline-none"
+                              >
+                                {techniciansList.map(t => (
+                                  <option key={t.id} value={t.id.toString()}>{t.name} (Active: {t.active_jobs} jobs)</option>
+                                ))}
+                              </select>
+                            </div>
+                            {checkTechConflict(wizardForm.technicianId, wizardForm.dueDate) && (
+                              <div className="p-3 bg-amber-955/20 border border-amber-900/40 rounded-xl text-[10px] text-amber-400">
+                                ⚠️ Schedule Conflict: Selected technician already has active tasks on this date.
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Step 5: Confirmation */}
+                        {wizardStep === 5 && (() => {
+                          const customerObj = customersList.find(c => c.id.toString() === wizardForm.customerId.toString());
+                          const techObj = techniciansList.find(t => t.id.toString() === wizardForm.technicianId.toString());
+
+                          return (
+                            <div className="space-y-4">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Step 5: Review & Confirm</span>
+                              <div className="p-3.5 rounded-xl bg-slate-955 border border-slate-850 space-y-2 text-[10px] text-slate-305">
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500">Subscriber:</span>
+                                  <span className="text-white font-bold">{customerObj?.name || 'N/A'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500">Type:</span>
+                                  <span className="text-white font-bold">{wizardForm.requestType}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500">Scheduled Date:</span>
+                                  <span className="text-cyan-405 font-bold">{wizardForm.dueDate}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-500">Crew dispatch:</span>
+                                  <span className="text-white font-bold">{techObj?.name || 'Unassigned'}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                      </div>
+
+                      {/* Wizard Footer controls */}
+                      <div className="pt-3 border-t border-slate-805 flex justify-between">
+                        {wizardStep > 1 ? (
+                          <button
+                            onClick={() => setWizardStep(wizardStep - 1)}
+                            className="px-4.5 py-1.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-400 hover:text-white font-bold rounded-xl"
+                          >
+                            Back
+                          </button>
+                        ) : (
+                          <div />
+                        )}
+
+                        {wizardStep < 5 ? (
+                          <button
+                            onClick={() => {
+                              if (wizardStep === 3 && !wizardForm.dueDate) {
+                                alert("Please select a target installation date.");
+                                return;
+                              }
+                              setWizardStep(wizardStep + 1);
+                            }}
+                            className="px-4.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl"
+                          >
+                            Next Step
+                          </button>
+                        ) : (
+                          <button
+                            onClick={async () => {
+                              try {
+                                const response = await fetch('http://localhost:5000/api/employee/requests', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    customerId: parseInt(wizardForm.customerId, 10),
+                                    requestType: wizardForm.requestType,
+                                    description: wizardForm.description,
+                                    priority: wizardForm.priority,
+                                    dueDate: wizardForm.dueDate,
+                                    assignedEmployeeId: wizardForm.technicianId ? parseInt(wizardForm.technicianId, 10) : null
+                                  }),
+                                  credentials: 'include'
+                                });
+                                if (!response.ok) {
+                                  const err = await response.json();
+                                  throw new Error(err.error || 'Failed to create task request.');
+                                }
+                                showToast("Installation schedule created successfully.");
+                                loadPortalData(true);
+                                setShowCreateInstallWizard(false);
+                              } catch (err) {
+                                alert(err.message);
+                              }
+                            }}
+                            className="px-4.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-105 text-white font-bold rounded-xl shadow-lg transition-all"
+                          >
+                            Confirm Installation
+                          </button>
+                        )}
+                      </div>
+
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            );
+          })()}
 
           {/* ==============================================
               TAB 9: OPERATIONAL REPORTS
