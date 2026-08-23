@@ -138,6 +138,11 @@ function EmployeePortal({ user, onLogoutSuccess }) {
   const [billingSortFilter, setBillingSortFilter] = useState('newest');
   const [selectedBillingItem, setSelectedBillingItem] = useState(null);
 
+  // Refresh / Export states
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState('');
+
   // Installations Tab specific search/filter/calendar/wizard states
   const [installSearch, setInstallSearch] = useState('');
   const [installStatusFilter, setInstallStatusFilter] = useState('all');
@@ -289,20 +294,120 @@ function EmployeePortal({ user, onLogoutSuccess }) {
       }
 
     } catch (err) {
-      setError(err.message);
+      const msg = err.message === 'Failed to fetch' || err.message?.includes('NetworkError') || err.message?.includes('fetch')
+        ? 'Unable to connect to the server. Please try again.'
+        : err.message;
+      setError(msg);
+      throw new Error(msg);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadPortalData();
+    loadPortalData().catch(err => console.error("Initial load failed:", err));
     // Auto-bell animation trigger on initial mount
     setTimeout(() => {
       setTriggerBellRing(true);
       setTimeout(() => setTriggerBellRing(false), 900);
     }, 1200);
   }, []);
+
+  const handleRefreshData = async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    setRefreshError(false);
+    setRefreshMessage('Refreshing...');
+    try {
+      await loadPortalData(true);
+      setRefreshMessage('Data refreshed successfully');
+      setRefreshError(false);
+      showToast('Data refreshed successfully');
+      setTimeout(() => setRefreshMessage(''), 3500);
+    } catch (err) {
+      console.error(err);
+      setRefreshMessage(err.message || 'Unable to refresh data');
+      setRefreshError(true);
+      showToast('Unable to refresh data');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleExportReport = () => {
+    try {
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0];
+      const timeStr = now.toTimeString().split(' ')[0];
+
+      // Calculate dynamic operation parameters
+      const customerCount = customersList.length;
+      const activeServicesCount = customersList.filter(c => c.status === 'active').length;
+      const openComplaintsCount = recentComplaints.filter(c => c.status !== 'resolved').length;
+      const activeTechsCount = techniciansList.length;
+
+      const totalInvoicedSum = billingList.reduce((sum, b) => sum + (b.amount || 0), 0);
+      const collectedSum = billingList.filter(b => b.status === 'paid').reduce((sum, b) => sum + (b.amount || 0), 0);
+      const pendingSum = billingList.filter(b => b.status === 'unpaid' || b.status === 'pending').reduce((sum, b) => sum + (b.amount || 0), 0);
+      const overdueSum = billingList.filter(b => b.status === 'overdue').reduce((sum, b) => sum + (b.amount || 0), 0);
+
+      const totalComplaints = recentComplaints.length;
+      const resolvedComplaints = recentComplaints.filter(c => c.status === 'resolved').length;
+      const resolutionRate = totalComplaints ? ((resolvedComplaints / totalComplaints) * 100).toFixed(1) + '%' : '0.0%';
+
+      const totalTasks = recentRequests.length;
+      const pendingTasks = recentRequests.filter(t => t.status === 'pending').length;
+      const inProgressTasks = recentRequests.filter(t => t.status === 'in_progress').length;
+      const completedTasks = recentRequests.filter(t => t.status === 'completed').length;
+
+      // Construct CSV content
+      const csvRows = [
+        ['ISP OPERATIONS EXECUTIVE REPORT'],
+        [`Generated On: ${dateStr} ${timeStr}`],
+        [],
+        ['Metric Label', 'Value', 'Currency/Unit', 'Description'],
+        ['Total Subscribers', customerCount, 'Accounts', 'Total registered user accounts'],
+        ['Active Services', activeServicesCount, 'Connections', 'Subscribers with active status'],
+        ['Open Complaints', openComplaintsCount, 'Tickets', 'Complaints currently unresolved'],
+        ['Active Technicians', activeTechsCount, 'Staff members', 'Field crew members active'],
+        ['Collected Revenue', collectedSum, 'PKR', 'Paid billing invoices total sum'],
+        ['Pending Collections', pendingSum, 'PKR', 'Unpaid and pending invoice total sum'],
+        ['Overdue Balances', overdueSum, 'PKR', 'Invoices past due date total sum'],
+        ['Total Invoiced Sum', totalInvoicedSum, 'PKR', 'Total of all generated invoices'],
+        ['Total Service Tasks', totalTasks, 'Requests', 'All installation and troubleshoot jobs'],
+        ['Pending Service Tasks', pendingTasks, 'Requests', 'Service requests awaiting action'],
+        ['In Progress Tasks', inProgressTasks, 'Requests', 'Active field crew jobs'],
+        ['Completed Connections', completedTasks, 'Requests', 'Completed installations/repairs'],
+        ['Total Support Complaints', totalComplaints, 'Tickets', 'All complaints logged'],
+        ['Resolved Tickets', resolvedComplaints, 'Tickets', 'Resolved complaints'],
+        ['Support SLA Resolution Rate', resolutionRate, '%', 'SLA ticket completion rate']
+      ];
+
+      const csvContent = csvRows
+        .map(row => row.map(val => {
+          const stringVal = val === null || val === undefined ? '' : String(val);
+          // Escape quotes and wrap in quotes if containing comma
+          if (stringVal.includes(',') || stringVal.includes('"') || stringVal.includes('\n')) {
+            return `"${stringVal.replace(/"/g, '""')}"`;
+          }
+          return stringVal;
+        }).join(','))
+        .join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `employee-operations-report-${dateStr}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast('Report downloaded successfully');
+    } catch (err) {
+      console.error(err);
+      showToast('Unable to export report');
+    }
+  };
 
   const handleUpdateComplaintStatus = async (complaintId, newStatus) => {
     if (newStatus === 'resolved') {
@@ -4879,19 +4984,40 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                     <h2 className="text-xl font-bold text-white tracking-tight">Operations Intelligence Center</h2>
                     <p className="text-xs text-slate-400">Monitor network operations, customer growth, service performance, and team efficiency.</p>
                   </div>
-                  <div className="flex space-x-2.5">
-                    <button
-                      onClick={() => showToast("Compiling full operations report...")}
-                      className="px-4 py-2 bg-slate-955 hover:bg-slate-900 border border-slate-850 text-xs font-bold rounded-xl text-slate-355 transition-colors"
-                    >
-                      Export Report
-                    </button>
-                    <button
-                      onClick={() => loadPortalData(true)}
-                      className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:brightness-105 text-white font-bold text-xs rounded-xl shadow-lg transition-all"
-                    >
-                      Refresh Data
-                    </button>
+                  <div className="flex flex-col items-end space-y-1.5">
+                    <div className="flex space-x-2.5">
+                      <button
+                        onClick={handleExportReport}
+                        disabled={isRefreshing}
+                        className={`px-4 py-2 bg-slate-955 hover:bg-slate-900 border border-slate-850 text-xs font-bold rounded-xl text-slate-355 transition-colors ${
+                          isRefreshing ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        Export Report
+                      </button>
+                      <button
+                        onClick={handleRefreshData}
+                        disabled={isRefreshing}
+                        className={`px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:brightness-105 text-white font-bold text-xs rounded-xl shadow-lg transition-all ${
+                          isRefreshing ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
+                      </button>
+                    </div>
+                    {refreshMessage && (
+                      <span className={`text-[10px] ${refreshError ? 'text-red-400 font-bold animate-pulse' : 'text-emerald-400 font-medium'}`}>
+                        {refreshMessage}
+                        {refreshError && (
+                          <button
+                            onClick={handleRefreshData}
+                            className="ml-2 underline text-white font-semibold hover:text-cyan-405"
+                          >
+                            Retry
+                          </button>
+                        )}
+                      </span>
+                    )}
                   </div>
                 </div>
 
