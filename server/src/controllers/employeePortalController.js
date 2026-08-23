@@ -409,9 +409,11 @@ async function getOperationsDashboardData(req, res) {
     `);
 
     const billingQuery = db.query(`
-      SELECT b.id as invoice_id, c.full_name as customer, b.amount::float as amount, b.status, b.due_date
+      SELECT b.id as invoice_id, c.full_name as customer, c.customer_code, b.amount::float as amount, b.status, b.due_date, b.billing_month, b.paid_at,
+             pay.payment_method, pay.transaction_reference
       FROM bills b
       JOIN customers c ON b.customer_id = c.id
+      LEFT JOIN payments pay ON pay.bill_id = b.id
       ORDER BY b.created_at DESC;
     `);
 
