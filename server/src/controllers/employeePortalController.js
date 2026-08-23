@@ -395,7 +395,7 @@ async function getOperationsDashboardData(req, res) {
       SELECT emp.id, emp.full_name as name, emp.status, emp.designation, emp.phone,
         (SELECT COUNT(*)::int FROM technical_tasks WHERE assigned_employee_id = emp.id AND status != 'completed') as active_jobs
       FROM employees emp
-      WHERE emp.status = 'active'
+      WHERE emp.status = 'active' AND emp.role = 'Technician'
       ORDER BY emp.full_name;
     `);
 

@@ -150,6 +150,12 @@ function EmployeePortal({ user, onLogoutSuccess }) {
   const [tasksSortFilter, setTasksSortFilter] = useState('newest');
   const [refreshingTasks, setRefreshingTasks] = useState(false);
 
+  // Technician Tab specific search/filter states
+  const [techSearch, setTechSearch] = useState('');
+  const [techAvailabilityFilter, setTechAvailabilityFilter] = useState('all');
+  const [techWorkloadFilter, setTechWorkloadFilter] = useState('all');
+  const [selectedTechnician, setSelectedTechnician] = useState(null);
+
   // Quick Action Modal States
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [showNewRequestModal, setShowNewRequestModal] = useState(false);
@@ -967,6 +973,32 @@ function EmployeePortal({ user, onLogoutSuccess }) {
     return 0;
   });
 
+  const filteredTechnicians = techniciansList.filter(t => {
+    const q = techSearch.toLowerCase().trim();
+    const matchQ = !q || t.name.toLowerCase().includes(q) || (t.phone && t.phone.includes(q)) || t.id.toString().includes(q);
+    
+    const isAvail = t.active_jobs === 0;
+    let matchAvailability = true;
+    if (techAvailabilityFilter === 'available') {
+      matchAvailability = isAvail && t.status === 'active';
+    } else if (techAvailabilityFilter === 'on_job') {
+      matchAvailability = !isAvail && t.status === 'active';
+    } else if (techAvailabilityFilter === 'offline') {
+      matchAvailability = t.status === 'inactive';
+    }
+    
+    let matchWorkload = true;
+    if (techWorkloadFilter === 'none') {
+      matchWorkload = t.active_jobs === 0;
+    } else if (techWorkloadFilter === 'medium') {
+      matchWorkload = t.active_jobs >= 1 && t.active_jobs <= 3;
+    } else if (techWorkloadFilter === 'high') {
+      matchWorkload = t.active_jobs >= 4;
+    }
+    
+    return matchQ && matchAvailability && matchWorkload;
+  });
+
   return (
     <div className="flex bg-[#030712] min-h-screen text-[#f3f4f6] font-sans w-full selection:bg-cyan-500 selection:text-[#030712] overflow-x-hidden relative">
       
@@ -1032,7 +1064,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
       `}} />
 
       {/* 1. Sidebar Navigation */}
-      <aside className="w-64 border-r border-[#111827] bg-[#070b15]/90 backdrop-blur-md hidden lg:flex flex-col h-screen sticky top-0 z-40 shrink-0">
+      <aside className="w-[280px] border-r border-[#111827] bg-[#070b15]/90 backdrop-blur-md hidden lg:flex flex-col h-screen sticky top-0 z-40 shrink-0">
         <div className="p-6 border-b border-[#111827] flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/10">
@@ -3135,77 +3167,361 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           {/* ==============================================
               TAB 6: TECHNICIAN COORDINATION
               ============================================== */}
-          {activeTab === 'Technicians' && (
-            <div className="space-y-6 animate-fade-in-up">
-              <div className="pb-4 border-b border-[#111827]">
-                <h2 className="text-lg font-bold text-white">Technician Crew Registry</h2>
-                <p className="text-xs text-slate-400">Coordinate assignees, monitor technician schedules, availability, and active job counters.</p>
-              </div>
+          {activeTab === 'Technicians' && (() => {
+            // Calculate statistics dynamically from the loaded dataset
+            const totalTechs = techniciansList.length;
+            const availableTechs = techniciansList.filter(t => t.active_jobs === 0 && t.status === 'active').length;
+            const onJobTechs = techniciansList.filter(t => t.active_jobs > 0 && t.status === 'active').length;
+            const totalActiveJobsCount = techniciansList.reduce((acc, t) => acc + (t.active_jobs || 0), 0);
 
-              {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-pulse">
-                  {[...Array(4)].map((_, i) => (
-                    <div key={i} className="h-40 bg-slate-900/30 rounded-2xl border border-slate-800" />
+            return (
+              <div className="space-y-6 animate-fade-in-up">
+                
+                {/* 1. Page Header */}
+                <div className="pb-4 border-b border-[#111827]">
+                  <h2 className="text-xl font-bold text-white tracking-tight">Technician Operations Center</h2>
+                  <p className="text-xs text-slate-400">Manage field technicians, monitor availability, workload, and active service assignments.</p>
+                </div>
+
+                {/* 2. KPI Section */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in-up">
+                  {[
+                    { label: 'TOTAL STAFF CREW', val: totalTechs, color: 'border-[#111827]', icon: '🔧', desc: 'Registered technicians' },
+                    { label: 'AVAILABLE NOW', val: availableTechs, color: 'border-emerald-500/10 text-emerald-450', icon: '🟢', desc: 'Ready for dispatch' },
+                    { label: 'ON FIELD JOBS', val: onJobTechs, color: 'border-blue-500/10 text-blue-400', icon: '⚙️', desc: 'Active field crews' },
+                    { label: 'TOTAL ACTIVE JOBS', val: totalActiveJobsCount, color: 'border-cyan-500/10 text-cyan-405', icon: '📋', desc: 'Assigned tech tasks' }
+                  ].map((k, idx) => (
+                    <div key={idx} className={`p-4 rounded-2xl bg-[#090d16]/30 border ${k.color} flex flex-col justify-between hover:shadow-md transition-all duration-200`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-bold tracking-wider text-slate-500 uppercase">{k.label}</span>
+                        <span className="text-xs">{k.icon}</span>
+                      </div>
+                      <div className="mt-3">
+                        {loading ? (
+                          <div className="w-8 h-5 bg-slate-900 rounded animate-pulse" />
+                        ) : (
+                          <div className="text-lg font-black text-white">
+                            <AnimatedNumber value={k.val} />
+                          </div>
+                        )}
+                        <span className="text-[8px] text-slate-550 block mt-1">{k.desc}</span>
+                      </div>
+                    </div>
                   ))}
                 </div>
-              ) : techniciansList.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {techniciansList.map((tech, idx) => {
-                    const statusLabel = tech.active_jobs > 0 ? 'On Job' : 'Available';
-                    return (
-                      <div key={idx} className="p-5 rounded-2xl bg-[#090d16]/30 border border-[#111827] space-y-4">
+
+                {/* 3. Search and Control Filter Bar */}
+                <div className="p-4 rounded-2xl bg-[#090d16]/30 border border-[#111827] flex flex-wrap gap-4 items-center justify-between">
+                  <div className="flex flex-wrap gap-3 items-center flex-grow">
+                    
+                    {/* Search Field */}
+                    <div className="min-w-[260px] flex-grow md:flex-grow-0 relative">
+                      <input
+                        type="text"
+                        placeholder="Search technicians by name, phone or ID..."
+                        value={techSearch}
+                        onChange={(e) => setTechSearch(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500/60 transition-all"
+                      />
+                      <span className="absolute left-3 top-2.5 text-xs opacity-50">🔍</span>
+                    </div>
+
+                    {/* Availability Filter */}
+                    <div className="w-36">
+                      <select
+                        value={techAvailabilityFilter}
+                        onChange={(e) => setTechAvailabilityFilter(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="all">All Statuses</option>
+                        <option value="available">Available</option>
+                        <option value="on_job">On Job</option>
+                        <option value="offline">Offline / Inactive</option>
+                      </select>
+                    </div>
+
+                    {/* Workload Filter */}
+                    <div className="w-36">
+                      <select
+                        value={techWorkloadFilter}
+                        onChange={(e) => setTechWorkloadFilter(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="all">All Workloads</option>
+                        <option value="none">No Active Jobs</option>
+                        <option value="medium">1–3 Jobs</option>
+                        <option value="high">4+ Jobs</option>
+                      </select>
+                    </div>
+
+                  </div>
+
+                  {(techSearch || techAvailabilityFilter !== 'all' || techWorkloadFilter !== 'all') && (
+                    <button
+                      onClick={() => {
+                        setTechSearch('');
+                        setTechAvailabilityFilter('all');
+                        setTechWorkloadFilter('all');
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-slate-955 hover:bg-slate-900 border border-slate-850 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                    >
+                      Clear Filters
+                    </button>
+                  )}
+                </div>
+
+                {/* 4. Technicians Grid */}
+                {loading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="h-44 bg-[#090d16]/30 rounded-2xl border border-slate-800 animate-pulse space-y-4 p-5">
                         <div className="flex justify-between items-center">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-800 to-slate-950 flex items-center justify-center font-bold text-sm text-cyan-400 shadow-md border border-slate-850">
-                              {tech.name.slice(0, 2).toUpperCase()}
-                            </div>
-                            <div>
-                              <h4 className="font-extrabold text-white text-sm">{tech.name}</h4>
-                              <span className="text-[9px] text-slate-500">Field Technician</span>
-                            </div>
-                          </div>
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
-                            statusLabel === 'Available' ? 'bg-emerald-950 text-emerald-450 text-emerald-400 border border-emerald-900/40' : 'bg-blue-950 text-blue-400 border border-blue-900/40'
-                          }`}>
-                            {statusLabel}
-                          </span>
+                          <div className="w-10 h-10 bg-slate-900 rounded-xl" />
+                          <div className="w-20 h-4 bg-slate-900 rounded" />
                         </div>
+                        <div className="h-4 bg-slate-900 rounded w-2/3" />
+                        <div className="h-4 bg-slate-900 rounded w-full" />
+                      </div>
+                    ))}
+                  </div>
+                ) : filteredTechnicians.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {filteredTechnicians.map((tech, idx) => {
+                      const nameInitials = tech.name ? tech.name.slice(0, 2).toUpperCase() : 'TC';
+                      const isOffline = tech.status === 'inactive';
+                      const activeJobs = tech.active_jobs || 0;
+                      const statusLabel = isOffline ? 'OFFLINE' : activeJobs > 0 ? 'ON JOB' : 'AVAILABLE';
+                      
+                      // Workload calculation
+                      const maxJobs = 4;
+                      const workloadPercent = Math.min((activeJobs / maxJobs) * 100, 100);
+                      const workloadColor = workloadPercent >= 100 ? 'bg-red-500 shadow-red-500/20' : workloadPercent >= 50 ? 'bg-amber-500 shadow-amber-500/20' : 'bg-cyan-500 shadow-cyan-500/20';
 
-                        <div className="space-y-2 border-t border-slate-900 pt-3.5 text-xs">
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Contact Phone:</span>
-                            <span className="text-slate-300 font-medium">{tech.phone || 'N/A'}</span>
+                      return (
+                        <div
+                          key={tech.id}
+                          style={{ animationDelay: `${idx * 50}ms` }}
+                          className="p-5 rounded-2xl bg-[#090d16]/30 border border-slate-850 hover:border-slate-800 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-200 flex flex-col justify-between animate-fade-in-up"
+                        >
+                          <div className="space-y-4">
+                            
+                            {/* Profile Header */}
+                            <div className="flex justify-between items-start">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-950 to-slate-900 border border-slate-800 flex items-center justify-center font-bold text-xs text-cyan-405 shadow-inner">
+                                  {nameInitials}
+                                </div>
+                                <div>
+                                  <h4 className="font-extrabold text-white text-sm tracking-tight leading-tight">{tech.name}</h4>
+                                  <span className="text-[9px] text-slate-500 font-medium tracking-wide block mt-0.5">Field Crew &mdash; ID: {tech.id}</span>
+                                </div>
+                              </div>
+                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[8px] font-bold border ${
+                                isOffline ? 'bg-slate-950 border-slate-800 text-slate-500' :
+                                activeJobs > 0 ? 'bg-blue-955/20 border border-blue-900/40 text-blue-400' :
+                                'bg-emerald-955/20 border border-emerald-900/40 text-emerald-450'
+                              }`}>
+                                {statusLabel}
+                              </span>
+                            </div>
+
+                            {/* Tech details */}
+                            <div className="space-y-2 border-t border-slate-900 pt-3.5 text-xs text-slate-350 font-light">
+                              <div className="flex justify-between">
+                                <span className="text-slate-500">Contact:</span>
+                                <span className="font-semibold text-slate-300">{tech.phone || 'N/A'}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-500">Active Tasks:</span>
+                                <span className="font-bold text-white">{activeJobs} assigned</span>
+                              </div>
+                            </div>
+
+                            {/* Workload Progress Indicator */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[9px] font-semibold text-slate-500">
+                                <span>Workload Intensity</span>
+                                <span className="text-slate-300">{workloadPercent}%</span>
+                              </div>
+                              <div className="w-full h-1.5 rounded-full bg-slate-950 overflow-hidden border border-slate-900">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-300 shadow-sm ${workloadColor}`}
+                                  style={{ width: `${workloadPercent}%` }}
+                                />
+                              </div>
+                            </div>
+
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Active Job Tasks:</span>
-                            <span className="text-white font-bold">{tech.active_jobs} assigned</span>
+
+                          {/* Action triggers */}
+                          <div className="pt-4 mt-2 flex flex-col space-y-2">
+                            <button
+                              onClick={() => setSelectedTechnician(tech)}
+                              className="w-full py-2 bg-slate-950 hover:bg-slate-900 border border-slate-850 hover:border-slate-800 text-xs font-bold rounded-xl text-slate-350 hover:text-white transition-all active:scale-[0.98]"
+                            >
+                              View Profile Drawer
+                            </button>
+                            <button
+                              onClick={() => {
+                                setAssignForm({ type: 'task', ticketId: '', technicianId: tech.id.toString() });
+                                setShowAssignTechModal(true);
+                              }}
+                              className="w-full py-2 bg-cyan-900/10 border border-cyan-800/40 hover:bg-cyan-900/20 text-xs font-bold rounded-xl text-cyan-405 hover:text-white transition-all active:scale-[0.98]"
+                            >
+                              Assign Connection Ticket
+                            </button>
                           </div>
+
                         </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  // Empty State
+                  <div className="py-20 text-center border border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center space-y-4 animate-fade-in-up">
+                    <div className="w-16 h-16 rounded-2xl bg-slate-950/80 border border-slate-900 flex items-center justify-center shadow-lg relative overflow-hidden group">
+                      <svg className="w-8 h-8 text-cyan-405 text-cyan-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    </div>
 
+                    <div className="space-y-1">
+                      <h4 className="font-extrabold text-white text-base">No Technicians Found</h4>
+                      <p className="text-xs text-slate-500 max-w-xs mx-auto">No field technicians are currently registered matching your query filters.</p>
+                      <div className="pt-3">
                         <button
                           onClick={() => {
-                            setAssignForm({ type: 'task', ticketId: '', technicianId: tech.id.toString() });
-                            setShowAssignTechModal(true);
+                            setTechSearch('');
+                            setTechAvailabilityFilter('all');
+                            setTechWorkloadFilter('all');
                           }}
-                          className="w-full py-2 bg-[#070b14] hover:bg-slate-900 border border-slate-800 text-xs font-bold rounded-xl text-slate-350 hover:text-white transition-colors"
+                          className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl"
                         >
-                          Assign Ticket
+                          Clear Filters
                         </button>
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="py-20 text-center border border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center space-y-3">
-                  <span className="text-3xl opacity-60">🔧</span>
-                  <div>
-                    <h4 className="font-extrabold text-white text-sm">No technicians available</h4>
-                    <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">Technician availability will appear here.</p>
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+
+                {/* 5. Custom Technician details Profile Panel drawer */}
+                {selectedTechnician && (() => {
+                  const nameInitials = selectedTechnician.name ? selectedTechnician.name.slice(0, 2).toUpperCase() : 'TC';
+                  // Filter jobs assigned to this technician from recentRequests
+                  const assignedTechJobs = recentRequests.filter(req => req.assigned_employee_id?.toString() === selectedTechnician.id?.toString());
+                  const activeTechJobs = assignedTechJobs.filter(j => j.status !== 'completed' && j.status !== 'cancelled');
+                  const completedTechJobs = assignedTechJobs.filter(j => j.status === 'completed');
+
+                  return (
+                    <div className="fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-sm flex justify-end">
+                      <div className="w-[480px] max-w-full h-full bg-[#080d16] border-l border-slate-850 shadow-2xl flex flex-col p-6 space-y-6 overflow-y-auto custom-scrollbar animate-slide-in-right">
+                        
+                        {/* Drawer Header */}
+                        <div className="flex justify-between items-center border-b border-slate-850 pb-4">
+                          <h3 className="text-base font-extrabold text-white">Technician Profile</h3>
+                          <button onClick={() => setSelectedTechnician(null)} className="text-slate-400 hover:text-white text-base font-bold">✕ Close</button>
+                        </div>
+
+                        {/* Top Profile Summary */}
+                        <div className="flex items-center space-x-4">
+                          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-slate-950 to-slate-900 border border-slate-800 flex items-center justify-center font-black text-base text-cyan-405 shadow-inner">
+                            {nameInitials}
+                          </div>
+                          <div>
+                            <h4 className="text-base font-black text-white leading-none">{selectedTechnician.name}</h4>
+                            <span className="text-[10px] text-slate-500 font-bold block mt-1.5">Designation: {selectedTechnician.designation || 'Field Technician'}</span>
+                            <span className="text-[9px] text-cyan-400 uppercase font-black tracking-widest mt-1 block">ACTIVE IN SYSTEM</span>
+                          </div>
+                        </div>
+
+                        {/* Contact info list */}
+                        <div className="p-4 rounded-2xl bg-slate-955 border border-slate-850 space-y-3.5 text-xs">
+                          <span className="text-[9px] text-slate-500 block uppercase font-bold tracking-wider">Registry Credentials</span>
+                          <div className="space-y-2.5 text-slate-300">
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Technician ID</span>
+                              <span className="font-mono text-white font-bold">TECH-{selectedTechnician.id}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Phone Number</span>
+                              <span className="font-bold">{selectedTechnician.phone || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Active Workload</span>
+                              <span className="font-bold text-white">{activeTechJobs.length} active tasks</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-slate-500">Completed Work</span>
+                              <span className="font-bold text-emerald-400">{completedTechJobs.length} resolved</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Assigned Job Tickets list */}
+                        <div className="space-y-3.5 flex-grow overflow-hidden flex flex-col">
+                          <span className="text-[9px] text-slate-500 block uppercase font-bold tracking-wider">Assigned Task Tickets</span>
+                          
+                          {activeTechJobs.length > 0 ? (
+                            <div className="space-y-3 overflow-y-auto custom-scrollbar flex-grow pr-1">
+                              {activeTechJobs.map((j) => (
+                                <div key={j.id} className="p-3.5 rounded-xl bg-slate-950 border border-slate-850 space-y-2 hover:border-slate-800 transition-colors">
+                                  <div className="flex justify-between items-start">
+                                    <span className="font-mono font-bold text-white text-[11px]">REQ-{j.id}</span>
+                                    <span className="px-1.5 py-0.5 rounded text-[8px] font-bold uppercase bg-slate-900 border border-slate-800 text-slate-400">
+                                      {j.priority}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <span className="block text-slate-300 font-semibold leading-tight">{j.customer_name}</span>
+                                    <span className="block text-[9.5px] text-slate-505 mt-0.5 font-bold uppercase">{j.task_type}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-[9px] text-slate-500 border-t border-slate-900 pt-2 mt-1">
+                                    <span>Target: {new Date(j.due_date).toLocaleDateString()}</span>
+                                    <span className="text-cyan-405 font-bold uppercase">{j.status}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="py-8 text-center bg-slate-950/20 border border-dashed border-slate-850 rounded-2xl flex flex-col items-center justify-center space-y-2">
+                              <span className="text-xl">📋</span>
+                              <div>
+                                <h5 className="font-extrabold text-white text-[11px]">No active dispatch jobs</h5>
+                                <p className="text-[10px] text-slate-500 mt-0.5">Technician has zero active tasks assigned.</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Drawer Actions */}
+                        <div className="pt-4 border-t border-slate-850 flex flex-col space-y-2.5">
+                          <button
+                            onClick={() => {
+                              setSelectedTechnician(null);
+                              setAssignForm({ type: 'task', ticketId: '', technicianId: selectedTechnician.id.toString() });
+                              setShowAssignTechModal(true);
+                            }}
+                            className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/10 hover:-translate-y-0.5 transition-all"
+                          >
+                            Assign Connection Ticket
+                          </button>
+                          <button
+                            onClick={() => setSelectedTechnician(null)}
+                            className="w-full py-2.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-400 hover:text-white font-bold text-xs rounded-xl transition-all"
+                          >
+                            Close Details
+                          </button>
+                        </div>
+
+                      </div>
+                    </div>
+                  );
+                })()}
+
+              </div>
+            );
+          })()}
 
           {/* ==============================================
               TAB 7: BILLING & PAYMENTS
