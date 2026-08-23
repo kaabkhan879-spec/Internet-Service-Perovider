@@ -4832,62 +4832,282 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           {/* ==============================================
               TAB 9: OPERATIONAL REPORTS
               ============================================== */}
-          {activeTab === 'Reports' && (
-            <div className="space-y-6 animate-fade-in-up">
-              <div className="pb-4 border-b border-[#111827]">
-                <h2 className="text-lg font-bold text-white">ISP Operations & Analytics Reports</h2>
-                <p className="text-xs text-slate-400">View diagnostic visual charts, trouble ticket performance, and customer growth dynamics.</p>
-              </div>
+          {activeTab === 'Reports' && (() => {
+            // Calculate dynamic operation parameters
+            const customerCount = customersList.length;
+            const activeServicesCount = customersList.filter(c => c.status === 'active').length;
+            const openComplaintsCount = recentComplaints.filter(c => c.status !== 'resolved').length;
+            const activeTechsCount = techniciansList.length;
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            const totalInvoicedSum = billingList.reduce((sum, b) => sum + (b.amount || 0), 0);
+            const collectedSum = billingList.filter(b => b.status === 'paid').reduce((sum, b) => sum + (b.amount || 0), 0);
+            const pendingSum = billingList.filter(b => b.status === 'unpaid' || b.status === 'pending').reduce((sum, b) => sum + (b.amount || 0), 0);
+            const overdueSum = billingList.filter(b => b.status === 'overdue').reduce((sum, b) => sum + (b.amount || 0), 0);
+
+            // Compute support resolution parameters
+            const totalComplaints = recentComplaints.length || 1;
+            const resolvedComplaints = recentComplaints.filter(c => c.status === 'resolved').length;
+            const resolutionRate = ((resolvedComplaints / totalComplaints) * 100).toFixed(1);
+
+            // Compute service tasks parameters
+            const totalTasks = recentRequests.length;
+            const pendingTasks = recentRequests.filter(t => t.status === 'pending').length;
+            const inProgressTasks = recentRequests.filter(t => t.status === 'in_progress').length;
+            const completedTasks = recentRequests.filter(t => t.status === 'completed').length;
+
+            // Health statuses based on calculated values
+            const supportHealth = openComplaintsCount > 5 ? '🟡 Warning' : '🟢 Healthy';
+            const billingHealth = overdueSum > 150000 ? '🟡 Alert' : '🟢 Healthy';
+            const techCapacity = techniciansList.some(t => t.active_jobs >= 4) ? '🟡 High Load' : '🟢 Healthy';
+
+            // Group customer growth by month for mini-chart visualization
+            const monthlyRegs = {};
+            customersList.forEach(c => {
+              const monthName = new Date(c.created_at || new Date()).toLocaleString('default', { month: 'short' });
+              monthlyRegs[monthName] = (monthlyRegs[monthName] || 0) + 1;
+            });
+            const months = Object.keys(monthlyRegs).slice(-6); // last 6 months
+            const growthData = months.map(m => monthlyRegs[m]);
+            const maxGrowth = Math.max(...growthData, 1);
+
+            return (
+              <div className="space-y-6 animate-fade-in-up">
                 
-                {/* SLA performance card */}
-                <div className="p-5 rounded-2xl bg-[#090d16]/30 border border-[#111827] space-y-5">
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Trouble Ticket Performance SLA</h4>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between text-[11px] text-slate-400 mb-1">
-                        <span>Complaints Resolution Rate:</span>
-                        <span className="font-bold text-white">
-                          {loading ? '...' : stats.openComplaints === 0 ? '100%' : '92.4%'}
-                        </span>
-                      </div>
-                      <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-500" style={{ width: stats.openComplaints === 0 ? '100%' : '92.4%' }} />
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between text-[11px] text-slate-400 mb-1">
-                        <span>New Connections Deployment SLA:</span>
-                        <span className="font-bold text-white">88.5%</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-slate-900 rounded-full overflow-hidden">
-                        <div className="h-full bg-cyan-500" style={{ width: '88.5%' }} />
-                      </div>
-                    </div>
+                {/* 1. Page Header */}
+                <div className="pb-4 border-b border-[#111827] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-white tracking-tight">Operations Intelligence Center</h2>
+                    <p className="text-xs text-slate-400">Monitor network operations, customer growth, service performance, and team efficiency.</p>
+                  </div>
+                  <div className="flex space-x-2.5">
+                    <button
+                      onClick={() => showToast("Compiling full operations report...")}
+                      className="px-4 py-2 bg-slate-955 hover:bg-slate-900 border border-slate-850 text-xs font-bold rounded-xl text-slate-355 transition-colors"
+                    >
+                      Export Report
+                    </button>
+                    <button
+                      onClick={() => loadPortalData(true)}
+                      className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:brightness-105 text-white font-bold text-xs rounded-xl shadow-lg transition-all"
+                    >
+                      Refresh Data
+                    </button>
                   </div>
                 </div>
 
-                {/* Database counts summary */}
-                <div className="p-5 rounded-2xl bg-[#090d16]/30 border border-[#111827] space-y-4 text-xs">
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Operational Aggregates Summary</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-3 bg-slate-950/20 border border-slate-900 rounded-xl">
-                      <span className="text-slate-500 text-[10px]">Registered Packages:</span>
-                      <strong className="text-white block mt-1 text-sm">{packagesList.length} packages</strong>
+                {/* 2. Executive KPI Row */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in-up">
+                  {[
+                    { label: 'TOTAL SUBSCRIBERS', val: customerCount, icon: '👥', desc: 'Registered accounts' },
+                    { label: 'ACTIVE SERVICES', val: activeServicesCount, icon: '🟢', desc: 'Live broadband links' },
+                    { label: 'OPEN TICKET LEDGER', val: openComplaintsCount, icon: '🎫', desc: 'Complaints unresolved' },
+                    { label: 'ACTIVE CREWS', val: activeTechsCount, icon: '🔧', desc: 'Field crew technicians' }
+                  ].map((k, idx) => (
+                    <div key={idx} className="p-4 rounded-2xl bg-[#090d16]/30 border border-slate-850 flex flex-col justify-between hover:shadow-md transition-all duration-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-bold tracking-wider text-slate-500 uppercase">{k.label}</span>
+                        <span className="text-xs">{k.icon}</span>
+                      </div>
+                      <div className="mt-3">
+                        <div className="text-lg font-black text-white">
+                          <AnimatedNumber value={k.val} />
+                        </div>
+                        <span className="text-[8px] text-slate-550 block mt-1">{k.desc}</span>
+                      </div>
                     </div>
-                    <div className="p-3 bg-slate-950/20 border border-slate-900 rounded-xl">
-                      <span className="text-slate-500 text-[10px]">Active Technicians:</span>
-                      <strong className="text-white block mt-1 text-sm">{techniciansList.length} members</strong>
+                  ))}
+                </div>
+
+                {/* 3. Analytics Grid Row: Revenue & Customer Growth */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  
+                  {/* Revenue Overview Card */}
+                  <div className="p-5 rounded-2xl bg-[#090d16]/30 border border-slate-850 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">Revenue Stream Distribution</h4>
+                      <span className="text-[10px] text-slate-450">PKR ledger breakdown</span>
                     </div>
+                    <div className="space-y-3 pt-2">
+                      {[
+                        { label: 'Collected Revenue', val: collectedSum, color: 'bg-emerald-500', pct: totalInvoicedSum ? Math.round((collectedSum / totalInvoicedSum) * 100) : 0 },
+                        { label: 'Pending Collections', val: pendingSum, color: 'bg-amber-500', pct: totalInvoicedSum ? Math.round((pendingSum / totalInvoicedSum) * 100) : 0 },
+                        { label: 'Overdue Balances', val: overdueSum, color: 'bg-red-500', pct: totalInvoicedSum ? Math.round((overdueSum / totalInvoicedSum) * 100) : 0 }
+                      ].map((r, idx) => (
+                        <div key={idx} className="space-y-1">
+                          <div className="flex justify-between text-[11px] text-slate-350">
+                            <span>{r.label} ({r.pct}%)</span>
+                            <span className="font-semibold text-white">PKR {r.val.toLocaleString()}</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-900">
+                            <div className={`h-full rounded-full ${r.color}`} style={{ width: `${r.pct}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Customer Growth Sparkline Card */}
+                  <div className="p-5 rounded-2xl bg-[#090d16]/30 border border-slate-850 space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">Subscriber Growth Dynamics</h4>
+                      <span className="text-[10px] text-cyan-405 font-bold">Monthly trends</span>
+                    </div>
+                    
+                    {growthData.length > 0 ? (
+                      <div className="space-y-4">
+                        <div className="h-24 flex items-end justify-between gap-2.5 pt-3">
+                          {growthData.map((val, idx) => {
+                            const pctHeight = (val / maxGrowth) * 100;
+                            return (
+                              <div key={idx} className="flex-1 flex flex-col items-center space-y-1.5 h-full justify-end">
+                                <div
+                                  className="w-full bg-gradient-to-t from-cyan-600 to-blue-500 rounded-t-lg shadow-inner hover:brightness-110 transition-all duration-300"
+                                  style={{ height: `${pctHeight}%` }}
+                                  title={`Registrations: ${val}`}
+                                />
+                                <span className="text-[8px] text-slate-500 font-bold uppercase">{months[idx]}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-24 flex items-center justify-center text-slate-550 italic text-[10px]">
+                        Historical customer growth data will appear as more records are collected.
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+
+                {/* 4. Service & Support Performance Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  
+                  {/* Service Requests Performance */}
+                  <div className="p-5 rounded-2xl bg-[#090d16]/30 border border-slate-850 space-y-4 text-xs">
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Service Task Operations</h4>
+                    <div className="space-y-2.5">
+                      <div className="flex justify-between">
+                        <span className="text-slate-505">Total Deployment Tasks</span>
+                        <span className="text-white font-bold">{totalTasks} requests</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-505">Pending Action</span>
+                        <span className="text-amber-400 font-bold">{pendingTasks} scheduled</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-505">In Progress Active</span>
+                        <span className="text-cyan-405 font-bold">{inProgressTasks} field</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-505">Completed Connections</span>
+                        <span className="text-emerald-400 font-bold">{completedTasks} closed</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Complaint Resolution rate */}
+                  <div className="p-5 rounded-2xl bg-[#090d16]/30 border border-slate-850 space-y-4 text-xs">
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Support SLA Compliance</h4>
+                    <div className="space-y-4">
+                      <div>
+                        <div className="flex justify-between text-[11px] text-slate-350 mb-1">
+                          <span>Trouble Ticket Resolution Rate</span>
+                          <span className="font-bold text-white">{resolutionRate}% Resolved</span>
+                        </div>
+                        <div className="w-full h-2 bg-slate-955 rounded-full overflow-hidden border border-slate-900">
+                          <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-500" style={{ width: `${resolutionRate}%` }} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-center pt-2">
+                        <div className="bg-slate-950/20 p-2 rounded-xl border border-slate-900">
+                          <span className="text-[9px] text-slate-500 block">TOTAL</span>
+                          <strong className="text-white text-xs">{totalComplaints}</strong>
+                        </div>
+                        <div className="bg-slate-950/20 p-2 rounded-xl border border-slate-900">
+                          <span className="text-[9px] text-slate-500 block">OPEN</span>
+                          <strong className="text-white text-xs">{openComplaintsCount}</strong>
+                        </div>
+                        <div className="bg-slate-950/20 p-2 rounded-xl border border-slate-900">
+                          <span className="text-[9px] text-slate-500 block">RESOLVED</span>
+                          <strong className="text-emerald-450 text-xs">{resolvedComplaints}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Operational Health Center */}
+                  <div className="p-5 rounded-2xl bg-[#090d16]/30 border border-slate-850 space-y-4 text-xs">
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider">Operational Health Center</h4>
+                    <div className="space-y-2.5">
+                      <div className="flex justify-between">
+                        <span className="text-slate-505">Support Ticket Status</span>
+                        <span className="font-bold">{supportHealth}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-505">Overdue Billing Collection</span>
+                        <span className="font-bold">{billingHealth}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-505">Technician Dispatch Capacity</span>
+                        <span className="font-bold">{techCapacity}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-505">General Operations Status</span>
+                        <span className="font-bold text-emerald-405">🟢 Stable</span>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* 5. Technician Load operations summary */}
+                <div className="p-5 rounded-2xl bg-[#090d16]/30 border border-slate-850 space-y-4 text-xs">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Technician Workload Roster</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {techniciansList.map(t => (
+                      <div key={t.id} className="p-3 bg-slate-955 border border-slate-850 rounded-xl space-y-1">
+                        <span className="text-slate-500 text-[10px] block">Field Crew Member</span>
+                        <strong className="text-white text-xs block truncate">{t.name}</strong>
+                        <span className="text-[9px] text-slate-450 block font-bold">{t.active_jobs} active job tasks</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 6. Available Actionable Reports Section */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider">System Reports Ledger</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[
+                      { title: 'Customer Operations Report', desc: 'Active services, registered accounts, packages, and coordinates.', tag: 'customer' },
+                      { title: 'Billing & Ledger Report', desc: 'Collections, pending invoice records, and overdue balances.', tag: 'billing' },
+                      { title: 'Field Crew Service Report', desc: 'Deployment tasks, router replacements, and connection activity.', tag: 'service' },
+                      { title: 'Technician Coordination Report', desc: 'Technician load levels, assignments, and availability logs.', tag: 'technician' },
+                      { title: 'Installations Schedule Report', desc: 'Installations scheduled, en route crews, and completion SLA.', tag: 'installation' },
+                      { title: 'Customer Support Report', desc: 'Complaints, trouble ticket resolution rates, and SLA benchmarks.', tag: 'support' }
+                    ].map((rep, idx) => (
+                      <div key={idx} className="p-5 rounded-2xl bg-[#090d16]/30 border border-slate-850 hover:border-slate-800 transition-all flex flex-col justify-between">
+                        <div className="space-y-2">
+                          <h4 className="text-xs font-bold text-white uppercase tracking-wider">{rep.title}</h4>
+                          <p className="text-[11px] text-slate-450 font-light leading-relaxed">{rep.desc}</p>
+                        </div>
+                        <div className="pt-4 flex justify-end">
+                          <button
+                            onClick={() => showToast(`Generating ${rep.title} file...`)}
+                            className="px-3.5 py-1.5 bg-slate-955 border border-slate-850 hover:border-slate-800 text-[10px] font-bold text-slate-350 hover:text-white rounded-lg transition-colors"
+                          >
+                            Compile Report
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ==============================================
               TAB 10: NOTIFICATIONS HUB
