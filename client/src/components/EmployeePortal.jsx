@@ -144,6 +144,9 @@ function EmployeePortal({ user, onLogoutSuccess }) {
   const [tasksTypeFilter, setTasksTypeFilter] = useState('all'); 
   const [tasksCurrentPage, setTasksCurrentPage] = useState(1);
   const tasksPerPage = 8;
+  const [tasksDateFilter, setTasksDateFilter] = useState('all');
+  const [tasksSortFilter, setTasksSortFilter] = useState('newest');
+  const [refreshingTasks, setRefreshingTasks] = useState(false);
 
   // Quick Action Modal States
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
@@ -865,12 +868,48 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
   const filteredCustomers = sortedAndFilteredCustomers;
 
-  const filteredTasks = recentRequests.filter(t => {
+  const filteredTasks = [...recentRequests].filter(t => {
     const q = tasksSearch.toLowerCase().trim();
-    const matchQ = !q || t.id.toString().includes(q) || t.customer_name?.toLowerCase().includes(q);
+    const matchQ = !q || 
+      t.id.toString().includes(q) || 
+      (t.customer_name && t.customer_name.toLowerCase().includes(q)) || 
+      (t.customer_phone && t.customer_phone.includes(q)) ||
+      (t.customer_email && t.customer_email.toLowerCase().includes(q));
+      
     const matchStatus = tasksStatusFilter === 'all' || t.status === tasksStatusFilter;
     const matchType = tasksTypeFilter === 'all' || t.task_type === tasksTypeFilter;
-    return matchQ && matchStatus && matchType;
+    
+    let matchDate = true;
+    if (tasksDateFilter !== 'all') {
+      const taskDate = new Date(t.created_at);
+      const today = new Date();
+      const diffTime = Math.abs(today - taskDate);
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      if (tasksDateFilter === 'today') {
+        matchDate = taskDate.toDateString() === today.toDateString();
+      } else if (tasksDateFilter === 'week') {
+        matchDate = diffDays <= 7;
+      } else if (tasksDateFilter === 'month') {
+        matchDate = diffDays <= 30;
+      }
+    }
+    
+    return matchQ && matchStatus && matchType && matchDate;
+  }).sort((a, b) => {
+    if (tasksSortFilter === 'newest') {
+      return new Date(b.created_at) - new Date(a.created_at);
+    } else if (tasksSortFilter === 'oldest') {
+      return new Date(a.created_at) - new Date(b.created_at);
+    } else if (tasksSortFilter === 'priority') {
+      const pLevel = { urgent: 4, high: 3, medium: 2, low: 1 };
+      const priorityA = pLevel[a.priority?.toLowerCase()] || 0;
+      const priorityB = pLevel[b.priority?.toLowerCase()] || 0;
+      return priorityB - priorityA;
+    } else if (tasksSortFilter === 'status') {
+      return (a.status || '').localeCompare(b.status || '');
+    }
+    return 0;
   });
 
   const filteredComplaints = recentComplaints.filter(c => {
@@ -2268,126 +2307,419 @@ function EmployeePortal({ user, onLogoutSuccess }) {
             );
           })()}
 
-          {/* ==============================================
+                  {/* ==============================================
               TAB 4: SERVICE REQUESTS (Real Tasks database integration)
               ============================================== */}
-          {activeTab === 'ServiceRequests' && (
-            <div className="space-y-6 animate-fade-in-up">
-              
-              <div className="flex justify-between items-center flex-wrap gap-4 pb-4 border-b border-[#111827]">
-                <div>
-                  <h2 className="text-lg font-bold text-white">Operations & Service Requests</h2>
-                  <p className="text-xs text-slate-400">Track task deployments, connection setups, and field request pipelines.</p>
-                </div>
-                <div className="flex items-center space-x-2 bg-slate-900/50 p-1.5 rounded-xl border border-slate-800 text-xs font-semibold text-slate-400">
-                  <span>Pending Tasks: <strong className="text-white">{filteredTasks.filter(t => t.status !== 'completed').length}</strong></span>
-                </div>
-              </div>
+          {activeTab === 'ServiceRequests' && (() => {
+            // Compute pagination variables locally
+            const totalTasksCount = filteredTasks.length;
+            const totalTasksPages = Math.ceil(totalTasksCount / tasksPerPage) || 1;
+            const indexOfLastTask = tasksCurrentPage * tasksPerPage;
+            const indexOfFirstTask = indexOfLastTask - tasksPerPage;
+            const currentTasks = filteredTasks.slice(indexOfFirstTask, indexOfLastTask);
 
-              {/* Task filters panel */}
-              <div className="p-4 rounded-2xl bg-[#090d16]/30 border border-[#111827] flex flex-wrap gap-4 items-center">
-                <div className="flex-grow min-w-[220px] relative">
-                  <input
-                    type="text"
-                    placeholder="Search by ID, Customer Name..."
-                    value={tasksSearch}
-                    onChange={(e) => { setTasksSearch(e.target.value); setTasksCurrentPage(1); }}
-                    className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-cyan-500"
-                  />
-                  <span className="absolute left-3 top-2 text-xs">🔍</span>
-                </div>
+            // Compute summary statistics directly from the loaded backend data source
+            const statsTotal = recentRequests.length;
+            const statsPending = recentRequests.filter(t => t.status === 'assigned' || t.status === 'pending').length;
+            const statsInProgress = recentRequests.filter(t => t.status === 'in_progress' || t.status === 'on_the_way').length;
+            const statsCompleted = recentRequests.filter(t => t.status === 'completed').length;
 
-                <div className="w-36 shrink-0">
-                  <select
-                    value={tasksStatusFilter}
-                    onChange={(e) => { setTasksStatusFilter(e.target.value); setTasksCurrentPage(1); }}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 focus:outline-none"
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="assigned">Assigned / Pending</option>
-                    <option value="on_the_way">On the Way</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                  </select>
-                </div>
-
-                <div className="w-36 shrink-0">
-                  <select
-                    value={tasksTypeFilter}
-                    onChange={(e) => { setTasksTypeFilter(e.target.value); setTasksCurrentPage(1); }}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 focus:outline-none"
-                  >
-                    <option value="all">All Types</option>
-                    <option value="Installation">Installation</option>
-                    <option value="Fiber Repair">Fiber Repair</option>
-                    <option value="Router Replacement">Router Replace</option>
-                    <option value="ONU/ONT Replacement">ONU/ONT Replace</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Tasks List */}
-              {loading ? (
-                <div className="h-44 bg-slate-900/30 rounded-2xl animate-pulse" />
-              ) : filteredTasks.length > 0 ? (
-                <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-[#111827] overflow-x-auto shadow-xl custom-scrollbar">
-                  <table className="w-full text-left border-collapse text-xs min-w-[700px]">
-                    <thead>
-                      <tr className="border-b border-[#111827] text-slate-400 font-bold uppercase tracking-wider text-[9px]">
-                        <th className="pb-3.5 px-3">Task ID</th>
-                        <th className="pb-3.5 px-3">Request Type</th>
-                        <th className="pb-3.5 px-3">Customer Name</th>
-                        <th className="pb-3.5 px-3">Target Date</th>
-                        <th className="pb-3.5 px-3">Priority</th>
-                        <th className="pb-3.5 px-3">Status</th>
-                        <th className="pb-3.5 px-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredTasks.map((t, idx) => (
-                        <tr key={idx} className="border-b border-[#111827]/40 hover:bg-slate-900/20 text-slate-305 hover:text-white transition-colors">
-                          <td className="py-3 px-3 font-mono font-bold text-white">TSK-{t.id}</td>
-                          <td className="py-3 px-3 font-bold text-white uppercase text-[10px]">{t.task_type}</td>
-                          <td className="py-3 px-3">{t.customer_name}</td>
-                          <td className="py-3 px-3 text-slate-500">{t.due_date ? new Date(t.due_date).toLocaleDateString() : 'N/A'}</td>
-                          <td className="py-3 px-3">
-                            <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
-                              t.priority === 'urgent' || t.priority === 'high' ? 'bg-red-950 text-red-400 border border-red-900/40' : 'bg-slate-900 text-slate-550'
-                            }`}>{t.priority}</span>
-                          </td>
-                          <td className="py-3 px-3 uppercase text-[10px] font-bold text-cyan-405 text-cyan-400">{t.status}</td>
-                          <td className="py-3 px-3 text-right space-x-1.5">
-                            <button
-                              onClick={() => setSelectedItem(t)}
-                              className="px-2.5 py-1 rounded bg-[#090d16] border border-slate-800 text-[10px] hover:text-white"
-                            >
-                              Details
-                            </button>
-                            {t.status !== 'completed' && (
-                              <button
-                                onClick={() => handleUpdateTaskStatus(t.id, 'completed')}
-                                className="px-2.5 py-1 rounded bg-emerald-600/20 border border-emerald-800 text-[10px] text-emerald-400 font-bold hover:bg-emerald-600 hover:text-white transition-colors"
-                              >
-                                Resolve
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="py-20 text-center border border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center space-y-3 animate-fade-in-up stagger-1">
-                  <span className="text-3xl opacity-60">📋</span>
+            return (
+              <div className="space-y-6 animate-fade-in-up">
+                
+                {/* 1. Page Header */}
+                <div className="flex justify-between items-center flex-wrap gap-4 pb-4 border-b border-[#111827]">
                   <div>
-                    <h4 className="font-extrabold text-white text-sm">No service requests</h4>
-                    <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">New customer requests will appear here.</p>
+                    <h2 className="text-xl font-bold text-white tracking-tight">Service Requests</h2>
+                    <p className="text-xs text-slate-400">Manage customer service requests, track progress, and coordinate ISP operations.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setNewRequestForm({ customerId: '', type: 'Installation', description: '', priority: 'medium', dueDate: '' });
+                      setShowNewRequestModal(true);
+                    }}
+                    className="px-4.5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/10 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 flex items-center space-x-2"
+                  >
+                    <span>🛠️</span>
+                    <span>+ New Service Request</span>
+                  </button>
+                </div>
+
+                {/* 2. Live Summary Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: 'TOTAL REQUESTS', val: statsTotal, color: 'border-[#111827]', icon: '📋', desc: 'All tickets logged' },
+                    { label: 'PENDING ACTION', val: statsPending, color: 'border-amber-500/10 text-amber-405', icon: '⏳', desc: 'Awaiting deployment' },
+                    { label: 'IN PROGRESS', val: statsInProgress, color: 'border-cyan-500/10 text-cyan-405', icon: '⚙️', desc: 'Active dispatch crews' },
+                    { label: 'COMPLETED LINKS', val: statsCompleted, color: 'border-emerald-500/10 text-emerald-405', icon: '🟢', desc: 'Resolved and closed' }
+                  ].map((s, idx) => (
+                    <div key={idx} className={`p-4 rounded-2xl bg-[#090d16]/30 border ${s.color} hover:shadow-md transition-all duration-200 flex flex-col justify-between`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-bold tracking-wider text-slate-500 uppercase">{s.label}</span>
+                        <span className="text-xs">{s.icon}</span>
+                      </div>
+                      <div className="mt-3">
+                        {loading ? (
+                          <div className="w-8 h-5 bg-slate-900 rounded animate-pulse" />
+                        ) : (
+                          <div className="text-lg font-black text-white">
+                            <AnimatedNumber value={s.val} />
+                          </div>
+                        )}
+                        <span className="text-[8px] text-slate-550 block mt-1">{s.desc}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 3. Search + Filter Bar */}
+                <div className="p-4 rounded-2xl bg-[#090d16]/30 border border-[#111827] flex flex-wrap gap-4 items-center justify-between">
+                  <div className="flex flex-wrap gap-3 items-center flex-grow">
+                    
+                    {/* Search Field */}
+                    <div className="min-w-[260px] flex-grow md:flex-grow-0 relative">
+                      <input
+                        type="text"
+                        placeholder="Search by request ID, customer name, phone..."
+                        value={tasksSearch}
+                        onChange={(e) => { setTasksSearch(e.target.value); setTasksCurrentPage(1); }}
+                        className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-950 border border-slate-850 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500/60 transition-all"
+                      />
+                      <span className="absolute left-3 top-2.5 text-xs opacity-50">🔍</span>
+                    </div>
+
+                    {/* Status Filter */}
+                    <div className="w-36">
+                      <select
+                        value={tasksStatusFilter}
+                        onChange={(e) => { setTasksStatusFilter(e.target.value); setTasksCurrentPage(1); }}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="all">All Statuses</option>
+                        <option value="assigned">Pending (Assigned)</option>
+                        <option value="on_the_way">On the Way</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                    </div>
+
+                    {/* Request Type Filter */}
+                    <div className="w-36">
+                      <select
+                        value={tasksTypeFilter}
+                        onChange={(e) => { setTasksTypeFilter(e.target.value); setTasksCurrentPage(1); }}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="all">All Types</option>
+                        <option value="Installation">Installation</option>
+                        <option value="Package Upgrade">Package Upgrade</option>
+                        <option value="Package Downgrade">Package Downgrade</option>
+                        <option value="Service Transfer">Service Transfer</option>
+                        <option value="Disconnection">Disconnection</option>
+                        <option value="Fiber Repair">Fiber Repair</option>
+                        <option value="Router Replacement">Router Replace</option>
+                        <option value="ONU/ONT Replacement">ONU/ONT Replace</option>
+                      </select>
+                    </div>
+
+                    {/* Date range filter */}
+                    <div className="w-36">
+                      <select
+                        value={tasksDateFilter}
+                        onChange={(e) => { setTasksDateFilter(e.target.value); setTasksCurrentPage(1); }}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="all">All Dates</option>
+                        <option value="today">Today</option>
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                      </select>
+                    </div>
+
+                    {/* Sort Selector */}
+                    <div className="w-36">
+                      <select
+                        value={tasksSortFilter}
+                        onChange={(e) => { setTasksSortFilter(e.target.value); setTasksCurrentPage(1); }}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="priority">Priority: High</option>
+                        <option value="status">Status Order</option>
+                      </select>
+                    </div>
+
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => {
+                        setTasksSearch('');
+                        setTasksStatusFilter('all');
+                        setTasksTypeFilter('all');
+                        setTasksDateFilter('all');
+                        setTasksSortFilter('newest');
+                        setTasksCurrentPage(1);
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-slate-955 hover:bg-slate-900 border border-slate-850 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                    >
+                      Clear Filters
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setRefreshingTasks(true);
+                        loadPortalData(true).then(() => {
+                          setTimeout(() => setRefreshingTasks(false), 500);
+                        });
+                      }}
+                      className="p-2 rounded-xl bg-slate-955 hover:bg-slate-900 border border-slate-850 text-xs hover:text-white transition-all flex items-center justify-center"
+                      title="Refresh Requests"
+                    >
+                      <span className={`text-sm shrink-0 inline-block transition-transform duration-500 ${refreshingTasks ? 'rotate-180 scale-90' : ''}`}>
+                        🔄
+                      </span>
+                    </button>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
+
+                {/* 4. Table / Skeleton Loaders / Empty State */}
+                {loading ? (
+                  <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-[#111827] space-y-4">
+                    {[...Array(5)].map((_, idx) => (
+                      <div key={idx} className="flex justify-between items-center h-12 bg-slate-900/40 rounded-xl px-4 animate-pulse">
+                        <div className="w-16 h-3 bg-slate-850 rounded" />
+                        <div className="w-28 h-3 bg-slate-850 rounded" />
+                        <div className="w-24 h-3 bg-slate-850 rounded" />
+                        <div className="w-16 h-3 bg-slate-850 rounded" />
+                        <div className="w-14 h-4 bg-slate-850 rounded-full" />
+                        <div className="w-16 h-4 bg-slate-850 rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ) : currentTasks.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-[#111827] overflow-x-auto shadow-xl custom-scrollbar">
+                      <table className="w-full text-left border-collapse text-xs min-w-[900px]">
+                        <thead>
+                          <tr className="border-b border-[#111827] text-slate-400 font-bold uppercase tracking-wider text-[9px]">
+                            <th className="pb-3.5 px-3">Request ID</th>
+                            <th className="pb-3.5 px-3">Subscriber</th>
+                            <th className="pb-3.5 px-3">Request Type</th>
+                            <th className="pb-3.5 px-3">Target Date</th>
+                            <th className="pb-3.5 px-3">Priority</th>
+                            <th className="pb-3.5 px-3">Assigned Crew</th>
+                            <th className="pb-3.5 px-3">Status</th>
+                            <th className="pb-3.5 px-3 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {currentTasks.map((task, idx) => (
+                            <tr
+                              key={task.id}
+                              style={{ animationDelay: `${idx * 50}ms` }}
+                              className="border-b border-[#111827]/40 hover:bg-[#131b2e]/20 text-slate-350 hover:text-white transition-all duration-200 animate-fade-in-up group"
+                            >
+                              
+                              {/* Request ID */}
+                              <td className="py-3.5 px-3 font-mono font-bold text-white">
+                                REQ-{task.id}
+                                <span className="block text-[8px] text-slate-500 font-light mt-0.5">Created: {new Date(task.created_at).toLocaleDateString()}</span>
+                              </td>
+
+                              {/* Customer */}
+                              <td className="py-3.5 px-3">
+                                <span className="font-semibold text-white block group-hover:text-cyan-300 transition-colors leading-tight">{task.customer_name}</span>
+                                <span className="text-[10px] text-slate-505 block mt-0.5">ID: {task.customer_id}</span>
+                              </td>
+
+                              {/* Type */}
+                              <td className="py-3.5 px-3 font-bold text-white text-[10px] uppercase tracking-wide">
+                                {task.task_type}
+                              </td>
+
+                              {/* Target Date */}
+                              <td className="py-3.5 px-3 text-slate-500 font-medium">
+                                {task.due_date ? new Date(task.due_date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
+                              </td>
+
+                              {/* Priority Badge */}
+                              <td className="py-3.5 px-3">
+                                <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
+                                  task.priority?.toLowerCase() === 'urgent' ? 'bg-red-955/20 border border-red-900/40 text-red-400' :
+                                  task.priority?.toLowerCase() === 'high' ? 'bg-amber-955/20 border border-amber-900/40 text-amber-400' :
+                                  'bg-slate-900 border border-slate-800 text-slate-400'
+                                }`}>
+                                  {task.priority}
+                                </span>
+                              </td>
+
+                              {/* Assigned Tech */}
+                              <td className="py-3.5 px-3 font-semibold text-slate-400">
+                                {task.technician_name ? (
+                                  <div className="flex items-center space-x-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                                    <span>{task.technician_name}</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-600 italic">Unassigned</span>
+                                )}
+                              </td>
+
+                              {/* Status Badge */}
+                              <td className="py-3.5 px-3">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase border ${
+                                  task.status === 'completed' ? 'bg-emerald-950/60 border-emerald-800 text-emerald-450' :
+                                  task.status === 'in_progress' || task.status === 'on_the_way' ? 'bg-cyan-955/20 border border-cyan-800/40 text-cyan-455' :
+                                  task.status === 'cancelled' ? 'bg-red-955/20 border border-red-900/40 text-red-405' :
+                                  'bg-amber-955/20 border border-amber-800/40 text-amber-450'
+                                }`}>
+                                  {task.status}
+                                </span>
+                              </td>
+
+                              {/* Actions */}
+                              <td className="py-3.5 px-3 text-right space-x-1.5">
+                                <button
+                                  onClick={() => setSelectedItem(task)}
+                                  className="px-2.5 py-1 rounded bg-[#090d16] border border-slate-800 text-[10px] text-slate-300 font-bold hover:text-white transition-colors"
+                                  title="View complete request ledger"
+                                >
+                                  View
+                                </button>
+                                
+                                <button
+                                  onClick={() => {
+                                    setAssignForm({ type: 'task', ticketId: task.id.toString(), technicianId: techniciansList[0]?.id.toString() || '' });
+                                    setShowAssignTechModal(true);
+                                  }}
+                                  className="px-2.5 py-1 rounded bg-cyan-900/10 border border-cyan-800/40 hover:bg-cyan-900/20 text-[10px] text-cyan-400 font-bold transition-colors"
+                                  title="Assign crew technician"
+                                >
+                                  Assign
+                                </button>
+
+                                {task.status !== 'completed' && (
+                                  <button
+                                    onClick={() => handleUpdateTaskStatus(task.id, 'completed')}
+                                    className="px-2.5 py-1 rounded bg-emerald-600/10 border border-emerald-800/40 hover:bg-emerald-600/20 text-[10px] text-emerald-400 font-bold transition-colors animate-pulse"
+                                  >
+                                    Resolve
+                                  </button>
+                                )}
+                              </td>
+
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination control */}
+                    <div className="flex justify-between items-center p-4 rounded-xl bg-[#090d16]/30 border border-[#111827] text-xs">
+                      <span className="text-slate-500 font-medium">
+                        Showing <strong className="text-white">{indexOfFirstTask + 1}</strong> to{' '}
+                        <strong className="text-white">{Math.min(indexOfLastTask, totalTasksCount)}</strong> of{' '}
+                        <strong className="text-white">{totalTasksCount}</strong> service requests
+                      </span>
+
+                      <div className="flex items-center space-x-2">
+                        <button
+                          disabled={tasksCurrentPage === 1}
+                          onClick={() => setTasksCurrentPage(prev => prev - 1)}
+                          className="px-3 py-1.5 rounded-lg bg-slate-955 border border-slate-850 text-slate-450 hover:text-white disabled:opacity-40 transition-opacity font-semibold disabled:pointer-events-none"
+                        >
+                          Previous
+                        </button>
+                        
+                        <div className="flex space-x-1.5">
+                          {[...Array(totalTasksPages)].map((_, pageIdx) => {
+                            const pNo = pageIdx + 1;
+                            return (
+                              <button
+                                key={pNo}
+                                onClick={() => setTasksCurrentPage(pNo)}
+                                className={`w-8 h-8 rounded-lg font-bold transition-colors ${
+                                  tasksCurrentPage === pNo
+                                    ? 'bg-cyan-600 text-white shadow-md'
+                                    : 'bg-slate-955 hover:bg-slate-900 border border-slate-850 text-slate-450'
+                                }`}
+                              >
+                                {pNo}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <button
+                          disabled={tasksCurrentPage === totalTasksPages}
+                          onClick={() => setTasksCurrentPage(prev => prev + 1)}
+                          className="px-3 py-1.5 rounded-lg bg-slate-955 border border-slate-850 text-slate-450 hover:text-white disabled:opacity-40 transition-opacity font-semibold disabled:pointer-events-none"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+                ) : (
+                  // Search empty state vs Catalogue empty state
+                  <div className="py-20 text-center border border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center space-y-4 animate-fade-in-up">
+                    <div className="w-16 h-16 rounded-2xl bg-slate-950/80 border border-slate-900 flex items-center justify-center shadow-lg relative overflow-hidden group">
+                      <svg className="w-8 h-8 text-cyan-405 text-cyan-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                      </svg>
+                    </div>
+
+                    {recentRequests.length > 0 ? (
+                      <div className="space-y-1">
+                        <h4 className="font-extrabold text-white text-base">No matching requests</h4>
+                        <p className="text-xs text-slate-500 max-w-xs mx-auto">Try changing your search terms or active filter configurations.</p>
+                        <div className="pt-3">
+                          <button
+                            onClick={() => {
+                              setTasksSearch('');
+                              setTasksStatusFilter('all');
+                              setTasksTypeFilter('all');
+                              setTasksDateFilter('all');
+                            }}
+                            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl"
+                          >
+                            Clear Filters
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <h4 className="font-extrabold text-white text-base">No service requests yet</h4>
+                        <p className="text-xs text-slate-500 max-w-xs mx-auto">Customer service requests will appear here when they are created in the database.</p>
+                        <div className="pt-3 flex justify-center space-x-2.5">
+                          <button
+                            onClick={() => {
+                              setNewRequestForm({ customerId: '', type: 'Installation', description: '', priority: 'medium', dueDate: '' });
+                              setShowNewRequestModal(true);
+                            }}
+                            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl"
+                          >
+                            + Create Service Request
+                          </button>
+                          <button
+                            onClick={() => loadPortalData(true)}
+                            className="px-4 py-2 bg-slate-900 border border-slate-850 hover:bg-slate-800 text-slate-350 font-bold text-xs rounded-xl transition-all"
+                          >
+                            Refresh
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              </div>
+            );
+          })()}
 
           {/* ==============================================
               TAB 5: COMPLAINTS & SUPPORT (Real database integration)

@@ -361,12 +361,16 @@ async function getOperationsDashboardData(req, res) {
     const pendingPaymentsQuery = db.query("SELECT COUNT(*)::int FROM bills WHERE status IN ('unpaid', 'overdue')");
 
     const recentRequestsQuery = db.query(`
-      SELECT t.id, t.task_type, t.priority, t.status, t.due_date, t.created_at, cust.full_name as customer_name, emp.full_name as technician_name
+      SELECT t.id, t.task_type, t.priority, t.status, t.due_date, t.created_at, t.description, t.assigned_employee_id,
+             cust.id as customer_id, cust.full_name as customer_name, cust.phone as customer_phone, cust.email as customer_email, cust.address as customer_address,
+             emp.full_name as technician_name,
+             p.name as package_name
       FROM technical_tasks t
       JOIN customers cust ON t.customer_id = cust.id
       LEFT JOIN employees emp ON t.assigned_employee_id = emp.id
-      ORDER BY t.created_at DESC
-      LIMIT 10;
+      LEFT JOIN subscriptions sub ON sub.customer_id = cust.id AND sub.status = 'active'
+      LEFT JOIN packages p ON sub.package_id = p.id
+      ORDER BY t.created_at DESC;
     `);
 
     const recentComplaintsQuery = db.query(`
