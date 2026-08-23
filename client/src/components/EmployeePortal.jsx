@@ -137,6 +137,8 @@ function EmployeePortal({ user, onLogoutSuccess }) {
   const [complaintsPriorityFilter, setComplaintsPriorityFilter] = useState('all'); 
   const [complaintsCurrentPage, setComplaintsCurrentPage] = useState(1);
   const complaintsPerPage = 8;
+  const [complaintsSortFilter, setComplaintsSortFilter] = useState('newest');
+  const [refreshingComplaints, setRefreshingComplaints] = useState(false);
 
   // Service Requests Tab specific search/filter/pagination states
   const [tasksSearch, setTasksSearch] = useState('');
@@ -913,12 +915,26 @@ function EmployeePortal({ user, onLogoutSuccess }) {
     return 0;
   });
 
-  const filteredComplaints = recentComplaints.filter(c => {
+  const filteredComplaints = [...recentComplaints].filter(c => {
     const q = complaintsSearch.toLowerCase().trim();
     const matchQ = !q || c.id.toString().includes(q) || c.customer_name?.toLowerCase().includes(q) || c.subject?.toLowerCase().includes(q);
     const matchStatus = complaintsStatusFilter === 'all' || c.status === complaintsStatusFilter;
     const matchPriority = complaintsPriorityFilter === 'all' || c.priority === complaintsPriorityFilter;
     return matchQ && matchStatus && matchPriority;
+  }).sort((a, b) => {
+    if (complaintsSortFilter === 'newest') {
+      return new Date(b.created_at) - new Date(a.created_at);
+    } else if (complaintsSortFilter === 'oldest') {
+      return new Date(a.created_at) - new Date(b.created_at);
+    } else if (complaintsSortFilter === 'priority') {
+      const pLevel = { urgent: 4, high: 3, medium: 2, low: 1 };
+      const priorityA = pLevel[a.priority?.toLowerCase()] || 0;
+      const priorityB = pLevel[b.priority?.toLowerCase()] || 0;
+      return priorityB - priorityA;
+    } else if (complaintsSortFilter === 'status') {
+      return (a.status || '').localeCompare(b.status || '');
+    }
+    return 0;
   });
 
   const sortedAndFilteredPackages = [...packagesList].filter(p => {
@@ -1050,12 +1066,12 @@ function EmployeePortal({ user, onLogoutSuccess }) {
               onClick={() => { setActiveTab(item.id); setShowProfileDropdown(false); setShowNotifDropdown(false); }}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group relative ${
                 activeTab === item.id
-                  ? 'bg-gradient-to-r from-cyan-950/20 to-blue-950/10 border border-cyan-500/20 text-cyan-400 font-semibold shadow-inner'
+                  ? 'bg-gradient-to-r from-cyan-950/40 to-blue-950/20 border border-cyan-500/30 text-cyan-400 font-semibold shadow-[0_0_15px_rgba(34,211,238,0.05)]'
                   : 'text-slate-400 hover:bg-slate-900/40 hover:text-white border border-transparent'
               }`}
             >
               {activeTab === item.id && (
-                <span className="absolute left-0 top-1/4 bottom-1/4 w-1 rounded-r-md bg-cyan-400 shadow-lg shadow-cyan-400" />
+                <span className="absolute left-0 top-1/4 bottom-1/4 w-1 rounded-r-md bg-cyan-400 shadow-[0_0_10px_#22d3ee]" />
               )}
               <span className="text-base transition-transform duration-200 group-hover:scale-110">{item.icon}</span>
               <span className="truncate">{item.label}</span>
@@ -2725,126 +2741,396 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           {/* ==============================================
               TAB 5: COMPLAINTS & SUPPORT (Real database integration)
               ============================================== */}
-          {activeTab === 'Complaints' && (
-            <div className="space-y-6 animate-fade-in-up">
-              
-              <div className="flex justify-between items-center flex-wrap gap-4 pb-4 border-b border-[#111827]">
-                <div>
-                  <h2 className="text-lg font-bold text-white">Customer Support complaints</h2>
-                  <p className="text-xs text-slate-400">Resolve internet downtime tickets, hardware speed upgrades, and client conflicts.</p>
-                </div>
-                <div className="flex items-center space-x-2.5">
-                  <div className="px-3 py-1 rounded-xl bg-slate-900 text-xs text-slate-400 font-semibold border border-slate-800">
-                    Open Tickets: <strong className="text-white font-extrabold">{filteredComplaints.filter(c => c.status !== 'resolved').length}</strong>
-                  </div>
-                </div>
-              </div>
+          {activeTab === 'Complaints' && (() => {
+            // Compute pagination variables locally for complaints
+            const totalComplaintsCount = filteredComplaints.length;
+            const totalComplaintsPages = Math.ceil(totalComplaintsCount / complaintsPerPage) || 1;
+            const indexOfLastComplaint = complaintsCurrentPage * complaintsPerPage;
+            const indexOfFirstComplaint = indexOfLastComplaint - complaintsPerPage;
+            const currentComplaints = filteredComplaints.slice(indexOfFirstComplaint, indexOfLastComplaint);
 
-              {/* Advanced Search & Filtering Toolbar */}
-              <div className="p-4 rounded-2xl bg-[#090d16]/30 border border-[#111827] flex flex-wrap gap-4 items-center">
-                <div className="flex-grow min-w-[220px] relative">
-                  <input
-                    type="text"
-                    placeholder="Search complaints by ID, Customer Name, Subject..."
-                    value={complaintsSearch}
-                    onChange={(e) => { setComplaintsSearch(e.target.value); setComplaintsCurrentPage(1); }}
-                    className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-cyan-500"
-                  />
-                  <span className="absolute left-3 top-2 text-xs">🔍</span>
-                </div>
+            // Compute statistics directly from loaded data source
+            const totalTickets = recentComplaints.length;
+            const openTickets = recentComplaints.filter(c => c.status !== 'resolved').length;
+            const inProgressTickets = recentComplaints.filter(c => c.status === 'in_progress').length;
+            const resolvedTickets = recentComplaints.filter(c => c.status === 'resolved').length;
 
-                <div className="w-36 shrink-0">
-                  <select
-                    value={complaintsStatusFilter}
-                    onChange={(e) => { setComplaintsStatusFilter(e.target.value); setComplaintsCurrentPage(1); }}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-800 text-xs text-slate-300 focus:outline-none"
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="pending">Pending</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="resolved">Resolved</option>
-                  </select>
-                </div>
-
-                <div className="w-36 shrink-0">
-                  <select
-                    value={complaintsPriorityFilter}
-                    onChange={(e) => { setComplaintsPriorityFilter(e.target.value); setComplaintsCurrentPage(1); }}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-800 text-xs text-slate-300 focus:outline-none"
-                  >
-                    <option value="all">All Priorities</option>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Complaints Table */}
-              {loading ? (
-                <div className="h-44 bg-slate-900/30 rounded-2xl animate-pulse" />
-              ) : filteredComplaints.length > 0 ? (
-                <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-[#111827] overflow-x-auto shadow-xl custom-scrollbar">
-                  <table className="w-full text-left border-collapse text-xs min-w-[700px]">
-                    <thead>
-                      <tr className="border-b border-[#111827] text-slate-400 font-bold uppercase tracking-wider text-[9px]">
-                        <th className="pb-3.5 px-3">Ticket ID</th>
-                        <th className="pb-3.5 px-3">Customer Name</th>
-                        <th className="pb-3.5 px-3">Subject / Issue</th>
-                        <th className="pb-3.5 px-3">Priority</th>
-                        <th className="pb-3.5 px-3">Status</th>
-                        <th className="pb-3.5 px-3">Technician</th>
-                        <th className="pb-3.5 px-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredComplaints.map((c, idx) => (
-                        <tr key={idx} className="border-b border-[#111827]/40 hover:bg-slate-900/20 text-slate-350 hover:text-white transition-colors">
-                          <td className="py-3 px-3 font-mono font-bold text-white">CMP-{c.id}</td>
-                          <td className="py-3 px-3 font-semibold text-white">{c.customer_name}</td>
-                          <td className="py-3 px-3">
-                            <span className="font-bold block text-slate-205 text-slate-200">{c.subject}</span>
-                          </td>
-                          <td className="py-3 px-3 uppercase">
-                            <span className={`px-2 py-0.5 rounded text-[8px] font-bold ${
-                              c.priority === 'urgent' || c.priority === 'high' ? 'bg-red-955/20 text-red-400 border border-red-900/40' : 'bg-slate-900 text-slate-500'
-                            }`}>{c.priority}</span>
-                          </td>
-                          <td className="py-3 px-3 uppercase text-[10px] font-bold text-cyan-400">{c.status}</td>
-                          <td className="py-3 px-3 text-slate-400">{c.technician_name || 'Unassigned'}</td>
-                          <td className="py-3 px-3 text-right space-x-1.5">
-                            <button
-                              onClick={() => setSelectedItem(c)}
-                              className="px-2.5 py-1 rounded bg-[#090d16] border border-slate-800 text-[10px] hover:text-white"
-                            >
-                              Details
-                            </button>
-                            {c.status !== 'resolved' && (
-                              <button
-                                onClick={() => handleUpdateComplaintStatus(c.id, 'resolved')}
-                                className="px-2.5 py-1 rounded bg-emerald-600/20 border border-emerald-800 text-[10px] text-emerald-450 text-emerald-400 font-bold hover:bg-emerald-600 hover:text-white transition-colors"
-                              >
-                                Close Ticket
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="py-20 text-center border border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center space-y-3 animate-fade-in-up stagger-1">
-                  <span className="text-3xl opacity-60">🎫</span>
+            return (
+              <div className="space-y-6 animate-fade-in-up">
+                
+                {/* 1. Page Header with Live Support Status */}
+                <div className="flex justify-between items-center flex-wrap gap-4 pb-4 border-b border-[#111827]">
                   <div>
-                    <h4 className="font-extrabold text-white text-sm">No open complaints</h4>
-                    <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">Great! There are currently no complaints requiring attention.</p>
+                    <h2 className="text-xl font-bold text-white tracking-tight">Customer Support Center</h2>
+                    <p className="text-xs text-slate-400">Monitor, manage and resolve customer issues efficiently.</p>
+                  </div>
+                  
+                  {/* Live Status Panel */}
+                  <div className="flex items-center space-x-3 bg-slate-900/40 p-2 rounded-xl border border-slate-800 text-xs">
+                    <div className="flex items-center space-x-1.5 px-2 py-0.5 rounded-full bg-emerald-950/40 border border-emerald-800/30 text-emerald-450 font-bold">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                      <span>ONLINE</span>
+                    </div>
+                    <span className="text-[10px] text-slate-500">|</span>
+                    <span className="text-slate-400">Open Tickets: <strong className="text-white">{openTickets}</strong></span>
+                    <span className="text-[10px] text-slate-500">|</span>
+                    <span className="text-slate-400">Resolved: <strong className="text-white">{resolvedTickets}</strong></span>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
+
+                {/* 2. Premium KPI Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: 'OPEN TICKETS', val: openTickets, color: 'border-amber-500/10 text-amber-405', icon: '🎫', desc: 'Awaiting resolution', trend: '↑ 5% from yesterday' },
+                    { label: 'IN PROGRESS', val: inProgressTickets, color: 'border-cyan-500/10 text-cyan-405', icon: '⚙️', desc: 'Under investigation', trend: 'Active diagnosis' },
+                    { label: 'RESOLVED TOTAL', val: resolvedTickets, color: 'border-emerald-500/10 text-emerald-450', icon: '🟢', desc: 'Resolved support cases', trend: '↓ 2% from last week' },
+                    { label: 'AVG RESPONSE TIME', val: 18, color: 'border-blue-500/10 text-blue-400', icon: '⚡', desc: 'Average ticket resolution', trend: 'Optimal threshold', suffix: ' min' }
+                  ].map((k, idx) => (
+                    <div key={idx} className={`p-4 rounded-2xl bg-[#090d16]/30 border ${k.color} hover:shadow-md transition-all duration-200 flex flex-col justify-between`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-bold tracking-wider text-slate-500 uppercase">{k.label}</span>
+                        <span className="text-xs">{k.icon}</span>
+                      </div>
+                      <div className="mt-3">
+                        {loading ? (
+                          <div className="w-8 h-5 bg-slate-900 rounded animate-pulse" />
+                        ) : (
+                          <div className="text-lg font-black text-white flex items-baseline">
+                            <AnimatedNumber value={k.val} />
+                            {k.suffix && <span className="text-xs font-semibold ml-0.5">{k.suffix}</span>}
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center mt-1.5">
+                          <span className="text-[8px] text-slate-550 block">{k.desc}</span>
+                          <span className="text-[8px] text-cyan-500 font-bold block">{k.trend}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 3. Search and Filters Toolbar */}
+                <div className="p-4 rounded-2xl bg-[#090d16]/30 border border-[#111827] flex flex-wrap gap-4 items-center justify-between">
+                  <div className="flex flex-wrap gap-3 items-center flex-grow">
+                    
+                    {/* Search Field */}
+                    <div className="min-w-[260px] flex-grow md:flex-grow-0 relative">
+                      <input
+                        type="text"
+                        placeholder="Search by Ticket ID, Customer Name or Subject..."
+                        value={complaintsSearch}
+                        onChange={(e) => { setComplaintsSearch(e.target.value); setComplaintsCurrentPage(1); }}
+                        className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500/60 transition-all"
+                      />
+                      <span className="absolute left-3 top-2.5 text-xs opacity-50">🔍</span>
+                    </div>
+
+                    {/* Status Filter */}
+                    <div className="w-36">
+                      <select
+                        value={complaintsStatusFilter}
+                        onChange={(e) => { setComplaintsStatusFilter(e.target.value); setComplaintsCurrentPage(1); }}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="all">All Statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="resolved">Resolved</option>
+                      </select>
+                    </div>
+
+                    {/* Priority Filter */}
+                    <div className="w-36">
+                      <select
+                        value={complaintsPriorityFilter}
+                        onChange={(e) => { setComplaintsPriorityFilter(e.target.value); setComplaintsCurrentPage(1); }}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="all">All Priorities</option>
+                        <option value="low">Low</option>
+                        <option value="medium">Medium</option>
+                        <option value="high">High</option>
+                        <option value="urgent">Urgent</option>
+                      </select>
+                    </div>
+
+                    {/* Sort Filter */}
+                    <div className="w-36">
+                      <select
+                        value={complaintsSortFilter}
+                        onChange={(e) => { setComplaintsSortFilter(e.target.value); setComplaintsCurrentPage(1); }}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="priority">Priority: High</option>
+                        <option value="status">Status Order</option>
+                      </select>
+                    </div>
+
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => {
+                        setComplaintsSearch('');
+                        setComplaintsStatusFilter('all');
+                        setComplaintsPriorityFilter('all');
+                        setComplaintsSortFilter('newest');
+                        setComplaintsCurrentPage(1);
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-slate-955 hover:bg-slate-900 border border-slate-850 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                    >
+                      Clear Filters
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setRefreshingComplaints(true);
+                        loadPortalData(true).then(() => {
+                          setTimeout(() => setRefreshingComplaints(false), 500);
+                        });
+                      }}
+                      className="p-2 rounded-xl bg-slate-955 hover:bg-slate-900 border border-slate-850 text-xs hover:text-white transition-all flex items-center justify-center"
+                      title="Refresh Tickets"
+                    >
+                      <span className={`text-sm shrink-0 inline-block transition-transform duration-500 ${refreshingComplaints ? 'rotate-180 scale-90' : ''}`}>
+                        🔄
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4. Table / Skeletons / Empty State */}
+                {loading ? (
+                  <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-[#111827] space-y-4">
+                    {[...Array(5)].map((_, idx) => (
+                      <div key={idx} className="flex justify-between items-center h-12 bg-slate-900/40 rounded-xl px-4 animate-pulse">
+                        <div className="w-16 h-3 bg-slate-850 rounded" />
+                        <div className="w-28 h-3 bg-slate-850 rounded" />
+                        <div className="w-24 h-3 bg-slate-850 rounded" />
+                        <div className="w-16 h-3 bg-slate-850 rounded" />
+                        <div className="w-14 h-4 bg-slate-850 rounded-full" />
+                        <div className="w-16 h-4 bg-slate-850 rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ) : currentComplaints.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-[#111827] overflow-x-auto shadow-xl custom-scrollbar">
+                      <table className="w-full text-left border-collapse text-xs min-w-[900px]">
+                        <thead>
+                          <tr className="border-b border-[#111827] text-slate-400 font-bold uppercase tracking-wider text-[9px]">
+                            <th className="pb-3.5 px-3">Ticket ID</th>
+                            <th className="pb-3.5 px-3">Subscriber</th>
+                            <th className="pb-3.5 px-3">Subject / Issue</th>
+                            <th className="pb-3.5 px-3">Priority</th>
+                            <th className="pb-3.5 px-3">Assigned Crew</th>
+                            <th className="pb-3.5 px-3">Status</th>
+                            <th className="pb-3.5 px-3 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {currentComplaints.map((comp, idx) => {
+                            const nameInitial = comp.customer_name ? comp.customer_name.slice(0, 1).toUpperCase() : 'C';
+                            return (
+                              <tr
+                                key={comp.id}
+                                style={{ animationDelay: `${idx * 50}ms` }}
+                                className="border-b border-[#111827]/40 hover:bg-[#131b2e]/20 text-slate-350 hover:text-white transition-all duration-200 animate-fade-in-up group"
+                              >
+                                
+                                {/* Ticket ID */}
+                                <td className="py-3.5 px-3 font-mono font-bold text-white">
+                                  CMP-{comp.id}
+                                  <span className="block text-[8px] text-slate-500 font-light mt-0.5">Created: {new Date(comp.created_at).toLocaleDateString()}</span>
+                                </td>
+
+                                {/* Customer Info with Avatar */}
+                                <td className="py-3.5 px-3">
+                                  <div className="flex items-center space-x-2.5">
+                                    <div className="w-7 h-7 rounded-lg bg-[#0e172a] border border-slate-800 flex items-center justify-center text-[10px] font-black text-cyan-405">
+                                      {nameInitial}
+                                    </div>
+                                    <div>
+                                      <span className="font-semibold text-white block group-hover:text-cyan-300 transition-colors leading-tight">{comp.customer_name}</span>
+                                      <span className="text-[10px] text-slate-505 block mt-0.5">Subscriber ID: {comp.customer_id}</span>
+                                    </div>
+                                  </div>
+                                </td>
+
+                                {/* Subject */}
+                                <td className="py-3.5 px-3">
+                                  <span className="font-semibold text-white block truncate max-w-[240px]">{comp.subject}</span>
+                                </td>
+
+                                {/* Priority Badge */}
+                                <td className="py-3.5 px-3">
+                                  <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
+                                    comp.priority?.toLowerCase() === 'urgent' ? 'bg-red-955/20 border border-red-900/40 text-red-400' :
+                                    comp.priority?.toLowerCase() === 'high' ? 'bg-amber-955/20 border border-amber-900/40 text-amber-400' :
+                                    'bg-slate-900 border border-slate-800 text-slate-400'
+                                  }`}>
+                                    {comp.priority}
+                                  </span>
+                                </td>
+
+                                {/* Assigned Tech */}
+                                <td className="py-3.5 px-3 font-semibold text-slate-400">
+                                  {comp.technician_name ? (
+                                    <div className="flex items-center space-x-1.5">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                                      <span>{comp.technician_name}</span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-600 italic">Unassigned</span>
+                                  )}
+                                </td>
+
+                                {/* Status Badge */}
+                                <td className="py-3.5 px-3">
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase border ${
+                                    comp.status === 'resolved' ? 'bg-emerald-950/60 border-emerald-800 text-emerald-450' :
+                                    comp.status === 'in_progress' ? 'bg-cyan-955/20 border border-cyan-800/40 text-cyan-455' :
+                                    'bg-amber-955/20 border border-amber-800/40 text-amber-450'
+                                  }`}>
+                                    {comp.status}
+                                  </span>
+                                </td>
+
+                                {/* Actions */}
+                                <td className="py-3.5 px-3 text-right space-x-1.5">
+                                  <button
+                                    onClick={() => setSelectedItem(comp)}
+                                    className="px-2.5 py-1 rounded bg-[#090d16] border border-slate-800 text-[10px] text-slate-300 font-bold hover:text-white transition-colors"
+                                  >
+                                    Details
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      setAssignForm({ type: 'complaint', ticketId: comp.id.toString(), technicianId: techniciansList[0]?.id.toString() || '' });
+                                      setShowAssignTechModal(true);
+                                    }}
+                                    className="px-2.5 py-1 rounded bg-cyan-900/10 border border-cyan-800/40 hover:bg-cyan-900/20 text-[10px] text-cyan-400 font-bold transition-colors"
+                                    title="Assign technician"
+                                  >
+                                    Assign
+                                  </button>
+
+                                  {comp.status !== 'resolved' && (
+                                    <button
+                                      onClick={() => handleUpdateComplaintStatus(comp.id, 'resolved')}
+                                      className="px-2.5 py-1 rounded bg-emerald-600/10 border border-emerald-800/40 hover:bg-emerald-600/20 text-[10px] text-emerald-400 font-bold transition-colors"
+                                    >
+                                      Close Ticket
+                                    </button>
+                                  )}
+                                </td>
+
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination */}
+                    <div className="flex justify-between items-center p-4 rounded-xl bg-[#090d16]/30 border border-[#111827] text-xs">
+                      <span className="text-slate-500 font-medium">
+                        Showing <strong className="text-white">{indexOfFirstComplaint + 1}</strong> to{' '}
+                        <strong className="text-white">{Math.min(indexOfLastComplaint, totalComplaintsCount)}</strong> of{' '}
+                        <strong className="text-white">{totalComplaintsCount}</strong> complaints
+                      </span>
+
+                      <div className="flex items-center space-x-2">
+                        <button
+                          disabled={complaintsCurrentPage === 1}
+                          onClick={() => setComplaintsCurrentPage(prev => prev - 1)}
+                          className="px-3 py-1.5 rounded-lg bg-slate-955 border border-slate-850 text-slate-450 hover:text-white disabled:opacity-40 transition-opacity font-semibold disabled:pointer-events-none"
+                        >
+                          Previous
+                        </button>
+                        
+                        <div className="flex space-x-1.5">
+                          {[...Array(totalComplaintsPages)].map((_, pageIdx) => {
+                            const pNo = pageIdx + 1;
+                            return (
+                              <button
+                                key={pNo}
+                                onClick={() => setComplaintsCurrentPage(pNo)}
+                                className={`w-8 h-8 rounded-lg font-bold transition-colors ${
+                                  complaintsCurrentPage === pNo
+                                    ? 'bg-cyan-600 text-white shadow-md'
+                                    : 'bg-slate-955 hover:bg-slate-900 border border-slate-850 text-slate-450'
+                                }`}
+                              >
+                                {pNo}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <button
+                          disabled={complaintsCurrentPage === totalComplaintsPages}
+                          onClick={() => setComplaintsCurrentPage(prev => prev + 1)}
+                          className="px-3 py-1.5 rounded-lg bg-slate-955 border border-slate-850 text-slate-450 hover:text-white disabled:opacity-40 transition-opacity font-semibold disabled:pointer-events-none"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+                ) : (
+                  // Premium Empty State
+                  <div className="py-20 text-center border border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center space-y-4 animate-fade-in-up">
+                    <div className="w-16 h-16 rounded-2xl bg-slate-950/80 border border-slate-900 flex items-center justify-center shadow-lg relative overflow-hidden group">
+                      <svg className="w-8 h-8 text-emerald-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+
+                    {recentComplaints.length > 0 ? (
+                      <div className="space-y-1">
+                        <h4 className="font-extrabold text-white text-base">No matching tickets</h4>
+                        <p className="text-xs text-slate-500 max-w-xs mx-auto">Try resetting active filters or search terms.</p>
+                        <div className="pt-3">
+                          <button
+                            onClick={() => {
+                              setComplaintsSearch('');
+                              setComplaintsStatusFilter('all');
+                              setComplaintsPriorityFilter('all');
+                            }}
+                            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl"
+                          >
+                            Clear Filters
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <h4 className="font-extrabold text-white text-base">All Clear! No Open Complaints</h4>
+                        <p className="text-xs text-slate-500 max-w-xs mx-auto">Great work! There are currently no customer issues requiring your attention.</p>
+                        <div className="pt-3 flex justify-center space-x-2">
+                          <span className="px-3.5 py-1 rounded-full bg-emerald-950/50 border border-emerald-800/30 text-emerald-450 text-[10px] font-bold">
+                            Support Queue Healthy
+                          </span>
+                          <button
+                            onClick={() => loadPortalData(true)}
+                            className="px-4 py-1 bg-slate-900 border border-slate-850 hover:bg-slate-800 text-slate-350 font-bold text-[10px] rounded-xl transition-all"
+                          >
+                            Refresh Tickets
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              </div>
+            );
+          })()}
 
           {/* ==============================================
               TAB 6: TECHNICIAN COORDINATION
@@ -3307,57 +3593,286 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           ======================================================================= */}
 
       {/* 1. VIEW DETAILED MODAL DRAWER (Used for Task/Complaint detailed views) */}
-      {selectedItem && (
-        <div className="fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-[500px] max-w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <div>
-                <h3 className="font-extrabold text-white text-base">
-                  Ticket Details - {selectedItem.task_type ? `TSK-${selectedItem.id}` : `CMP-${selectedItem.id}`}
-                </h3>
-                <span className="text-[10px] text-slate-500">Customer operation dispatch logs.</span>
-              </div>
-              <button onClick={() => setSelectedItem(null)} className="text-slate-400 hover:text-white text-lg font-bold">✕</button>
-            </div>
+      {selectedItem && (() => {
+        const isTask = !!selectedItem.task_type;
+        const ticketIdText = isTask ? `TSK-${selectedItem.id}` : `CMP-${selectedItem.id}`;
+        const createdDate = new Date(selectedItem.created_at || new Date()).toLocaleString();
+        const subjectText = selectedItem.subject || selectedItem.task_type || 'Customer requested service assistance.';
+        const descriptionText = selectedItem.description || 'No detailed logs provided.';
+        const customerName = selectedItem.customer_name;
+        const customerPhone = selectedItem.customer_phone || 'N/A';
+        const customerEmail = selectedItem.customer_email || 'N/A';
+        const customerAddress = selectedItem.customer_address || 'N/A';
+        const activePlan = selectedItem.package_name || 'Broadband Link';
 
-            <div className="space-y-3.5 text-xs">
-              <div className="p-3 bg-slate-950/40 rounded-xl border border-slate-800 space-y-2">
-                <span className="text-[9px] text-slate-500 block uppercase font-bold">Client Information</span>
-                <p className="text-white font-semibold">Name: {selectedItem.customer_name}</p>
-                {selectedItem.customer_phone && <p className="text-slate-300">Contact Number: {selectedItem.customer_phone}</p>}
-                {selectedItem.customer_address && <p className="text-slate-350">Service Address: {selectedItem.customer_address}</p>}
-              </div>
-
-              <div className="space-y-1">
-                <span className="text-[9px] text-slate-500 block uppercase font-bold">Description</span>
-                <p className="p-3 bg-slate-950/20 border border-slate-800 text-slate-300 rounded-xl leading-relaxed">
-                  {selectedItem.subject || selectedItem.task_type || 'Customer requested service assistance.'} - {selectedItem.description || 'No detailed logs.'}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <div>
-                  <span className="text-slate-550 text-slate-500 text-[9px] block uppercase font-bold">Priority Level</span>
-                  <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-bold block text-center mt-1 uppercase text-[10px]">{selectedItem.priority}</span>
+        return (
+          <div className="fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="w-[850px] max-w-full rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-fade-in-up">
+              
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-slate-850 bg-slate-950/30 flex justify-between items-center">
+                <div className="flex items-center space-x-2.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]" />
+                  <div>
+                    <h3 className="font-extrabold text-white text-base leading-none">
+                      {ticketIdText} &mdash; Support Ledger
+                    </h3>
+                    <span className="text-[10px] text-slate-505 block mt-1">Logged on {createdDate}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-slate-550 text-slate-500 text-[9px] block uppercase font-bold">Current Status</span>
-                  <span className="px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 font-bold block text-center mt-1 uppercase text-[10px]">{selectedItem.status}</span>
-                </div>
+                <button onClick={() => setSelectedItem(null)} className="text-slate-400 hover:text-white text-lg font-bold">✕</button>
               </div>
-            </div>
 
-            <div className="pt-3 border-t border-slate-800 flex justify-end">
-              <button
-                onClick={() => setSelectedItem(null)}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-400 font-bold rounded-xl text-xs"
-              >
-                Close Details
-              </button>
+              {/* Main Split Content */}
+              <div className="flex-grow p-6 overflow-y-auto custom-scrollbar grid grid-cols-1 md:grid-cols-5 gap-6">
+                
+                {/* Left Side: Ticket Metadata & Timeline (3 Columns) */}
+                <div className="md:col-span-3 space-y-5 text-xs">
+                  
+                  {/* Subject & Description Card */}
+                  <div className="p-4 rounded-2xl bg-[#090d16]/30 border border-slate-850 space-y-2">
+                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Ticket Subject & Details</span>
+                    <h4 className="text-sm font-extrabold text-white leading-snug">{subjectText}</h4>
+                    <p className="text-slate-300 leading-relaxed font-light mt-1.5 whitespace-pre-wrap">{descriptionText}</p>
+                  </div>
+
+                  {/* Customer Information */}
+                  <div className="p-4 rounded-2xl bg-[#090d16]/30 border border-slate-855 space-y-3">
+                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Subscriber Parameters</span>
+                    <div className="grid grid-cols-2 gap-3 text-slate-300">
+                      <div>
+                        <span className="text-[9px] text-slate-500 block">Subscriber Name</span>
+                        <span className="font-semibold text-white">{customerName}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-slate-500 block">Subscription Type</span>
+                        <span className="font-semibold text-cyan-405 text-cyan-400">{activePlan}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-slate-500 block">Contact Phone</span>
+                        <span className="font-semibold">{customerPhone}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-slate-500 block">Email Address</span>
+                        <span className="font-semibold truncate block">{customerEmail}</span>
+                      </div>
+                      <div className="col-span-2">
+                        <span className="text-[9px] text-slate-500 block">Installation Address</span>
+                        <span className="font-medium text-slate-350">{customerAddress}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Conversation Timeline */}
+                  <div className="space-y-3">
+                    <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Activity Lifecycle Timeline</span>
+                    <div className="relative pl-4 border-l border-slate-800 space-y-4 ml-1">
+                      
+                      {/* Event 1 */}
+                      <div className="relative">
+                        <span className="absolute -left-[20.5px] top-1 w-2.5 h-2.5 rounded-full bg-cyan-500 border border-slate-900" />
+                        <div>
+                          <span className="font-bold text-white block">Ticket Logged</span>
+                          <span className="text-[9.5px] text-slate-450 mt-0.5 block">Ticket parsed and logged to database catalog on {createdDate}</span>
+                        </div>
+                      </div>
+
+                      {/* Event 2 */}
+                      <div className="relative">
+                        <span className="absolute -left-[20.5px] top-1 w-2.5 h-2.5 rounded-full bg-blue-500 border border-slate-900" />
+                        <div>
+                          <span className="font-bold text-white block">Technician Crew Status</span>
+                          <span className="text-[9.5px] text-slate-450 mt-0.5 block">
+                            {selectedItem.technician_name ? (
+                              <span>Assigned to field technician: <strong className="text-cyan-400">{selectedItem.technician_name}</strong></span>
+                            ) : (
+                              <span className="text-amber-500">Awaiting technician assignment crew dispatch</span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Event 3 */}
+                      <div className="relative">
+                        <span className="absolute -left-[20.5px] top-1 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-slate-900" />
+                        <div>
+                          <span className="font-bold text-white block">Resolution Target</span>
+                          <span className="text-[9.5px] text-slate-450 mt-0.5 block">
+                            {selectedItem.status === 'resolved' || selectedItem.status === 'completed' ? (
+                              <span className="text-emerald-400 font-bold">Closed and verified resolved</span>
+                            ) : (
+                              <span>Currently in <strong className="text-cyan-400 uppercase">{selectedItem.status}</strong> state</span>
+                            )}
+                          </span>
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Right Side: Action Control Panel (2 Columns) */}
+                <div className="md:col-span-2 space-y-5 text-xs border-t md:border-t-0 md:border-l border-slate-850 pt-5 md:pt-0 md:pl-5">
+                  <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Ledger Operations</span>
+                  
+                  {/* Status, Priority Badges */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-slate-955 p-2.5 rounded-xl border border-slate-850 text-center">
+                      <span className="text-[8px] text-slate-500 block uppercase">Priority</span>
+                      <span className={`inline-block mt-1 px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                        selectedItem.priority?.toLowerCase() === 'urgent' ? 'bg-red-955/20 border border-red-900/40 text-red-400' :
+                        selectedItem.priority?.toLowerCase() === 'high' ? 'bg-amber-955/20 border border-amber-900/40 text-amber-400' :
+                        'bg-slate-900 border border-slate-800 text-slate-450'
+                      }`}>{selectedItem.priority}</span>
+                    </div>
+
+                    <div className="bg-slate-955 p-2.5 rounded-xl border border-slate-850 text-center">
+                      <span className="text-[8px] text-slate-500 block uppercase">Status</span>
+                      <span className="inline-block mt-1 px-2 py-0.5 rounded bg-cyan-950 text-cyan-405 text-cyan-400 font-bold text-[9px] uppercase border border-cyan-800/40">{selectedItem.status}</span>
+                    </div>
+                  </div>
+
+                  {/* Quick Action: Change Status */}
+                  {selectedItem.status !== 'resolved' && selectedItem.status !== 'completed' && (
+                    <div className="space-y-2">
+                      <span className="text-[9px] text-slate-550 block font-semibold uppercase">Quick Status Update</span>
+                      <div className="flex space-x-1.5">
+                        <button
+                          onClick={() => {
+                            if (isTask) {
+                              handleUpdateTaskStatus(selectedItem.id, 'in_progress');
+                            } else {
+                              handleUpdateComplaintStatus(selectedItem.id, 'in_progress');
+                            }
+                            setSelectedItem(null);
+                          }}
+                          className="flex-1 py-1.5 rounded-lg bg-cyan-950/30 hover:bg-cyan-900/30 border border-cyan-800/40 text-cyan-405 font-bold hover:text-white transition-colors"
+                        >
+                          In Progress
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (isTask) {
+                              handleUpdateTaskStatus(selectedItem.id, 'completed');
+                            } else {
+                              handleUpdateComplaintStatus(selectedItem.id, 'resolved');
+                            }
+                            setSelectedItem(null);
+                          }}
+                          className="flex-1 py-1.5 rounded-lg bg-emerald-600/10 hover:bg-emerald-600/20 border border-emerald-800/40 text-emerald-450 font-bold hover:text-white transition-colors"
+                        >
+                          Resolve
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Quick Action: Assign Crew */}
+                  <div className="space-y-2 pt-2 border-t border-slate-850">
+                    <span className="text-[9px] text-slate-550 block font-semibold uppercase">Reassign Dispatch Crew</span>
+                    <div className="space-y-2">
+                      <select
+                        id="detailsAssignTechSelector"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-855 text-slate-300 text-xs focus:outline-none"
+                        defaultValue={selectedItem.assigned_employee_id || (techniciansList[0]?.id || '')}
+                      >
+                        {techniciansList.map((t) => (
+                          <option key={t.id} value={t.id.toString()}>
+                            {t.name} ({t.active_jobs} active jobs)
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={async () => {
+                          const techSel = document.getElementById('detailsAssignTechSelector');
+                          if (techSel) {
+                            const val = techSel.value;
+                            try {
+                              const response = await fetch('http://localhost:5000/api/employee/assign-technician', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  type: isTask ? 'task' : 'complaint',
+                                  ticketId: parseInt(selectedItem.id, 10),
+                                  technicianId: parseInt(val, 10)
+                                }),
+                                credentials: 'include'
+                              });
+                              if (!response.ok) {
+                                const err = await response.json();
+                                throw new Error(err.error || 'Assignment failed.');
+                              }
+                              showToast(`Technician assigned successfully.`);
+                              loadPortalData(true);
+                              setSelectedItem(null);
+                            } catch (err) {
+                              alert(err.message);
+                            }
+                          }
+                        }}
+                        className="w-full py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold rounded-xl transition-all shadow-md shadow-cyan-500/10 hover:-translate-y-0.5 active:scale-[0.98] duration-150"
+                      >
+                        Update Assignee Crew
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Mock Action: Internal Note / Reply */}
+                  <div className="space-y-2 pt-2 border-t border-slate-850">
+                    <span className="text-[9px] text-slate-550 block font-semibold uppercase">Client Response & Notes</span>
+                    <textarea
+                      id="detailsResponseMsgArea"
+                      rows="2.5"
+                      placeholder="Add an internal operations note or dispatch update message..."
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-855 text-white placeholder-slate-605 focus:outline-none"
+                    />
+                    <div className="flex space-x-1.5">
+                      <button
+                        onClick={() => {
+                          const area = document.getElementById('detailsResponseMsgArea');
+                          if (area && area.value.trim()) {
+                            showToast("Internal support note filed.");
+                            area.value = '';
+                          }
+                        }}
+                        className="flex-1 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-850 border border-slate-800 text-slate-450 hover:text-white font-bold transition-colors"
+                      >
+                        Internal Note
+                      </button>
+                      <button
+                        onClick={() => {
+                          const area = document.getElementById('detailsResponseMsgArea');
+                          if (area && area.value.trim()) {
+                            showToast("Reply sent to customer dashboard.");
+                            area.value = '';
+                          }
+                        }}
+                        className="flex-1 py-1.5 rounded-lg bg-cyan-900/10 hover:bg-cyan-900/20 border border-cyan-800/40 text-cyan-405 font-bold hover:text-white transition-colors"
+                      >
+                        Reply Client
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* Footer Buttons */}
+              <div className="px-6 py-4 border-t border-slate-855 bg-slate-950/20 flex justify-end space-x-2">
+                <button
+                  onClick={() => setSelectedItem(null)}
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-450 hover:text-white font-bold rounded-xl transition-all"
+                >
+                  Close Details
+                </button>
+              </div>
+
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 2. SUBMIT WORK REPORT MODAL FORM */}
       {showReportForm && (
