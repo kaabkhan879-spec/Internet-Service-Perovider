@@ -151,6 +151,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
   // Quick Action Modal States
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [showNewRequestModal, setShowNewRequestModal] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState(null); // 'customer' | 'jobType' | 'priority' | null
   const [showCreateComplaintModal, setShowCreateComplaintModal] = useState(false);
   const [showAssignTechModal, setShowAssignTechModal] = useState(false);
 
@@ -3537,97 +3538,234 @@ function EmployeePortal({ user, onLogoutSuccess }) {
       )}
 
       {/* 4. NEW REQUEST MODAL */}
-      {showNewRequestModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-[500px] max-w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-805 pb-3">
-              <div>
-                <h3 className="font-extrabold text-white text-base">New Service Connection Request</h3>
-                <span className="text-[10px] text-slate-500">File a new technical connection or package upgrade request.</span>
-              </div>
-              <button onClick={() => setShowNewRequestModal(false)} className="text-slate-400 hover:text-white text-lg font-bold">✕</button>
-            </div>
+      {showNewRequestModal && (() => {
+        const selectedCustomer = customersList.find(c => c.id.toString() === newRequestForm.customerId.toString());
+        const customerLabel = selectedCustomer ? `${selectedCustomer.name} (${selectedCustomer.customer_code})` : 'Select Customer';
 
-            <form onSubmit={handleNewRequestSubmit} className="space-y-4 text-xs">
-              <div className="space-y-1">
-                <label className="text-[9px] font-bold text-slate-500 block">Select Customer</label>
-                <select
-                  value={newRequestForm.customerId}
-                  onChange={(e) => setNewRequestForm({ ...newRequestForm, customerId: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-800 text-xs text-white focus:outline-none"
-                >
-                  {customersList.map((cust, idx) => (
-                    <option key={idx} value={cust.id.toString()}>{cust.name} ({cust.customer_code})</option>
-                  ))}
-                </select>
-              </div>
+        const jobTypes = [
+          { value: 'Installation', label: 'Installation' },
+          { value: 'Package Upgrade', label: 'Package Upgrade' },
+          { value: 'Package Downgrade', label: 'Package Downgrade' },
+          { value: 'Service Transfer', label: 'Service Transfer' },
+          { value: 'Disconnection', label: 'Disconnection' },
+          { value: 'Fiber Repair', label: 'Fiber Repair' },
+          { value: 'Router Replacement', label: 'Router Replacement' },
+          { value: 'ONU/ONT Replacement', label: 'ONU/ONT Replacement' }
+        ];
+        const selectedType = jobTypes.find(t => t.value === newRequestForm.requestType) || jobTypes[0];
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-slate-555 block">Request Job Type</label>
-                  <select
-                    value={newRequestForm.requestType}
-                    onChange={(e) => setNewRequestForm({ ...newRequestForm, requestType: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-800 text-xs text-white focus:outline-none"
-                  >
-                    <option value="Installation">Installation</option>
-                    <option value="Fiber Repair">Fiber Repair</option>
-                    <option value="Router Replacement">Router Replace</option>
-                    <option value="ONU/ONT Replacement">ONU/ONT Replace</option>
-                  </select>
+        const priorities = [
+          { value: 'low', label: 'Low', color: 'text-emerald-400' },
+          { value: 'medium', label: 'Medium', color: 'text-cyan-405' },
+          { value: 'high', label: 'High', color: 'text-amber-400' },
+          { value: 'urgent', label: 'Urgent', color: 'text-red-400' }
+        ];
+        const selectedPriority = priorities.find(p => p.value === newRequestForm.priority) || priorities[1];
+
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="w-[500px] max-w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4 animate-fade-in-up">
+              <div className="flex justify-between items-center border-b border-slate-805 pb-3">
+                <div className="flex items-center space-x-2">
+                  <span className="text-cyan-405 text-lg">🛠️</span>
+                  <div>
+                    <h3 className="font-extrabold text-white text-base leading-none">New Service Connection Request</h3>
+                    <span className="text-[10px] text-slate-505 font-light block mt-1">Create a service request and assign the right priority and timeline.</span>
+                  </div>
                 </div>
+                <button onClick={() => setShowNewRequestModal(false)} className="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+              </div>
+
+              <form onSubmit={handleNewRequestSubmit} className="space-y-4 text-xs">
                 
+                {/* Select Customer */}
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-slate-555 block">Priority Severity</label>
-                  <select
-                    value={newRequestForm.priority}
-                    onChange={(e) => setNewRequestForm({ ...newRequestForm, priority: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-800 text-xs text-white focus:outline-none"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                  </select>
+                  <label className="text-[9px] font-bold text-slate-500 block">Select Customer</label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setActiveDropdown(activeDropdown === 'customer' ? null : 'customer')}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-white flex justify-between items-center focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/30 transition-all"
+                    >
+                      <span>{customerLabel}</span>
+                      <span className="text-[10px] text-slate-500">▼</span>
+                    </button>
+                    
+                    {activeDropdown === 'customer' && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setActiveDropdown(null)} />
+                        <ul className="absolute left-0 right-0 mt-1.5 max-h-48 overflow-y-auto bg-[#0a0f1b] border border-slate-800 rounded-xl shadow-2xl z-50 py-1.5 custom-scrollbar animate-fade-in-up">
+                          {customersList.length > 0 ? (
+                            customersList.map((cust) => {
+                              const isSelected = newRequestForm.customerId.toString() === cust.id.toString();
+                              return (
+                                <li
+                                  key={cust.id}
+                                  onClick={() => {
+                                    setNewRequestForm({ ...newRequestForm, customerId: cust.id.toString() });
+                                    setActiveDropdown(null);
+                                  }}
+                                  className={`px-3.5 py-2 hover:bg-[#13223f] cursor-pointer text-xs flex justify-between items-center transition-colors ${
+                                    isSelected ? 'bg-[#162a4e]/70 text-cyan-405 font-bold' : 'text-slate-300'
+                                  }`}
+                                >
+                                  <div>
+                                    <span className="block leading-tight">{cust.name}</span>
+                                    <span className="text-[9px] text-slate-505 font-mono mt-0.5 block">{cust.customer_code}</span>
+                                  </div>
+                                  {isSelected && <span className="text-[10px]">✓</span>}
+                                </li>
+                              );
+                            })
+                          ) : (
+                            <li className="px-3.5 py-2.5 text-slate-550 italic text-center">No customers available</li>
+                          )}
+                        </ul>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  
+                  {/* Job Type Dropdown */}
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-555 block">Request Job Type</label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setActiveDropdown(activeDropdown === 'jobType' ? null : 'jobType')}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-955 border border-slate-850 text-xs text-white flex justify-between items-center focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/30 transition-all"
+                      >
+                        <span>{selectedType.label}</span>
+                        <span className="text-[10px] text-slate-500">▼</span>
+                      </button>
+                      
+                      {activeDropdown === 'jobType' && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setActiveDropdown(null)} />
+                          <ul className="absolute left-0 right-0 mt-1.5 max-h-48 overflow-y-auto bg-[#0a0f1b] border border-slate-800 rounded-xl shadow-2xl z-50 py-1.5 custom-scrollbar animate-fade-in-up">
+                            {jobTypes.map((type) => {
+                              const isSelected = newRequestForm.requestType === type.value;
+                              return (
+                                <li
+                                  key={type.value}
+                                  onClick={() => {
+                                    setNewRequestForm({ ...newRequestForm, requestType: type.value });
+                                    setActiveDropdown(null);
+                                  }}
+                                  className={`px-3.5 py-2 hover:bg-[#13223f] cursor-pointer text-xs flex justify-between items-center transition-colors ${
+                                    isSelected ? 'bg-[#162a4e]/70 text-cyan-405 font-bold' : 'text-slate-350'
+                                  }`}
+                                >
+                                  <span>{type.label}</span>
+                                  {isSelected && <span className="text-[10px]">✓</span>}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Priority Dropdown */}
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-555 block">Priority Severity</label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setActiveDropdown(activeDropdown === 'priority' ? null : 'priority')}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-955 border border-slate-850 text-xs text-white flex justify-between items-center focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/30 transition-all"
+                      >
+                        <span className="flex items-center space-x-2">
+                          <span className={selectedPriority.color}>●</span>
+                          <span>{selectedPriority.label}</span>
+                        </span>
+                        <span className="text-[10px] text-slate-500">▼</span>
+                      </button>
+                      
+                      {activeDropdown === 'priority' && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setActiveDropdown(null)} />
+                          <ul className="absolute left-0 right-0 mt-1.5 bg-[#0a0f1b] border border-slate-800 rounded-xl shadow-2xl z-50 py-1.5 animate-fade-in-up">
+                            {priorities.map((prio) => {
+                              const isSelected = newRequestForm.priority === prio.value;
+                              return (
+                                <li
+                                  key={prio.value}
+                                  onClick={() => {
+                                    setNewRequestForm({ ...newRequestForm, priority: prio.value });
+                                    setActiveDropdown(null);
+                                  }}
+                                  className={`px-3.5 py-2 hover:bg-[#13223f] cursor-pointer text-xs flex justify-between items-center transition-colors ${
+                                    isSelected ? 'bg-[#162a4e]/70 text-cyan-405 font-bold' : 'text-slate-350'
+                                  }`}
+                                >
+                                  <span className="flex items-center space-x-2">
+                                    <span className={prio.color}>●</span>
+                                    <span>{prio.label}</span>
+                                  </span>
+                                  {isSelected && <span className="text-[10px]">✓</span>}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Due Date Picker */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold text-slate-500 block">Due Date</label>
+                    <div className="relative">
+                      <input
+                        type="date"
+                        required
+                        value={newRequestForm.dueDate}
+                        onChange={(e) => setNewRequestForm({ ...newRequestForm, dueDate: e.target.value })}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-slate-955 border border-slate-850 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/30 transition-all duration-200"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Description */}
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold text-slate-500 block">Due Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={newRequestForm.dueDate}
-                    onChange={(e) => setNewRequestForm({ ...newRequestForm, dueDate: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none"
+                  <label className="text-[9px] font-bold text-slate-500 block">Description Notes</label>
+                  <textarea
+                    rows="3"
+                    placeholder="Provide parameters and specific setup guidelines..."
+                    value={newRequestForm.description}
+                    onChange={(e) => setNewRequestForm({ ...newRequestForm, description: e.target.value })}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/30 transition-all duration-200"
                   />
                 </div>
-              </div>
 
-              <div className="space-y-1">
-                <label className="text-[9px] font-bold text-slate-500 block">Description Notes</label>
-                <textarea
-                  rows="3"
-                  placeholder="Provide parameters and specific setup guidelines..."
-                  value={newRequestForm.description}
-                  onChange={(e) => setNewRequestForm({ ...newRequestForm, description: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none"
-                />
-              </div>
-
-              <div className="pt-2 flex justify-end space-x-2">
-                <button type="submit" className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl transition-colors">
-                  Submit Request
-                </button>
-                <button type="button" onClick={() => setShowNewRequestModal(false)} className="px-4 py-2 bg-slate-900 text-slate-400 font-bold rounded-xl">
-                  Cancel
-                </button>
-              </div>
-            </form>
+                <div className="pt-2 flex justify-end space-x-2">
+                  <button
+                    type="submit"
+                    className="px-4.5 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold rounded-xl transition-all shadow-md shadow-cyan-500/10 hover:-translate-y-0.5 active:scale-[0.98] duration-150 flex items-center space-x-2"
+                  >
+                    <span>Submit Request</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewRequestModal(false)}
+                    className="px-4 py-2 bg-slate-900 border border-slate-850 hover:bg-slate-805 text-slate-400 hover:text-white font-bold rounded-xl transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 5. CREATE COMPLAINT MODAL */}
       {showCreateComplaintModal && (
