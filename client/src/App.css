@@ -322,7 +322,18 @@
 }
 
 /* Fix native select options background and text color for dark mode */
+select,
 select option {
   background-color: #0c1222 !important;
-  color: #f8fafc !important;
+  color: #ffffff !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+select option:hover,
+select option:focus,
+select option:active,
+select option:checked {
+  background-color: #0891b2 !important; /* cyan-600 active highlight */
+  color: #ffffff !important;
 }
