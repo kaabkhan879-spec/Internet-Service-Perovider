@@ -47,69 +47,117 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
   // Complaints Tab specific filter/search/pagination states
   const [complaintsSearch, setComplaintsSearch] = useState('');
-  const [complaintsStatusFilter, setComplaintsStatusFilter] = useState('all'); // 'all' | 'pending' | 'on_the_way' | 'in_progress' | 'resolved'
-  const [complaintsPriorityFilter, setComplaintsPriorityFilter] = useState('all'); // 'all' | 'low' | 'medium' | 'high' | 'urgent'
-  const [complaintsDateFilter, setComplaintsDateFilter] = useState('all'); // 'all' | 'today' | 'week' | 'month'
+  const [complaintsStatusFilter, setComplaintsStatusFilter] = useState('all'); 
+  const [complaintsPriorityFilter, setComplaintsPriorityFilter] = useState('all'); 
+  const [complaintsDateFilter, setComplaintsDateFilter] = useState('all'); 
   const [complaintsCurrentPage, setComplaintsCurrentPage] = useState(1);
   const complaintsPerPage = 8;
 
   // Technical Tasks Tab specific search/filter/pagination states
   const [tasksSearch, setTasksSearch] = useState('');
-  const [tasksStatusFilter, setTasksStatusFilter] = useState('all'); // 'all' | 'assigned' | 'on_the_way' | 'in_progress' | 'completed'
-  const [tasksTypeFilter, setTasksTypeFilter] = useState('all'); // 'all' | 'Installation' | 'Fiber Repair' | 'Router Replacement' | 'ONU/ONT Replacement' | 'Configuration' | 'Service Restoration' | 'Other'
-  const [tasksPriorityFilter, setTasksPriorityFilter] = useState('all'); // 'all' | 'low' | 'medium' | 'high' | 'urgent'
-  const [tasksDateFilter, setTasksDateFilter] = useState('all'); // 'all' | 'today' | 'week' | 'month'
+  const [tasksStatusFilter, setTasksStatusFilter] = useState('all'); 
+  const [tasksTypeFilter, setTasksTypeFilter] = useState('all'); 
+  const [tasksPriorityFilter, setTasksPriorityFilter] = useState('all'); 
+  const [tasksDateFilter, setTasksDateFilter] = useState('all'); 
   const [tasksCurrentPage, setTasksCurrentPage] = useState(1);
   const tasksPerPage = 8;
 
   // History filters states
   const [historySearch, setHistorySearch] = useState('');
-  const [historyFilterType, setHistoryFilterType] = useState('all'); // 'all' | 'task' | 'complaint' | 'Installation' | 'Fiber Repair' ...
-  const [historyFilterPriority, setHistoryFilterPriority] = useState('all'); // 'all' | 'low' | 'medium' | 'high' | 'urgent'
-  const [historyFilterDate, setHistoryFilterDate] = useState('all'); // 'all' | 'today' | 'week' | 'month'
+  const [historyFilterType, setHistoryFilterType] = useState('all'); 
+  const [historyFilterPriority, setHistoryFilterPriority] = useState('all'); 
+  const [historyFilterDate, setHistoryFilterDate] = useState('all'); 
   const [historyCurrentPage, setHistoryCurrentPage] = useState(1);
   const historyPerPage = 8;
 
-  // Mock Notifications for Testing Hub Page
+  // Quick Action Modal States
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [showNewRequestModal, setShowNewRequestModal] = useState(false);
+  const [showCreateComplaintModal, setShowCreateComplaintModal] = useState(false);
+  const [showAssignTechModal, setShowAssignTechModal] = useState(false);
+
+  const [newCustomerForm, setNewCustomerForm] = useState({ name: '', email: '', phone: '', address: '', plan: 'Silver' });
+  const [newRequestForm, setNewRequestForm] = useState({ customerName: '', requestType: 'New Connection', notes: '' });
+  const [newComplaintForm, setNewComplaintForm] = useState({ customerName: '', issue: '', priority: 'High', description: '' });
+  const [assignForm, setAssignForm] = useState({ ticketId: '', technicianId: 'Hamza' });
+
+  // Mock Data for Operations Dashboard
+  const [mockCustomers, setMockCustomers] = useState([
+    { id: 'CUST-3042', name: 'Ahmed Khan', email: 'ahmed.k@gmail.com', phone: '0300-1234567', plan: 'Fiber Gold (250 Mbps)', status: 'Active', joined: '12 Jan 2025' },
+    { id: 'CUST-3043', name: 'Sara Ali', email: 'sara.ali@yahoo.com', phone: '0321-7654321', plan: 'Fiber Silver (100 Mbps)', status: 'Active', joined: '04 Feb 2025' },
+    { id: 'CUST-3044', name: 'Bilal Ahmed', email: 'bilal.a@outlook.com', phone: '0333-9876543', plan: 'Fiber Bronze (50 Mbps)', status: 'Active', joined: '20 May 2025' },
+    { id: 'CUST-3045', name: 'Noor Fatima', email: 'noor.f@gmail.com', phone: '0345-2468135', plan: 'Fiber Gold (250 Mbps)', status: 'Active', joined: '18 Jun 2025' },
+    { id: 'CUST-3046', name: 'Zainab Bibi', email: 'zainab.b@gmail.com', phone: '0312-3571113', plan: 'Fiber Platinum (1 Gbps)', status: 'Suspended', joined: '30 Sep 2024' },
+    { id: 'CUST-3047', name: 'Kamran Shah', email: 'kamran.shah@gmail.com', phone: '0302-8642013', plan: 'Fiber Silver (100 Mbps)', status: 'Active', joined: '05 Aug 2025' }
+  ]);
+
+  const mockServicePlans = [
+    { name: 'Fiber Bronze', speed: '50 Mbps', price: '$30/mo', activeSubscribers: 846, type: 'Fiber Optic', reliability: '99.9%', support: 'Standard' },
+    { name: 'Fiber Silver', speed: '100 Mbps', price: '$50/mo', activeSubscribers: 1105, type: 'Fiber Optic', reliability: '99.9%', support: 'Priority 24/7' },
+    { name: 'Fiber Gold', speed: '250 Mbps', price: '$80/mo', activeSubscribers: 420, type: 'Fiber Optic', reliability: '99.9%', support: 'Premium Dedicated' },
+    { name: 'Fiber Platinum', speed: '1 Gbps', price: '$120/mo', activeSubscribers: 160, type: 'Direct Fiber', reliability: '99.99%', support: 'VIP Executive' }
+  ];
+
+  const mockTechnicians = [
+    { name: 'Hamza', status: 'Available', color: 'bg-emerald-500', icon: '🟢', activeJobs: 0, rating: '4.8', phone: '0310-9876543' },
+    { name: 'Usman', status: 'On Job', color: 'bg-blue-500', icon: '🔵', activeJobs: 2, rating: '4.6', phone: '0300-7654321' },
+    { name: 'Ali Raza', status: 'On Break', color: 'bg-amber-500', icon: '🟠', activeJobs: 1, rating: '4.9', phone: '0322-1234567' },
+    { name: 'Bilal', status: 'Offline', color: 'bg-red-500', icon: '🔴', activeJobs: 0, rating: '4.5', phone: '0333-2468101' }
+  ];
+
+  const mockBillings = [
+    { invoiceId: 'INV-2026-987', customer: 'Ahmed Khan', amount: '$80.00', status: 'Paid', dueDate: '15 Aug 2026' },
+    { invoiceId: 'INV-2026-988', customer: 'Sara Ali', amount: '$50.00', status: 'Pending', dueDate: '25 Aug 2026' },
+    { invoiceId: 'INV-2026-989', customer: 'Bilal Ahmed', amount: '$30.00', status: 'Paid', dueDate: '18 Aug 2026' },
+    { invoiceId: 'INV-2026-990', customer: 'Noor Fatima', amount: '$80.00', status: 'Pending', dueDate: '28 Aug 2026' },
+    { invoiceId: 'INV-2026-991', customer: 'Zainab Bibi', amount: '$120.00', status: 'Overdue', dueDate: '10 Aug 2026' }
+  ];
+
+  const mockInstallations = [
+    { time: '09:00 AM', type: 'New Fiber Connection', customer: 'Ahmed Khan', technician: 'Hamza', area: 'Gulberg', status: 'Completed' },
+    { time: '11:30 AM', type: 'Package Upgrade', customer: 'Sara Ali', technician: 'Usman', area: 'DHA', status: 'In Progress' },
+    { time: '02:00 PM', type: 'New Fiber Connection', customer: 'Bilal Ahmed', technician: 'Ali Raza', area: 'Model Town', status: 'Scheduled' }
+  ];
+
   const getMockNotifications = () => [
     { 
       id: 'mock-1', 
-      title: '🔧 New Technical Task Assigned', 
-      message: 'You have been assigned a new maintenance task.', 
-      created_at: new Date(Date.now() - 10 * 60 * 1000).toISOString(), 
+      title: '📋 New service request received', 
+      message: 'Customer Ahmed Khan requested a new fiber connection.', 
+      created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(), 
       is_read: false, 
       is_mock: true, 
-      category: 'task',
+      category: 'request',
       priority: 'normal'
     },
     { 
       id: 'mock-2', 
-      title: '📋 Complaint Updated', 
-      message: 'Complaint #CMP-1048 has been updated by the supervisor.', 
-      created_at: new Date(Date.now() - 32 * 60 * 1000).toISOString(), 
+      title: '🎫 Complaint escalated', 
+      message: 'Complaint CMP-1048 requires immediate attention.', 
+      created_at: new Date(Date.now() - 20 * 60 * 1000).toISOString(), 
       is_read: false, 
       is_mock: true, 
       category: 'complaint',
-      priority: 'normal'
-    },
-    { 
-      id: 'mock-3', 
-      title: '⚡ Priority Task Action Required', 
-      message: 'A high-priority technical issue requires your attention.', 
-      created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(), 
-      is_read: false, 
-      is_mock: true, 
-      category: 'priority',
       priority: 'high'
     },
     { 
+      id: 'mock-3', 
+      title: '🔧 Technician completed installation', 
+      message: 'Hamza completed REQ-1045.', 
+      created_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(), 
+      is_read: false, 
+      is_mock: true, 
+      category: 'system',
+      priority: 'normal'
+    },
+    { 
       id: 'mock-4', 
-      title: '✅ Task Completed Successfully', 
-      message: 'Your previous technical task was successfully marked as completed.', 
+      title: '💳 Payment reminder', 
+      message: '37 customer payments are currently outstanding.', 
       created_at: new Date(Date.now() - 120 * 60 * 1000).toISOString(), 
       is_read: true, 
       is_mock: true, 
-      category: 'system',
+      category: 'billing',
       priority: 'normal'
     }
   ];
@@ -141,7 +189,6 @@ function EmployeePortal({ user, onLogoutSuccess }) {
     try {
       const reqOpts = { credentials: 'include' };
       
-      // 1. Load profile details
       const profileRes = await fetch('http://localhost:5000/api/employee/profile', reqOpts);
       if (!profileRes.ok) {
         if (profileRes.status === 401) {
@@ -155,35 +202,30 @@ function EmployeePortal({ user, onLogoutSuccess }) {
       setProfile(profileData);
       setEditProfileForm({ phone: profileData.phone || '', address: profileData.address || '' });
 
-      // 2. Fetch assigned complaints
       const complaintsRes = await fetch('http://localhost:5000/api/employee/complaints', reqOpts);
       if (complaintsRes.ok) {
         const complaintsData = await complaintsRes.json();
         setComplaints(complaintsData);
       }
 
-      // 3. Fetch assigned tasks
       const tasksRes = await fetch('http://localhost:5000/api/employee/tasks', reqOpts);
       if (tasksRes.ok) {
         const tasksData = await tasksRes.json();
         setTasks(tasksData);
       }
 
-      // 4. Fetch completed work history
       const historyRes = await fetch('http://localhost:5000/api/employee/work-history', reqOpts);
       if (historyRes.ok) {
         const historyData = await historyRes.json();
         setHistory(historyData);
       }
 
-      // 5. Fetch notifications list & merge with mocks for testing
       const notificationsRes = await fetch('http://localhost:5000/api/employee/notifications', reqOpts);
       let fetchedNotifs = [];
       if (notificationsRes.ok) {
         fetchedNotifs = await notificationsRes.json();
       }
 
-      // Merge mock and real database notifications
       const mergedNotifications = [
         ...getMockNotifications().filter(mn => {
           const removedMocks = JSON.parse(localStorage.getItem('removed_mocks') || '[]');
@@ -193,7 +235,6 @@ function EmployeePortal({ user, onLogoutSuccess }) {
       ];
       setNotifications(mergedNotifications);
 
-      // 6. Calculate unread counts dynamically based on merged notifications
       const unreadMerged = mergedNotifications.filter(n => !n.is_read).length;
       setUnreadCount(unreadMerged);
 
@@ -210,7 +251,6 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
   const handleUpdateComplaintStatus = async (complaintId, newStatus) => {
     if (newStatus === 'resolved') {
-      // Prompt work report logging before resolving
       setReportType('complaint');
       const targetItem = complaints.find(c => c.id === complaintId);
       setSelectedItem(targetItem);
@@ -246,7 +286,6 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
   const handleUpdateTaskStatus = async (taskId, newStatus) => {
     if (newStatus === 'completed') {
-      // Prompt work report logging before completing
       setReportType('task');
       const targetItem = tasks.find(t => t.id === taskId);
       setSelectedItem(targetItem);
@@ -303,7 +342,6 @@ function EmployeePortal({ user, onLogoutSuccess }) {
         payload.task_id = selectedItem.id;
       }
 
-      // 1. Submit work report
       const reportRes = await fetch('http://localhost:5000/api/employee/work-reports', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -316,7 +354,6 @@ function EmployeePortal({ user, onLogoutSuccess }) {
         throw new Error(err.error || 'Failed to log work report.');
       }
 
-      // 2. Resolve/Complete the ticket
       const statusUrl = reportType === 'complaint'
         ? `http://localhost:5000/api/employee/complaints/${selectedItem.id}/status`
         : `http://localhost:5000/api/employee/tasks/${selectedItem.id}/status`;
@@ -343,7 +380,6 @@ function EmployeePortal({ user, onLogoutSuccess }) {
     }
   };
 
-  // Mark single notification as read
   const handleMarkNotificationAsRead = async (notif) => {
     if (notif.is_read) return;
 
@@ -444,55 +480,63 @@ function EmployeePortal({ user, onLogoutSuccess }) {
     }
   };
 
-  // Password strength calculation
-  const calculatePasswordStrength = (pwd) => {
-    if (!pwd) return { score: 0, text: 'None', color: 'bg-slate-800' };
-    let score = 0;
-    if (pwd.length >= 6) score++;
-    if (pwd.length >= 10) score++;
-    if (/[A-Z]/.test(pwd)) score++;
-    if (/[0-9]/.test(pwd)) score++;
-    if (/[^A-Za-z0-9]/.test(pwd)) score++;
-    
-    if (score <= 1) return { score, text: 'Weak', color: 'bg-red-500' };
-    if (score === 2) return { score, text: 'Fair', color: 'bg-amber-500' };
-    if (score === 3) return { score, text: 'Strong', color: 'bg-cyan-500' };
-    return { score, text: 'Very Strong', color: 'bg-emerald-500' };
+  // Mock Form Submissions for Operations Shortcuts
+  const handleAddCustomerSubmit = (e) => {
+    e.preventDefault();
+    if (!newCustomerForm.name || !newCustomerForm.email || !newCustomerForm.phone) {
+      alert('Please fill out Name, Email, and Phone number.');
+      return;
+    }
+    const newCust = {
+      id: `CUST-${Math.floor(1000 + Math.random() * 9000)}`,
+      name: newCustomerForm.name,
+      email: newCustomerForm.email,
+      phone: newCustomerForm.phone,
+      address: newCustomerForm.address || 'Not Provided',
+      plan: `Fiber ${newCustomerForm.plan} (${newCustomerForm.plan === 'Gold' ? '250 Mbps' : newCustomerForm.plan === 'Silver' ? '100 Mbps' : newCustomerForm.plan === 'Bronze' ? '50 Mbps' : '1 Gbps'})`,
+      status: 'Active',
+      joined: 'Today'
+    };
+    setMockCustomers([newCust, ...mockCustomers]);
+    showToast(`Successfully added Customer: ${newCustomerForm.name}`);
+    setShowAddCustomerModal(false);
+    setNewCustomerForm({ name: '', email: '', phone: '', address: '', plan: 'Silver' });
   };
 
-  // Client-side filtering logic for My Complaints Tab
-  const filteredComplaints = complaints.filter(c => {
-    const query = complaintsSearch.toLowerCase().trim();
-    const matchesSearch = !query ||
-      c.id.toString().includes(query) ||
-      c.customer_name?.toLowerCase().includes(query) ||
-      c.subject?.toLowerCase().includes(query) ||
-      c.customer_phone?.includes(query);
-
-    const matchesStatus = complaintsStatusFilter === 'all' || c.status === complaintsStatusFilter;
-    const matchesPriority = complaintsPriorityFilter === 'all' || c.priority === complaintsPriorityFilter;
-
-    let matchesDate = true;
-    if (complaintsDateFilter !== 'all') {
-      const createdDate = new Date(c.created_at);
-      const today = new Date();
-      if (complaintsDateFilter === 'today') {
-        matchesDate = createdDate.toDateString() === today.toDateString();
-      } else if (complaintsDateFilter === 'week') {
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(today.getDate() - 7);
-        matchesDate = createdDate >= sevenDaysAgo;
-      } else if (complaintsDateFilter === 'month') {
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(today.getDate() - 30);
-        matchesDate = createdDate >= thirtyDaysAgo;
-      }
+  const handleNewRequestSubmit = (e) => {
+    e.preventDefault();
+    if (!newRequestForm.customerName || !newRequestForm.notes) {
+      alert('Please fill out Customer Name and Notes.');
+      return;
     }
+    showToast(`Operations request generated for: ${newRequestForm.customerName}`);
+    setShowNewRequestModal(false);
+    setNewRequestForm({ customerName: '', requestType: 'New Connection', notes: '' });
+  };
 
-    return matchesSearch && matchesStatus && matchesPriority && matchesDate;
-  });
+  const handleCreateComplaintSubmit = (e) => {
+    e.preventDefault();
+    if (!newComplaintForm.customerName || !newComplaintForm.issue) {
+      alert('Please fill out Customer Name and Issue.');
+      return;
+    }
+    showToast(`Customer Complaint created for: ${newComplaintForm.customerName}`);
+    setShowCreateComplaintModal(false);
+    setNewComplaintForm({ customerName: '', issue: '', priority: 'High', description: '' });
+  };
 
-  // Client-side filtering logic for Technical Tasks Tab
+  const handleAssignTechSubmit = (e) => {
+    e.preventDefault();
+    if (!assignForm.ticketId) {
+      alert('Please enter a valid Service Request / Complaint ID.');
+      return;
+    }
+    showToast(`Assigned Ticket ${assignForm.ticketId} to Technician: ${assignForm.technicianId}`);
+    setShowAssignTechModal(false);
+    setAssignForm({ ticketId: '', technicianId: 'Hamza' });
+  };
+
+  // Client-side filtering logic for Service Requests (mapped to real Tasks state)
   const filteredTasks = tasks.filter(t => {
     const query = tasksSearch.toLowerCase().trim();
     const matchesSearch = !query ||
@@ -524,351 +568,188 @@ function EmployeePortal({ user, onLogoutSuccess }) {
     return matchesSearch && matchesStatus && matchesType && matchesPriority && matchesDate;
   });
 
-  // Filtered History
-  const filteredHistory = history.filter(item => {
-    const query = historySearch.toLowerCase().trim();
+  // Client-side filtering logic for Complaints Tab
+  const filteredComplaints = complaints.filter(c => {
+    const query = complaintsSearch.toLowerCase().trim();
     const matchesSearch = !query ||
-      item.id.toString().includes(query) ||
-      item.customer_name?.toLowerCase().includes(query) ||
-      item.work_type?.toLowerCase().includes(query) ||
-      item.description?.toLowerCase().includes(query);
-    
-    let matchesType = true;
-    if (historyFilterType !== 'all') {
-      if (historyFilterType === 'complaint') {
-        matchesType = item.type === 'complaint';
-      } else if (historyFilterType === 'task') {
-        matchesType = item.type === 'task';
-      } else {
-        matchesType = item.work_type === historyFilterType;
-      }
-    }
+      c.id.toString().includes(query) ||
+      c.customer_name?.toLowerCase().includes(query) ||
+      c.subject?.toLowerCase().includes(query) ||
+      c.customer_phone?.includes(query);
 
-    const matchesPriority = historyFilterPriority === 'all' || item.priority === historyFilterPriority;
+    const matchesStatus = complaintsStatusFilter === 'all' || c.status === complaintsStatusFilter;
+    const matchesPriority = complaintsPriorityFilter === 'all' || c.priority === complaintsPriorityFilter;
 
     let matchesDate = true;
-    if (historyFilterDate !== 'all') {
-      const completedDate = new Date(item.completed_date);
+    if (complaintsDateFilter !== 'all') {
+      const createdDate = new Date(c.created_at);
       const today = new Date();
-      if (historyFilterDate === 'today') {
-        matchesDate = completedDate.toDateString() === today.toDateString();
-      } else if (historyFilterDate === 'week') {
+      if (complaintsDateFilter === 'today') {
+        matchesDate = createdDate.toDateString() === today.toDateString();
+      } else if (complaintsDateFilter === 'week') {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(today.getDate() - 7);
-        matchesDate = completedDate >= sevenDaysAgo;
-      } else if (historyFilterDate === 'month') {
+        matchesDate = createdDate >= sevenDaysAgo;
+      } else if (complaintsDateFilter === 'month') {
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(today.getDate() - 30);
-        matchesDate = completedDate >= thirtyDaysAgo;
+        matchesDate = createdDate >= thirtyDaysAgo;
       }
     }
 
-    return matchesSearch && matchesType && matchesPriority && matchesDate;
+    return matchesSearch && matchesStatus && matchesPriority && matchesDate;
   });
 
-  // Pagination for Complaints
   const totalComplaintsPages = Math.ceil(filteredComplaints.length / complaintsPerPage) || 1;
   const indexOfLastComplaint = complaintsCurrentPage * complaintsPerPage;
   const indexOfFirstComplaint = indexOfLastComplaint - complaintsPerPage;
   const currentComplaintsPageData = filteredComplaints.slice(indexOfFirstComplaint, indexOfLastComplaint);
 
-  // Pagination for Tasks
   const totalTasksPages = Math.ceil(filteredTasks.length / tasksPerPage) || 1;
   const indexOfLastTask = tasksCurrentPage * tasksPerPage;
   const indexOfFirstTask = indexOfLastTask - tasksPerPage;
   const currentTasksPageData = filteredTasks.slice(indexOfFirstTask, indexOfLastTask);
 
-  // Pagination for Work History
-  const totalHistoryPages = Math.ceil(filteredHistory.length / historyPerPage) || 1;
-  const indexOfLastHistory = historyCurrentPage * historyPerPage;
-  const indexOfFirstHistory = indexOfLastHistory - historyPerPage;
-  const currentHistoryPageData = filteredHistory.slice(indexOfFirstHistory, indexOfLastHistory);
-
-  // Statistics summaries
-  const totalAssigned = complaints.length;
-  const pendingComplaintsCount = complaints.filter(c => c.status === 'pending' || c.status === 'open').length;
-  const inProgressComplaintsCount = complaints.filter(c => c.status === 'in_progress' || c.status === 'on_the_way').length;
-  const resolvedComplaintsCount = complaints.filter(c => c.status === 'resolved').length;
-  const pendingTasksCount = tasks.filter(t => t.status !== 'completed').length;
-
-  // Technical Tasks counts
-  const totalTasksCount = tasks.length;
-  const pendingTasksCountAll = tasks.filter(t => t.status === 'assigned' || t.status === 'pending').length;
-  const inProgressTasksCount = tasks.filter(t => t.status === 'in_progress' || t.status === 'on_the_way').length;
-  const completedTasksCount = tasks.filter(t => t.status === 'completed').length;
-
-  // Work History stats
-  const totalHistoryCount = history.length;
-  const historyCompletedThisWeek = history.filter(h => {
-    const diff = new Date() - new Date(h.completed_date);
-    return diff > 0 && diff <= 1000 * 60 * 60 * 24 * 7;
-  }).length;
-  const historyCompletedThisMonth = history.filter(h => {
-    const diff = new Date() - new Date(h.completed_date);
-    return diff > 0 && diff <= 1000 * 60 * 60 * 24 * 30;
-  }).length;
-
-  const avgCompletionTime = calculateAvgDuration();
-
-  // Performance Insight calculations
-  const performanceHighPriorityCompleted = history.filter(h => h.priority === 'urgent' || h.priority === 'high').length;
-  const performanceComplaintResolutions = history.filter(h => h.type === 'complaint').length;
-  const performanceInstallations = history.filter(h => h.type === 'task' && h.work_type === 'Installation').length;
-  const performanceRepairs = history.filter(h => h.type === 'task' && h.work_type === 'Fiber Repair').length;
-
-  function calculateAvgDuration() {
-    if (!history || history.length === 0) return '0 Hours';
-    let totalMs = 0;
-    let count = 0;
-    history.forEach(h => {
-      if (h.completed_date && h.created_at) {
-        const diff = new Date(h.completed_date) - new Date(h.created_at);
-        if (diff > 0) {
-          totalMs += diff;
-          count++;
-        }
-      }
-    });
-    if (count === 0) return '0 Hours';
-    const avgHours = totalMs / (1000 * 60 * 60 * count);
-    return avgHours > 24 
-      ? `${(avgHours / 24).toFixed(1)} Days`
-      : `${avgHours.toFixed(1)} Hours`;
-  }
-
-  // Aggregate action alerts
-  const actionAlerts = [
-    ...complaints.filter(c => (c.priority === 'urgent' || c.priority === 'high') && c.status !== 'resolved').map(c => ({
-      id: `c-${c.id}`,
-      type: 'complaint',
-      severity: c.priority,
-      message: `Urgent ticket: "${c.subject}" requires technician response.`,
-      target: c
-    })),
-    ...tasks.filter(t => (t.priority === 'urgent' || t.priority === 'high') && t.status !== 'completed').map(t => ({
-      id: `t-${t.id}`,
-      type: 'task',
-      severity: t.priority,
-      message: `Urgent Task: "${t.task_type}" is pending completion.`,
-      target: t
-    }))
-  ];
-
-  // Hub Notifications specific stats calculations
-  const notifUnreadCount = notifications.filter(n => !n.is_read).length;
-  const notifTodayCount = notifications.filter(n => {
-    const diff = Date.now() - new Date(n.created_at);
-    return diff <= 24 * 60 * 60 * 1000;
-  }).length;
-  const notifImportantCount = notifications.filter(n => 
-    n.priority === 'high' || 
-    n.title?.toLowerCase().includes('priority') || 
-    n.title?.toLowerCase().includes('urgent') ||
-    n.message?.toLowerCase().includes('priority')
-  ).length;
-
   return (
-    <div className="flex bg-slate-955 bg-slate-950 min-h-screen text-slate-100 font-sans w-full selection:bg-cyan-500 selection:text-slate-950">
+    <div className="flex bg-[#070b14] min-h-screen text-slate-100 font-sans w-full selection:bg-cyan-500 selection:text-[#070b14] overflow-x-hidden">
       
       {/* Toast Messages */}
       {toastMessage && (
-        <div className="fixed top-6 right-6 z-50 p-4 rounded-xl bg-slate-900 border border-cyan-800 text-cyan-405 text-cyan-400 text-sm shadow-xl flex items-center space-x-3 animate-fade-in ring-1 ring-cyan-500/25">
+        <div className="fixed top-6 right-6 z-[60] p-4 rounded-xl bg-slate-900 border border-cyan-800 text-cyan-400 text-sm shadow-xl flex items-center space-x-3 ring-1 ring-cyan-500/25 transition-all duration-200 animate-slide-in">
+          <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
           <span className="font-semibold">{toastMessage}</span>
         </div>
       )}
 
       {/* 1. Sidebar Navigation */}
-      <aside className="w-64 border-r border-slate-900 bg-slate-950/80 backdrop-blur-md hidden md:flex flex-col h-screen sticky top-0 z-40">
-        <div className="p-6 border-b border-slate-900">
+      <aside className="w-64 border-r border-[#151c2e] bg-[#090d18]/90 backdrop-blur-md hidden lg:flex flex-col h-screen sticky top-0 z-40 shrink-0">
+        <div className="p-6 border-b border-[#151c2e] flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-indigo-655 flex items-center justify-center shadow-lg">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
-            <span className="font-extrabold text-sm tracking-wider uppercase text-white">Technician Portal</span>
+            <div>
+              <span className="font-extrabold text-sm tracking-wider uppercase text-white block">Employee Portal</span>
+              <span className="text-[10px] text-cyan-400 font-bold tracking-widest block uppercase mt-0.5">ISP Operations</span>
+            </div>
           </div>
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-          
-          <button
-            onClick={() => { setActiveTab('Dashboard'); setShowProfileDropdown(false); }}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group relative ${
-              activeTab === 'Dashboard'
-                ? 'bg-gradient-to-r from-cyan-500/10 to-indigo-550/5 border border-cyan-500/20 text-cyan-400'
-                : 'text-slate-400 hover:bg-slate-900/40 hover:text-white border border-transparent'
-            }`}
-          >
-            <span>💻</span>
-            <span>My Workspace</span>
-          </button>
-
-          <button
-            onClick={() => { setActiveTab('Complaints'); setShowProfileDropdown(false); }}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group relative ${
-              activeTab === 'Complaints'
-                ? 'bg-gradient-to-r from-cyan-500/10 to-indigo-550/5 border border-cyan-500/20 text-cyan-400'
-                : 'text-slate-400 hover:bg-slate-900/40 hover:text-white border border-transparent'
-            }`}
-          >
-            <span>🎫</span>
-            <span>My Complaints</span>
-            {complaints.filter(c => c.status !== 'resolved').length > 0 && (
-              <span className="absolute right-3 px-1.5 py-0.5 rounded-full text-[9px] bg-cyan-955 border border-cyan-800 text-cyan-400 font-bold">
-                {complaints.filter(c => c.status !== 'resolved').length}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => { setActiveTab('Tasks'); setShowProfileDropdown(false); }}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group relative ${
-              activeTab === 'Tasks'
-                ? 'bg-gradient-to-r from-cyan-500/10 to-indigo-550/5 border border-cyan-500/20 text-cyan-400'
-                : 'text-slate-400 hover:bg-slate-900/40 hover:text-white border border-transparent'
-            }`}
-          >
-            <span>🛠️</span>
-            <span>Technical Tasks</span>
-            {pendingTasksCount > 0 && (
-              <span className="absolute right-3 px-1.5 py-0.5 rounded-full text-[9px] bg-indigo-950 border border-indigo-850 text-indigo-400 font-bold">
-                {pendingTasksCount}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => { setActiveTab('History'); setShowProfileDropdown(false); }}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group relative ${
-              activeTab === 'History'
-                ? 'bg-gradient-to-r from-cyan-500/10 to-indigo-550/5 border border-cyan-500/20 text-cyan-400'
-                : 'text-slate-400 hover:bg-slate-900/40 hover:text-white border border-transparent'
-            }`}
-          >
-            <span>📜</span>
-            <span>Work History</span>
-          </button>
-
-          <button
-            onClick={() => { setActiveTab('Notifications'); setShowProfileDropdown(false); }}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group relative ${
-              activeTab === 'Notifications'
-                ? 'bg-gradient-to-r from-cyan-500/10 to-indigo-550/5 border border-cyan-500/20 text-cyan-400'
-                : 'text-slate-400 hover:bg-slate-900/40 hover:text-white border border-transparent'
-            }`}
-          >
-            <span>🔔</span>
-            <span>Notifications</span>
-            {unreadCount > 0 && (
-              <span className="absolute right-3 px-1.5 py-0.5 rounded-full text-[9px] bg-red-955 bg-red-950 border border-red-800 text-red-400 font-bold">
-                {unreadCount}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => { setActiveTab('Profile'); setShowProfileDropdown(false); }}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all group relative ${
-              activeTab === 'Profile'
-                ? 'bg-gradient-to-r from-cyan-500/10 to-indigo-550/5 border border-cyan-500/20 text-cyan-400'
-                : 'text-slate-400 hover:bg-slate-900/40 hover:text-white border border-transparent'
-            }`}
-          >
-            <span>👤</span>
-            <span>My Profile</span>
-          </button>
-
+        <nav className="flex-grow px-4 py-6 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800">
+          {[
+            { id: 'Dashboard', label: 'Dashboard', icon: '🏠' },
+            { id: 'Customers', label: 'Customers', icon: '👥' },
+            { id: 'ServicePlans', label: 'Service Plans', icon: '📦' },
+            { id: 'ServiceRequests', label: 'Service Requests', icon: '📋' },
+            { id: 'Complaints', label: 'Complaints & Support', icon: '🎫' },
+            { id: 'Technicians', label: 'Technician Management', icon: '🔧' },
+            { id: 'Billing', label: 'Billing & Payments', icon: '💳' },
+            { id: 'Installations', label: 'Installations & Appointments', icon: '📅' },
+            { id: 'Reports', label: 'Reports', icon: '📊' },
+            { id: 'Notifications', label: 'Notifications', icon: '🔔', badge: unreadCount },
+            { id: 'Profile', label: 'My Profile', icon: '👤' }
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => { setActiveTab(item.id); setShowProfileDropdown(false); }}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 group relative ${
+                activeTab === item.id
+                  ? 'bg-gradient-to-r from-cyan-955/40 to-blue-955/20 border border-cyan-800/40 text-cyan-405 font-semibold shadow-inner'
+                  : 'text-slate-405 hover:bg-slate-900/40 hover:text-white border border-transparent'
+              }`}
+            >
+              {activeTab === item.id && (
+                <span className="absolute left-0 top-1/4 bottom-1/4 w-1 rounded-r-md bg-cyan-405" />
+              )}
+              <span className="text-base transition-transform group-hover:scale-110">{item.icon}</span>
+              <span className="truncate">{item.label}</span>
+              {item.badge > 0 && (
+                <span className="absolute right-3 px-1.5 py-0.5 rounded-full text-[9px] bg-cyan-955 border border-cyan-800 text-cyan-405 font-bold">
+                  {item.badge}
+                </span>
+              )}
+            </button>
+          ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-900">
+        <div className="p-4 border-t border-[#151c2e]">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-955/20 hover:bg-red-950/20 hover:text-red-305 transition-all border border-transparent"
+            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium text-red-405 hover:bg-red-955/20 hover:text-red-305 transition-all border border-transparent hover:border-red-900/20"
           >
-            <span>🚪</span>
-            <span>Logout Session</span>
+            <span className="text-base">🚪</span>
+            <span>Logout</span>
           </button>
         </div>
       </aside>
 
       {/* 2. Main Content Area */}
-      <div className="flex-grow flex flex-col min-w-0">
+      <div className="flex-grow flex flex-col min-w-0 h-screen overflow-y-auto">
         
-        {/* Header bar */}
-        <header className="border-b border-slate-900 bg-slate-950/40 backdrop-blur-md py-4 px-6 md:px-8 flex items-center justify-between sticky top-0 z-30">
-          <div className="flex items-center space-x-4 md:hidden">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-indigo-655 flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
+        {/* Top Header Navigation */}
+        <header className="border-b border-[#151c2e] bg-[#070b14]/80 backdrop-blur-md py-4 px-6 md:px-8 flex items-center justify-between sticky top-0 z-30 shrink-0">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setActiveTab('Dashboard')}
+              className="lg:hidden w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center"
+            >
+              <span className="text-white text-xs">⚡</span>
+            </button>
+            <div>
+              <h1 className="text-lg font-bold tracking-tight text-white">Operations Dashboard</h1>
+              <p className="text-[10px] text-slate-400 font-light hidden sm:block">Monitor customers, services, requests and daily operations.</p>
             </div>
-            <span className="font-extrabold text-sm uppercase text-white">Technician Portal</span>
           </div>
-
-          <h1 className="text-xl font-bold tracking-tight text-white hidden md:block">
-            {activeTab === 'Dashboard' && 'Field Operations Dashboard'}
-            {activeTab === 'Complaints' && 'Assigned Complaints'}
-            {activeTab === 'Tasks' && 'Technical Tasks'}
-            {activeTab === 'History' && 'Completed Work History'}
-            {activeTab === 'Notifications' && 'Notifications Hub'}
-            {activeTab === 'Profile' && 'Account Settings'}
-          </h1>
           
-          <div className="flex items-center space-x-5">
-            
-            {/* Header Notification Bell Widget */}
+          <div className="flex items-center space-x-4">
+            {/* Notification Bell with Badge */}
             <button
               onClick={() => { setActiveTab('Notifications'); setShowProfileDropdown(false); }}
-              className={`relative p-2 rounded-xl hover:bg-slate-900 text-slate-400 hover:text-cyan-400 transition-colors flex items-center ${unreadCount > 0 ? 'animate-bounce' : ''}`}
+              className="relative p-2 rounded-xl hover:bg-slate-900 text-slate-400 hover:text-cyan-400 transition-colors flex items-center"
               title="Notifications"
             >
               <span className="text-lg">🔔</span>
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-cyan-950 border border-cyan-800 text-cyan-400 text-[10px] font-extrabold flex items-center justify-center shadow-lg shadow-cyan-500/20 pulse-subtle">
+                <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-cyan-500 text-white text-[8px] font-extrabold flex items-center justify-center shadow-lg shadow-cyan-500/20">
                   {unreadCount}
                 </span>
               )}
             </button>
 
-            {/* Profile Dropdown Area */}
+            {/* Profile widget */}
             <div className="relative">
               <button
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
                 className="flex items-center space-x-3 focus:outline-none group p-1.5 rounded-xl hover:bg-slate-900/50 transition-colors"
               >
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-semibold text-white leading-none">{profile?.full_name || user?.name}</p>
-                  <p className="text-cyan-405 text-cyan-400 text-[10px] mt-0.5 tracking-wider uppercase font-medium">{profile?.designation || 'Technician'}</p>
+                  <p className="text-xs font-semibold text-white leading-none">{profile?.full_name || user?.name || 'Ali Raza'}</p>
+                  <p className="text-slate-500 text-[9px] mt-1 tracking-wider uppercase font-bold">EMPLOYEE</p>
                 </div>
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500/20 to-indigo-650/20 border border-slate-800 flex items-center justify-center text-cyan-400 font-extrabold text-sm group-hover:scale-105 transition-transform duration-200 shadow-md">
-                  {(profile?.full_name || user?.name)?.slice(0, 2).toUpperCase() || 'ST'}
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500/25 to-blue-600/25 border border-slate-800 flex items-center justify-center text-cyan-400 font-extrabold text-xs group-hover:scale-105 transition-transform duration-150">
+                  {(profile?.full_name || user?.name || 'Ali')?.slice(0, 2).toUpperCase()}
                 </div>
+                <span className="text-slate-500 text-[10px] hidden sm:inline">▼</span>
               </button>
 
               {showProfileDropdown && (
                 <div className="absolute right-0 mt-2 w-48 rounded-xl bg-slate-900 border border-slate-800 shadow-2xl py-1.5 z-50 text-xs animate-fade-in ring-1 ring-cyan-500/10">
-                  <div className="px-3.5 py-2 border-b border-slate-850/60">
-                    <p className="font-semibold text-white truncate">{profile?.full_name || user?.name}</p>
-                    <p className="text-[10px] text-slate-500 uppercase mt-0.5">{profile?.employee_code}</p>
+                  <div className="px-3.5 py-2 border-b border-slate-800">
+                    <p className="font-semibold text-white truncate">{profile?.full_name || user?.name || 'Ali Raza'}</p>
+                    <p className="text-[10px] text-slate-500 uppercase mt-0.5">{profile?.employee_code || 'EMP-3042'}</p>
                   </div>
                   <button
                     onClick={() => { setActiveTab('Profile'); setShowProfileDropdown(false); }}
-                    className="w-full text-left px-3.5 py-2.5 text-slate-300 hover:bg-slate-850 hover:text-cyan-400 transition-colors flex items-center space-x-2"
+                    className="w-full text-left px-3.5 py-2.5 text-slate-300 hover:bg-slate-800 hover:text-cyan-400 transition-colors flex items-center space-x-2"
                   >
                     <span>👤</span>
                     <span>My Profile</span>
                   </button>
                   <button
-                    onClick={() => { setActiveTab('Profile'); setShowProfileDropdown(false); }}
-                    className="w-full text-left px-3.5 py-2.5 text-slate-300 hover:bg-slate-850 hover:text-cyan-400 transition-colors flex items-center space-x-2"
-                  >
-                    <span>🔒</span>
-                    <span>Change Password</span>
-                  </button>
-                  <button
                     onClick={handleLogout}
-                    className="w-full text-left px-3.5 py-2.5 text-red-400 hover:bg-red-955/20 hover:bg-red-950/20 hover:text-red-305 transition-colors border-t border-slate-850/40 flex items-center space-x-2"
+                    className="w-full text-left px-3.5 py-2.5 text-red-400 hover:bg-red-950/20 hover:text-red-300 transition-colors border-t border-slate-800 flex items-center space-x-2"
                   >
                     <span>🚪</span>
                     <span>Logout Session</span>
@@ -880,505 +761,267 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           </div>
         </header>
 
-        {/* Content Pane */}
-        <main className="flex-grow p-6 md:p-8 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto flex flex-col justify-between">
-          
-          <div className="space-y-6">
+        {/* Dashboard Grid Container */}
+        <main className="flex-grow p-6 md:p-8 space-y-6 overflow-y-auto max-w-7xl w-full mx-auto">
+
           {/* ==============================================
-              TAB 1: FIELD OPERATIONS DASHBOARD (WORKSPACE)
+              TAB 1: OPERATIONS DASHBOARD
               ============================================== */}
           {activeTab === 'Dashboard' && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-6 animate-fade-in duration-200">
               
-              {/* Premium Summary Statistics Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-                
-                {/* 1. Assigned Complaints */}
-                <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-cyan-500/20 transition-all duration-300 flex items-center space-x-3.5 group">
-                  <div className="w-10 h-10 rounded-xl bg-cyan-950/30 border border-cyan-900/30 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
-                    🎫
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Assigned</span>
-                    <span className="text-2xl font-black text-white mt-1 block leading-none">{totalAssigned}</span>
-                    <span className="text-[9px] text-slate-550 block mt-0.5">Complaints</span>
-                  </div>
+              {/* Compact Premium Welcome Section */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 rounded-2xl bg-gradient-to-r from-slate-900/40 to-slate-950/20 border border-[#151c2e] gap-4">
+                <div className="space-y-1">
+                  <h2 className="text-xl font-bold text-white">Good evening, Ali 👋</h2>
+                  <p className="text-xs text-slate-400">Here's what's happening across your ISP operations today.</p>
                 </div>
-
-                {/* 2. Pending Tickets */}
-                <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-amber-500/20 transition-all duration-300 flex items-center space-x-3.5 group">
-                  <div className="w-10 h-10 rounded-xl bg-amber-955/20 border border-amber-900/30 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
-                    ⏳
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Pending</span>
-                    <span className="text-2xl font-black text-amber-400 mt-1 block leading-none">{pendingComplaintsCount}</span>
-                    <span className="text-[9px] text-slate-550 block mt-0.5">Tickets</span>
-                  </div>
+                <div className="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-950/80 border border-slate-800 text-xs text-slate-300">
+                  <span className="text-sm">📅</span>
+                  <span className="font-medium">23 August 2026</span>
+                  <span className="text-[10px] text-slate-500 uppercase font-bold ml-1.5">Today</span>
                 </div>
-
-                {/* 3. In Progress */}
-                <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-cyan-500/20 transition-all duration-300 flex items-center space-x-3.5 group">
-                  <div className="w-10 h-10 rounded-xl bg-cyan-955/20 border border-cyan-900/30 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
-                    ⚡
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">In Progress</span>
-                    <span className="text-2xl font-black text-cyan-400 mt-1 block leading-none">{inProgressComplaintsCount}</span>
-                    <span className="text-[9px] text-slate-550 block mt-0.5">On Job</span>
-                  </div>
-                </div>
-
-                {/* 4. Resolved Today */}
-                <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-emerald-500/20 transition-all duration-300 flex items-center space-x-3.5 group">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-955/20 border border-emerald-900/30 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
-                    ✓
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-505 block leading-none">Resolved</span>
-                    <span className="text-2xl font-black text-emerald-450 mt-1 block leading-none">{resolvedComplaintsCount}</span>
-                    <span className="text-[9px] text-slate-550 block mt-0.5">Complaints</span>
-                  </div>
-                </div>
-
-                {/* 5. Technical Tasks */}
-                <div className="col-span-2 sm:col-span-1 p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-indigo-500/20 transition-all duration-300 flex items-center space-x-3.5 group">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-950/30 border border-indigo-900/30 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
-                    🛠️
-                  </div>
-                  <div>
-                    <span className="text-[10px] uppercase font-bold text-slate-505 block leading-none">Pending Tasks</span>
-                    <span className="text-2xl font-black text-indigo-400 mt-1 block leading-none">{pendingTasksCount}</span>
-                    <span className="text-[9px] text-slate-550 block mt-0.5">Deployments</span>
-                  </div>
-                </div>
-
               </div>
 
-              {/* Balanced Dashboard Grid Layout (Recent Complaints, Tasks, Alerts) */}
+              {/* 6 KPI Metric Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+                {[
+                  { title: 'TOTAL CUSTOMERS', val: '2,846', change: '+8.4% this month', icon: '👥', color: 'hover:border-cyan-500/20' },
+                  { title: 'ACTIVE SERVICES', val: '2,531', change: '+5.2% this month', icon: '📦', color: 'hover:border-cyan-500/20' },
+                  { title: 'PENDING REQUESTS', val: '24', change: '7 require attention', icon: '📋', color: 'hover:border-amber-500/20', alert: true },
+                  { title: 'OPEN COMPLAINTS', val: '18', change: '5 high priority', icon: '🎫', color: 'hover:border-red-500/20', alert: true },
+                  { title: 'TODAY\'S INSTALLS', val: '12', change: '4 remaining', icon: '📅', color: 'hover:border-emerald-500/20' },
+                  { title: 'PENDING PAYMENTS', val: '37', change: 'View outstanding', icon: '💳', color: 'hover:border-amber-500/20' }
+                ].map((kpi, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-4 rounded-2xl bg-[#090d18]/50 border border-[#151c2e] ${kpi.color} transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-cyan-500/5 group flex flex-col justify-between h-28`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-bold text-slate-400 tracking-wider uppercase block">{kpi.title}</span>
+                      <span className="text-sm shrink-0">{kpi.icon}</span>
+                    </div>
+                    <div className="mt-1">
+                      <span className="text-xl font-extrabold text-white block leading-none">{kpi.val}</span>
+                      <span className={`text-[9px] block mt-1.5 ${kpi.alert ? 'text-amber-400 font-medium' : 'text-slate-505'}`}>{kpi.change}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* TWO COLUMN CONTENT LAYOUT */}
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 
-                {/* 1. Recent Complaints Table (col-span-1) */}
-                <div className="p-5 rounded-2xl bg-slate-900/15 border border-slate-900/80 backdrop-blur-sm space-y-4 flex flex-col justify-between">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="font-bold text-white text-xs uppercase tracking-wider">Recent Assigned Complaints</h3>
-                      <button onClick={() => setActiveTab('Complaints')} className="text-cyan-405 text-cyan-400 text-xs font-semibold hover:underline">View All</button>
+                {/* LEFT: Recent Service Requests Table (col-span-2) */}
+                <div className="xl:col-span-2 p-5 rounded-2xl bg-[#090d18]/30 border border-[#151c2e] space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="font-bold text-white text-sm">Recent Service Requests</h3>
+                      <p className="text-[10px] text-slate-500 font-light">Direct operational requests and tasks pipeline.</p>
                     </div>
+                    <button
+                      onClick={() => setActiveTab('ServiceRequests')}
+                      className="text-cyan-400 text-xs font-semibold hover:underline flex items-center space-x-1"
+                    >
+                      <span>View All</span>
+                      <span>→</span>
+                    </button>
+                  </div>
 
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse text-[11px]">
-                        <thead>
-                          <tr className="border-b border-slate-900 text-slate-500 font-bold uppercase tracking-wider text-[9px]">
-                            <th className="pb-2.5">Ticket</th>
-                            <th className="pb-2.5">Customer</th>
-                            <th className="pb-2.5">Priority</th>
-                            <th className="pb-2.5">Status</th>
-                            <th className="pb-2.5 text-right">Actions</th>
+                  <div className="overflow-x-auto rounded-xl border border-[#151c2e] bg-[#070b14]/50">
+                    <table className="w-full text-left border-collapse text-xs min-w-[550px]">
+                      <thead>
+                        <tr className="border-b border-[#151c2e] bg-slate-900/30 text-slate-400 font-bold uppercase text-[9px] tracking-wider">
+                          <th className="py-3 px-4">Request ID</th>
+                          <th className="py-3 px-4">Customer</th>
+                          <th className="py-3 px-4">Request Type</th>
+                          <th className="py-3 px-4">Date</th>
+                          <th className="py-3 px-4">Status</th>
+                          <th className="py-3 px-4">Assigned To</th>
+                          <th className="py-3 px-4 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { id: 'REQ-1048', customer: 'Ahmed Khan', type: 'New Connection', date: 'Today', status: 'Pending', statusColor: 'bg-amber-950 border border-amber-800 text-amber-400', tech: 'Unassigned' },
+                          { id: 'REQ-1047', customer: 'Sara Ali', type: 'Package Upgrade', date: 'Today', status: 'In Progress', statusColor: 'bg-blue-950 border border-blue-800 text-blue-400', tech: 'Hamza' },
+                          { id: 'REQ-1046', customer: 'Bilal Ahmed', type: 'Disconnection', date: 'Yesterday', status: 'Completed', statusColor: 'bg-emerald-950 border border-emerald-800 text-emerald-400', tech: 'Usman' },
+                          { id: 'REQ-1045', customer: 'Noor Fatima', type: 'Speed Upgrade', date: 'Yesterday', status: 'Pending', statusColor: 'bg-amber-950 border border-amber-800 text-amber-400', tech: 'Unassigned' }
+                        ].map((req, idx) => (
+                          <tr key={idx} className="border-b border-[#151c2e]/50 hover:bg-[#131b2e]/30 text-slate-300 transition-colors">
+                            <td className="py-3 px-4 font-mono font-bold text-white">{req.id}</td>
+                            <td className="py-3 px-4 font-medium text-slate-200">{req.customer}</td>
+                            <td className="py-3 px-4">{req.type}</td>
+                            <td className="py-3 px-4 text-slate-500">{req.date}</td>
+                            <td className="py-3 px-4">
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${req.statusColor}`}>
+                                {req.status}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className={req.tech === 'Unassigned' ? 'text-amber-500 font-medium' : 'text-slate-300'}>
+                                {req.tech}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-right">
+                              <button
+                                onClick={() => setActiveTab('ServiceRequests')}
+                                className="px-2.5 py-1 rounded bg-[#090d18] hover:bg-slate-900 border border-slate-800 text-slate-300 font-semibold"
+                              >
+                                View
+                              </button>
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {complaints.slice(0, 4).map(c => (
-                            <tr key={c.id} className="border-b border-slate-950/20 text-slate-300">
-                              <td className="py-2.5 font-bold text-white">CMP-{c.id}</td>
-                              <td className="py-2.5 truncate max-w-[90px]" title={c.customer_name}>{c.customer_name}</td>
-                              <td className="py-2.5 uppercase">
-                                <span className={`px-1 rounded text-[8px] font-bold ${
-                                  c.priority === 'urgent' || c.priority === 'high' ? 'bg-red-955/20 text-red-405 text-red-400' : 'bg-slate-900 text-slate-550'
-                                }`}>{c.priority}</span>
-                              </td>
-                              <td className="py-2.5 uppercase text-[9px] font-bold text-cyan-400">{c.status}</td>
-                              <td className="py-2.5 text-right">
-                                <button
-                                  onClick={() => setSelectedItem(c)}
-                                  className="px-2 py-0.5 rounded bg-slate-950 hover:bg-slate-900 border border-slate-850 text-slate-355 hover:text-white"
-                                >
-                                  View
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-
-                      {complaints.length === 0 && (
-                        <div className="py-12 text-center text-slate-600 italic">No complaints currently assigned.</div>
-                      )}
-                    </div>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
-                {/* 2. Technical Tasks Table (col-span-1) */}
-                <div className="p-5 rounded-2xl bg-slate-900/15 border border-slate-900/80 backdrop-blur-sm space-y-4 flex flex-col justify-between">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="font-bold text-white text-xs uppercase tracking-wider">Technical Work Tasks</h3>
-                      <button onClick={() => setActiveTab('Tasks')} className="text-indigo-400 text-xs font-semibold hover:underline">View All</button>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left border-collapse text-[11px]">
-                        <thead>
-                          <tr className="border-b border-slate-900 text-slate-500 font-bold uppercase tracking-wider text-[9px]">
-                            <th className="pb-2.5">Task ID</th>
-                            <th className="pb-2.5">Task Type</th>
-                            <th className="pb-2.5">Priority</th>
-                            <th className="pb-2.5">Status</th>
-                            <th className="pb-2.5 text-right">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {tasks.filter(t => t.status !== 'completed').slice(0, 4).map(t => (
-                            <tr key={t.id} className="border-b border-slate-955/15 border-slate-950/20 text-slate-300">
-                              <td className="py-2.5 font-bold text-white">TSK-{t.id}</td>
-                              <td className="py-2.5 truncate max-w-[100px]" title={t.task_type}>{t.task_type}</td>
-                              <td className="py-2.5 uppercase">
-                                <span className={`px-1 rounded text-[8px] font-bold ${
-                                  t.priority === 'urgent' || t.priority === 'high' ? 'bg-red-955/20 text-red-400' : 'bg-slate-900 text-slate-550'
-                                }`}>{t.priority}</span>
-                              </td>
-                              <td className="py-2.5 uppercase text-[9px] font-bold text-indigo-400">{t.status}</td>
-                              <td className="py-2.5 text-right">
-                                <button
-                                  onClick={() => setSelectedItem(t)}
-                                  className="px-2 py-0.5 rounded bg-slate-955 bg-slate-950 hover:bg-slate-900 border border-slate-850 text-slate-350 hover:text-white"
-                                >
-                                  Start
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-
-                      {tasks.filter(t => t.status !== 'completed').length === 0 && (
-                        <div className="py-12 text-center text-slate-600 italic">No pending technical tasks.</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. Alerts & Notifications Column */}
+                {/* RIGHT COLUMN: QUICK ACTIONS */}
                 <div className="space-y-6">
                   
-                  {/* Action Required Alerts Panel */}
-                  <div className="p-5 rounded-2xl bg-slate-900/15 border border-slate-900/80 backdrop-blur-sm space-y-4">
-                    <h3 className="font-bold text-white text-xs uppercase tracking-wider">Action Required Alerts</h3>
-                    <div className="space-y-2 max-h-40 overflow-y-auto pr-1 scrollbar-thin">
-                      {actionAlerts.map((alert) => (
-                        <div
-                          key={alert.id}
-                          className="p-3 rounded-xl bg-red-955/20 border border-red-900/30 text-red-455 text-red-400 text-[11px] font-medium flex items-center justify-between animate-pulse"
-                        >
-                          <span className="truncate max-w-[200px]" title={alert.message}>⚠️ {alert.message}</span>
-                          <button
-                            onClick={() => { setSelectedItem(alert.target); alert.type === 'complaint' ? setActiveTab('Complaints') : setActiveTab('Tasks'); }}
-                            className="underline font-bold text-[9px] uppercase hover:text-white shrink-0 ml-2"
-                          >
-                            Resolve
-                          </button>
-                        </div>
-                      ))}
-
-                      {actionAlerts.length === 0 && (
-                        <div className="p-3.5 rounded-xl bg-emerald-955/15 border border-emerald-900/25 text-emerald-400 text-xs text-center font-semibold">
-                          ✓ No urgent actions required.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Latest Notifications Box */}
-                  <div className="p-5 rounded-2xl bg-slate-900/15 border border-slate-900/80 backdrop-blur-sm space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="font-bold text-white text-xs uppercase tracking-wider">Latest Notifications</h3>
-                      <button onClick={() => setActiveTab('Notifications')} className="text-slate-505 text-slate-500 text-xs font-semibold hover:underline">View All</button>
-                    </div>
-
-                    <div className="space-y-2.5 max-h-44 overflow-y-auto pr-1 scrollbar-thin">
-                      {notifications.slice(0, 3).map(n => (
-                        <div key={n.id} className="p-3 rounded-xl bg-slate-955/20 border border-slate-900 text-[11px] flex items-start space-x-2.5">
-                          <span className="text-sm shrink-0">🔔</span>
-                          <div className="space-y-0.5 flex-grow">
-                            <span className={`font-bold block ${n.is_read ? 'text-slate-405' : 'text-white'}`}>{n.title}</span>
-                            <p className="text-slate-505 text-slate-500 leading-snug font-light">{n.message.slice(0, 50)}...</p>
-                          </div>
-                        </div>
-                      ))}
-
-                      {notifications.length === 0 && (
-                        <div className="py-6 text-center text-slate-600 italic text-xs">No new notifications.</div>
-                      )}
-                    </div>
-                  </div>
-
-                </div>
-
-              </div>
-
-            </div>
-          )}
-
-          {/* ==============================================
-              TAB 2: COMPLAINTS REGISTER
-              ============================================== */}
-          {activeTab === 'Complaints' && (
-            <div className="space-y-6 animate-fade-in">
-              
-              {/* Complaints Tab Header Stats Badges */}
-              <div className="flex justify-between items-center flex-wrap gap-4 pb-4 border-b border-slate-900/50">
-                <div className="space-y-1">
-                  <h2 className="text-lg font-black text-white">My Complaints Roster</h2>
-                  <p className="text-xs text-slate-505 text-slate-500 font-light">Manage and resolve customer support tickets assigned to you.</p>
-                </div>
-                
-                <div className="flex items-center space-x-2.5">
-                  <div className="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-850 text-[11px] font-semibold text-slate-400">
-                    Assigned: <span className="text-white font-extrabold">{totalAssigned}</span>
-                  </div>
-                  <div className="px-3.5 py-1.5 rounded-xl bg-amber-955/25 border border-amber-900/35 text-[11px] font-semibold text-amber-400">
-                    Pending: <span className="font-extrabold">{pendingComplaintsCount}</span>
-                  </div>
-                  <div className="px-3.5 py-1.5 rounded-xl bg-cyan-955/25 border border-cyan-900/35 text-[11px] font-semibold text-cyan-400">
-                    On Job: <span className="font-extrabold">{inProgressComplaintsCount}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Advanced Search & Filtering Toolbar */}
-              <div className="p-4 rounded-2xl bg-slate-900/20 border border-slate-900 flex flex-wrap gap-4 items-center">
-                
-                {/* Text Search complaints */}
-                <div className="flex-grow min-w-[220px] relative">
-                  <input
-                    type="text"
-                    placeholder="Search complaints by ID, customer, phone, issue..."
-                    value={complaintsSearch}
-                    onChange={(e) => { setComplaintsSearch(e.target.value); setComplaintsCurrentPage(1); }}
-                    className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500"
-                  />
-                  <span className="absolute left-3.5 top-3 text-xs text-slate-500">🔍</span>
-                  {complaintsSearch && (
-                    <button
-                      onClick={() => { setComplaintsSearch(''); setComplaintsCurrentPage(1); }}
-                      className="absolute right-3 top-2.5 text-xs text-slate-500 hover:text-white"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-
-                {/* Status selection */}
-                <div className="w-36 shrink-0">
-                  <select
-                    value={complaintsStatusFilter}
-                    onChange={(e) => { setComplaintsStatusFilter(e.target.value); setComplaintsCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-slate-355 focus:outline-none"
-                  >
-                    <option value="all">All Statuses</option>
-                    <option value="pending">Assigned / Pending</option>
-                    <option value="on_the_way">On the Way</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="resolved">Resolved</option>
-                  </select>
-                </div>
-
-                {/* Priority Selection */}
-                <div className="w-36 shrink-0">
-                  <select
-                    value={complaintsPriorityFilter}
-                    onChange={(e) => { setComplaintsPriorityFilter(e.target.value); setComplaintsCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-slate-355 focus:outline-none"
-                  >
-                    <option value="all">All Priorities</option>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                  </select>
-                </div>
-
-                {/* Date Filter Selection */}
-                <div className="w-36 shrink-0">
-                  <select
-                    value={complaintsDateFilter}
-                    onChange={(e) => { setComplaintsDateFilter(e.target.value); setComplaintsCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-355 focus:outline-none"
-                  >
-                    <option value="all">All Time</option>
-                    <option value="today">Today</option>
-                    <option value="week">This Week</option>
-                    <option value="month">This Month</option>
-                  </select>
-                </div>
-
-              </div>
-
-              {/* Complaints Table (Desktop) / Cards (Mobile) */}
-              <div className="space-y-4">
-                
-                {/* Desktop View Table */}
-                <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-900 bg-slate-900/10 shadow-xl">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-900 bg-slate-955/40 bg-slate-950/40 text-slate-400 font-bold uppercase">
-                        <th className="py-3.5 px-4">Ticket ID</th>
-                        <th className="py-3.5 px-4">Customer</th>
-                        <th className="py-3.5 px-4">Issue Description</th>
-                        <th className="py-3.5 px-4">Contact Phone</th>
-                        <th className="py-3.5 px-4">Address Location</th>
-                        <th className="py-3.5 px-4">Priority</th>
-                        <th className="py-3.5 px-4">Status</th>
-                        <th className="py-3.5 px-4 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentComplaintsPageData.map((c) => (
-                        <tr key={c.id} className="border-b border-slate-955/15 border-slate-950/20 text-slate-300 hover:bg-slate-900/10">
-                          <td className="py-3.5 px-4 font-mono">
-                            <button onClick={() => setSelectedItem(c)} className="text-cyan-405 text-cyan-400 font-bold hover:underline">
-                              CMP-{c.id}
-                            </button>
-                          </td>
-                          <td className="py-3.5 px-4 font-semibold text-white">
-                            <span className="mr-1.5">👤</span>
-                            <span>{c.customer_name}</span>
-                          </td>
-                          <td className="py-3.5 px-4 truncate max-w-[180px]" title={c.subject}>
-                            <span className="font-bold text-slate-200 block truncate">{c.subject}</span>
-                            <span className="text-[10px] text-slate-500 font-light block truncate">{c.description}</span>
-                          </td>
-                          <td className="py-3.5 px-4 text-slate-300 font-medium">
-                            <span className="mr-1">📞</span>
-                            <span>{c.customer_phone}</span>
-                          </td>
-                          <td className="py-3.5 px-4 truncate max-w-[150px]" title={c.customer_address}>
-                            <span className="mr-1">📍</span>
-                            <span>{c.customer_address}</span>
-                          </td>
-                          <td className="py-3.5 px-4 uppercase">
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                              c.priority === 'urgent' ? 'bg-red-955/30 text-red-405 border border-red-800/30' :
-                              c.priority === 'high' ? 'bg-amber-955/20 text-amber-400 border border-amber-800/30' :
-                              c.priority === 'medium' ? 'bg-blue-955/25 text-blue-400' : 'bg-slate-900 text-slate-500'
-                            }`}>{c.priority}</span>
-                          </td>
-                          <td className="py-3.5 px-4 uppercase text-[10px] font-bold text-cyan-400">
-                            {c.status}
-                          </td>
-                          <td className="py-3.5 px-4 text-right">
-                            <button
-                              onClick={() => setSelectedItem(c)}
-                              className="px-3 py-1.5 rounded-lg bg-slate-955 bg-slate-955 bg-slate-950 border border-slate-850 hover:bg-slate-900 text-slate-300 transition-colors font-semibold"
-                            >
-                              View Details &rarr;
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Mobile View Cards Layout */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
-                  {currentComplaintsPageData.map((c) => (
-                    <div key={c.id} className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 space-y-3.5 text-xs">
-                      <div className="flex justify-between items-center">
-                        <span className="font-mono font-bold text-cyan-405 text-cyan-400">CMP-{c.id}</span>
-                        <span className="text-[10px] text-slate-500">{new Date(c.created_at).toLocaleDateString()}</span>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <h4 className="font-extrabold text-white text-sm">{c.subject}</h4>
-                        <p className="text-slate-400 leading-snug font-light line-clamp-2">{c.description}</p>
-                      </div>
-
-                      <div className="pt-2.5 border-t border-slate-900 space-y-2 text-slate-300">
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Customer:</span>
-                          <span className="font-semibold text-white">{c.customer_name}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Phone:</span>
-                          <span>{c.customer_phone}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-slate-500">Address:</span>
-                          <span className="truncate max-w-[180px]">{c.customer_address}</span>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-between items-center pt-2.5">
-                        <div className="space-x-1.5">
-                          <span className="px-1.5 py-0.5 rounded text-[8px] bg-slate-950 text-slate-405 text-slate-400 font-bold uppercase">{c.priority}</span>
-                          <span className="px-1.5 py-0.5 rounded text-[8px] bg-cyan-950 text-cyan-400 font-bold uppercase">{c.status}</span>
-                        </div>
-                        <button
-                          onClick={() => setSelectedItem(c)}
-                          className="px-3 py-1 bg-slate-900 border border-slate-850 text-slate-300 font-bold rounded-lg"
-                        >
-                          Details &rarr;
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {filteredComplaints.length === 0 && (
-                  <div className="py-20 text-center max-w-sm mx-auto space-y-4 animate-fade-in">
-                    <div className="w-14 h-14 rounded-2xl bg-cyan-955 bg-cyan-950/20 border border-cyan-900/20 flex items-center justify-center text-cyan-400 mx-auto">
-                      🎫
-                    </div>
-                    <div className="space-y-1.5">
-                      <h4 className="font-black text-white text-base">All Clear!</h4>
-                      <p className="text-xs text-slate-500 leading-relaxed">
-                        No customer complaints are currently assigned to you. New tickets assigned by your administrator will appear here.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Pagination selector indicators */}
-                {filteredComplaints.length > 0 && (
-                  <div className="flex justify-between items-center text-xs text-slate-500 pt-2">
-                    <span>
-                      Showing {indexOfFirstComplaint + 1}–{Math.min(indexOfLastComplaint, filteredComplaints.length)} of {filteredComplaints.length} complaints
-                    </span>
-                    
-                    <div className="flex items-center space-x-1.5">
-                      <button
-                        onClick={() => setComplaintsCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={complaintsCurrentPage === 1}
-                        className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-850 hover:bg-slate-850 hover:text-white transition-colors disabled:opacity-40"
-                      >
-                        Previous
-                      </button>
-                      
-                      {[...Array(totalComplaintsPages)].map((_, idx) => (
+                  {/* Quick Actions Panel */}
+                  <div className="p-5 rounded-2xl bg-[#090d18]/30 border border-[#151c2e] space-y-4">
+                    <h3 className="font-bold text-white text-xs uppercase tracking-wider">Quick Actions</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      {[
+                        { label: 'Add Customer', icon: '👤', onClick: () => setShowAddCustomerModal(true) },
+                        { label: 'New Request', icon: '📋', onClick: () => setShowNewRequestModal(true) },
+                        { label: 'Create Complaint', icon: '🎫', onClick: () => setShowCreateComplaintModal(true) },
+                        { label: 'Assign Tech', icon: '🔧', onClick: () => setShowAssignTechModal(true) }
+                      ].map((action, idx) => (
                         <button
                           key={idx}
-                          onClick={() => setComplaintsCurrentPage(idx + 1)}
-                          className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-colors font-bold ${
-                            complaintsCurrentPage === idx + 1
-                              ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400'
-                              : 'bg-slate-900 border-slate-850 text-slate-455 text-slate-400 hover:text-white hover:bg-slate-850'
-                          }`}
+                          onClick={action.onClick}
+                          className="flex flex-col items-center justify-center p-3.5 rounded-xl bg-[#090d18] border border-slate-800 hover:border-cyan-500/20 text-xs font-semibold text-slate-300 hover:text-white hover:-translate-y-0.5 transition-all duration-150"
                         >
-                          {idx + 1}
+                          <span className="text-xl mb-1.5">{action.icon}</span>
+                          <span className="text-center">{action.label}</span>
                         </button>
                       ))}
-
-                      <button
-                        onClick={() => setComplaintsCurrentPage(prev => Math.min(prev + 1, totalComplaintsPages))}
-                        disabled={complaintsCurrentPage === totalComplaintsPages}
-                        className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-850 hover:bg-slate-850 hover:text-white transition-colors disabled:opacity-40"
-                      >
-                        Next
-                      </button>
                     </div>
                   </div>
-                )}
+
+                  {/* Technician Availability */}
+                  <div className="p-5 rounded-2xl bg-[#090d18]/30 border border-[#151c2e] space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-bold text-white text-xs uppercase tracking-wider">Technician Availability</h3>
+                      <button onClick={() => setActiveTab('Technicians')} className="text-cyan-400 text-[10px] font-semibold hover:underline">
+                        View All Technicians →
+                      </button>
+                    </div>
+
+                    <div className="space-y-3">
+                      {mockTechnicians.map((tech, idx) => (
+                        <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/30 border border-slate-800/40">
+                          <div className="flex items-center space-x-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-slate-800 to-slate-900 border border-slate-700/60 flex items-center justify-center font-bold text-xs text-slate-300">
+                              {tech.name.slice(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                              <span className="text-xs font-bold text-white block leading-none">{tech.name}</span>
+                              <span className="text-[9px] text-slate-500 block mt-1">Rating: {tech.rating} ★</span>
+                            </div>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                            tech.status === 'Available' ? 'bg-emerald-950 text-emerald-400 border border-emerald-850/60' :
+                            tech.status === 'On Job' ? 'bg-blue-950 text-blue-400 border border-blue-850/60' :
+                            tech.status === 'On Break' ? 'bg-amber-950 text-amber-400 border border-amber-850/60' : 'bg-red-950 text-red-400'
+                          }`}>
+                            {tech.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+
+              {/* SECOND ROW LAYOUT */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* 1. Complaints List Card */}
+                <div className="p-5 rounded-2xl bg-[#090d18]/30 border border-[#151c2e] space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-bold text-white text-xs uppercase tracking-wider">Customer Complaints</h3>
+                    <button onClick={() => setActiveTab('Complaints')} className="text-cyan-400 text-[10px] font-semibold hover:underline">
+                      View All
+                    </button>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {[
+                      { id: 'CMP-1048', desc: 'Internet Down', priority: 'High', tech: 'Ali Raza', status: 'In Progress', priColor: 'bg-red-950 text-red-400', statColor: 'text-blue-400' },
+                      { id: 'CMP-1047', desc: 'Slow Speed', priority: 'Medium', tech: 'Hamza', status: 'Pending', priColor: 'bg-amber-950 text-amber-400', statColor: 'text-amber-400' },
+                      { id: 'CMP-1046', desc: 'Router Issue', priority: 'Low', tech: 'Usman', status: 'Resolved', priColor: 'bg-slate-800 text-slate-400', statColor: 'text-emerald-400' }
+                    ].map((comp, idx) => (
+                      <div key={idx} className="p-3 rounded-xl bg-slate-900/30 border border-slate-800/40 space-y-2 text-xs">
+                        <div className="flex justify-between items-center">
+                          <span className="font-mono font-bold text-white">{comp.id}</span>
+                          <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${comp.priColor}`}>
+                            {comp.priority}
+                          </span>
+                        </div>
+                        <p className="text-slate-300 font-semibold">{comp.desc}</p>
+                        <div className="flex justify-between items-center text-[10px] text-slate-500">
+                          <span>Tech: {comp.tech}</span>
+                          <span className={`font-bold uppercase ${comp.statColor}`}>{comp.status}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. Today's Installations Scheduling Timeline */}
+                <div className="p-5 rounded-2xl bg-[#090d18]/30 border border-[#151c2e] space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-bold text-white text-xs uppercase tracking-wider">Today's Installations</h3>
+                    <button onClick={() => setActiveTab('Installations')} className="text-cyan-400 text-[10px] font-semibold hover:underline">
+                      Calendar View
+                    </button>
+                  </div>
+
+                  <div className="relative pl-4 border-l-2 border-slate-800 space-y-4">
+                    {mockInstallations.map((inst, idx) => (
+                      <div key={idx} className="relative text-xs">
+                        <div className="absolute -left-[21px] top-1.5 w-2.5 h-2.5 rounded-full bg-slate-950 border-2 border-cyan-500" />
+                        <span className="text-[10px] font-bold text-cyan-400 block leading-none">{inst.time}</span>
+                        <span className="font-semibold text-white block mt-1">{inst.type}</span>
+                        <div className="flex items-center justify-between text-[10px] text-slate-500 mt-1">
+                          <span>Client: {inst.customer} | Tech: {inst.technician}</span>
+                          <span className={`font-bold ${inst.status === 'Completed' ? 'text-emerald-400' : inst.status === 'In Progress' ? 'text-blue-400' : 'text-slate-400'}`}>
+                            {inst.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. Latest Notifications Box */}
+                <div className="p-5 rounded-2xl bg-[#090d18]/30 border border-[#151c2e] space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-bold text-white text-xs uppercase tracking-wider">Latest Notifications</h3>
+                    <button onClick={() => setActiveTab('Notifications')} className="text-cyan-400 text-[10px] font-semibold hover:underline">
+                      View All
+                    </button>
+                  </div>
+
+                  <div className="space-y-3 max-h-56 overflow-y-auto pr-1">
+                    {notifications.slice(0, 4).map((notif, idx) => (
+                      <div key={idx} className="p-2.5 rounded-xl bg-slate-900/20 border border-slate-800/40 text-xs space-y-1">
+                        <div className="flex justify-between">
+                          <span className="font-bold text-white truncate max-w-[170px]">{notif.title}</span>
+                          <span className="text-[8px] text-slate-500 shrink-0 ml-1">5 min ago</span>
+                        </div>
+                        <p className="text-slate-400 text-[10px] font-light leading-snug line-clamp-2">{notif.message}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
               </div>
 
@@ -1386,63 +1029,148 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           )}
 
           {/* ==============================================
-              TAB 3: TECHNICAL TASKS REGISTER
+              TAB 2: CUSTOMERS DIRECTORY
               ============================================== */}
-          {activeTab === 'Tasks' && (
-            <div className="space-y-6 animate-fade-in">
-              
-              {/* Technical Tasks Header Stats Row */}
-              <div className="flex justify-between items-center flex-wrap gap-4 pb-4 border-b border-slate-900/50">
-                <div className="space-y-1">
-                  <h2 className="text-lg font-black text-white">Technical Tasks Dashboard</h2>
-                  <p className="text-xs text-slate-500 font-light">Installation, repair and service jobs assigned to you.</p>
+          {activeTab === 'Customers' && (
+            <div className="space-y-6 animate-fade-in duration-200">
+              <div className="flex justify-between items-center flex-wrap gap-4 pb-4 border-b border-[#151c2e]">
+                <div>
+                  <h2 className="text-lg font-bold text-white">Active Subscriber Directory</h2>
+                  <p className="text-xs text-slate-400">View profiles, configure subscription plans, and manage internet users.</p>
                 </div>
-                
-                <div className="flex items-center space-x-2.5">
-                  <div className="px-3.5 py-1.5 rounded-xl bg-slate-900 border border-slate-850 text-[11px] font-semibold text-slate-400">
-                    Total Jobs: <span className="text-white font-extrabold">{totalTasksCount}</span>
+                <button
+                  onClick={() => setShowAddCustomerModal(true)}
+                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/10 transition-colors"
+                >
+                  + Add New Customer
+                </button>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-[#090d18]/30 border border-[#151c2e] overflow-x-auto shadow-xl">
+                <table className="w-full text-left border-collapse text-xs min-w-[700px]">
+                  <thead>
+                    <tr className="border-b border-[#151c2e] text-slate-400 font-bold uppercase tracking-wider text-[9px]">
+                      <th className="pb-3.5 px-3">Customer ID</th>
+                      <th className="pb-3.5 px-3">Full Name</th>
+                      <th className="pb-3.5 px-3">Email Address</th>
+                      <th className="pb-3.5 px-3">Contact Phone</th>
+                      <th className="pb-3.5 px-3">Residential Address</th>
+                      <th className="pb-3.5 px-3">Current Plan</th>
+                      <th className="pb-3.5 px-3">Status</th>
+                      <th className="pb-3.5 px-3">Registration Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mockCustomers.map((cust, idx) => (
+                      <tr key={idx} className="border-b border-[#151c2e]/60 hover:bg-slate-900/20 text-slate-300">
+                        <td className="py-3 px-3 font-mono font-bold text-white">{cust.id}</td>
+                        <td className="py-3 px-3 font-semibold text-slate-200">{cust.name}</td>
+                        <td className="py-3 px-3 text-slate-400">{cust.email}</td>
+                        <td className="py-3 px-3">{cust.phone}</td>
+                        <td className="py-3 px-3 truncate max-w-[150px]">{cust.address}</td>
+                        <td className="py-3 px-3">{cust.plan}</td>
+                        <td className="py-3 px-3">
+                          <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
+                            cust.status === 'Active' ? 'bg-emerald-950 text-emerald-400' : 'bg-red-950 text-red-400'
+                          }`}>
+                            {cust.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-slate-500">{cust.joined}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ==============================================
+              TAB 3: SERVICE PLANS
+              ============================================== */}
+          {activeTab === 'ServicePlans' && (
+            <div className="space-y-6 animate-fade-in duration-200">
+              <div className="pb-4 border-b border-[#151c2e]">
+                <h2 className="text-lg font-bold text-white">ISP Broadband Packages</h2>
+                <p className="text-xs text-slate-400">Configure speeds, bandwidth allowances, pricing tiers, and active subscription plans.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                {mockServicePlans.map((plan, idx) => (
+                  <div key={idx} className="p-6 rounded-2xl bg-[#090d18]/40 border border-[#151c2e] hover:border-cyan-500/20 transition-all duration-200 space-y-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="px-2 py-0.5 rounded text-[8px] bg-cyan-950 text-cyan-400 font-bold uppercase">{plan.type}</span>
+                        <h3 className="font-extrabold text-white text-base mt-2">{plan.name}</h3>
+                      </div>
+                      <span className="text-lg font-black text-cyan-400">{plan.price}</span>
+                    </div>
+
+                    <div className="space-y-2 border-t border-slate-900 pt-3 text-xs text-slate-350 text-slate-300">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Connection Speed:</span>
+                        <span className="font-bold text-white">{plan.speed}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Uptime SLA:</span>
+                        <span>{plan.reliability}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Helpdesk Support:</span>
+                        <span>{plan.support}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Active Subscribers:</span>
+                        <span className="font-semibold text-cyan-400">{plan.activeSubscribers} users</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => showToast(`Service plan ${plan.name} configuration requested.`)}
+                      className="w-full py-2 bg-[#090d18] hover:bg-slate-900 border border-slate-800 text-xs font-bold rounded-xl text-slate-300 hover:text-white transition-colors"
+                    >
+                      Modify Parameters
+                    </button>
                   </div>
-                  <div className="px-3.5 py-1.5 rounded-xl bg-indigo-950/20 border border-indigo-900/30 text-[11px] font-semibold text-indigo-405 text-indigo-400">
-                    Pending: <span className="font-extrabold">{pendingTasksCountAll}</span>
-                  </div>
-                  <div className="px-3.5 py-1.5 rounded-xl bg-cyan-955/25 border border-cyan-900/35 text-[11px] font-semibold text-cyan-400">
-                    In Progress: <span className="font-extrabold">{inProgressTasksCount}</span>
-                  </div>
-                  <div className="px-3.5 py-1.5 rounded-xl bg-emerald-955/25 border border-emerald-900/35 text-[11px] font-semibold text-emerald-450">
-                    Completed: <span className="font-extrabold">{completedTasksCount}</span>
-                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ==============================================
+              TAB 4: SERVICE REQUESTS (Real Tasks database integration)
+              ============================================== */}
+          {activeTab === 'ServiceRequests' && (
+            <div className="space-y-6 animate-fade-in duration-200">
+              
+              <div className="flex justify-between items-center flex-wrap gap-4 pb-4 border-b border-[#151c2e]">
+                <div>
+                  <h2 className="text-lg font-bold text-white">Operations & Service Requests</h2>
+                  <p className="text-xs text-slate-400">Track task deployments, connection setups, and field request pipelines.</p>
+                </div>
+                <div className="flex items-center space-x-2 bg-slate-900/50 p-1.5 rounded-xl border border-slate-800 text-xs font-semibold text-slate-400">
+                  <span>Pending Tasks: <strong className="text-white">{filteredTasks.filter(t => t.status !== 'completed').length}</strong></span>
                 </div>
               </div>
 
               {/* Task filters panel */}
-              <div className="p-4 rounded-2xl bg-slate-900/20 border border-slate-900 flex flex-wrap gap-4 items-center">
-                
-                {/* Search query input */}
+              <div className="p-4 rounded-2xl bg-[#090d18]/40 border border-[#151c2e] flex flex-wrap gap-4 items-center">
                 <div className="flex-grow min-w-[220px] relative">
                   <input
                     type="text"
-                    placeholder="Search by Task ID, Customer or Address..."
+                    placeholder="Search by ID, Customer Name..."
                     value={tasksSearch}
                     onChange={(e) => { setTasksSearch(e.target.value); setTasksCurrentPage(1); }}
-                    className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500"
+                    className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-cyan-500"
                   />
-                  <span className="absolute left-3.5 top-3 text-xs text-slate-500">🔍</span>
-                  {tasksSearch && (
-                    <button
-                      onClick={() => { setTasksSearch(''); setTasksCurrentPage(1); }}
-                      className="absolute right-3 top-2.5 text-xs text-slate-500 hover:text-white"
-                    >
-                      ✕
-                    </button>
-                  )}
+                  <span className="absolute left-3 top-2 text-xs">🔍</span>
                 </div>
 
-                {/* Status selection */}
                 <div className="w-36 shrink-0">
                   <select
                     value={tasksStatusFilter}
                     onChange={(e) => { setTasksStatusFilter(e.target.value); setTasksCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-800 text-xs text-slate-300 focus:outline-none"
                   >
                     <option value="all">All Statuses</option>
                     <option value="assigned">Assigned / Pending</option>
@@ -1452,373 +1180,128 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   </select>
                 </div>
 
-                {/* Task Type filter */}
-                <div className="w-40 shrink-0">
+                <div className="w-36 shrink-0">
                   <select
                     value={tasksTypeFilter}
                     onChange={(e) => { setTasksTypeFilter(e.target.value); setTasksCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-955 bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-800 text-xs text-slate-300 focus:outline-none"
                   >
                     <option value="all">All Types</option>
                     <option value="Installation">Installation</option>
                     <option value="Fiber Repair">Fiber Repair</option>
                     <option value="Router Replacement">Router Replace</option>
                     <option value="ONU/ONT Replacement">ONU/ONT Replace</option>
-                    <option value="Configuration">Configuration</option>
-                    <option value="Service Restoration">Restoration</option>
-                    <option value="Other">Other Type</option>
                   </select>
                 </div>
-
-                {/* Priority Selection */}
-                <div className="w-32 shrink-0">
-                  <select
-                    value={tasksPriorityFilter}
-                    onChange={(e) => { setTasksPriorityFilter(e.target.value); setTasksCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
-                  >
-                    <option value="all">All Priorities</option>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                  </select>
-                </div>
-
-                {/* Date range Filter */}
-                <div className="w-32 shrink-0">
-                  <select
-                    value={tasksDateFilter}
-                    onChange={(e) => { setTasksDateFilter(e.target.value); setTasksCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
-                  >
-                    <option value="all">All Time</option>
-                    <option value="today">Today</option>
-                    <option value="week">This Week</option>
-                    <option value="month">This Month</option>
-                  </select>
-                </div>
-
               </div>
 
-              {/* Tasks Desktop Grid Table / Mobile Cards */}
-              <div className="space-y-4">
-                
-                {/* Desktop view Table */}
-                <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-900 bg-slate-900/10 shadow-xl">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-900 bg-slate-950/40 text-slate-400 font-bold uppercase">
-                        <th className="py-3.5 px-4">Task ID</th>
-                        <th className="py-3.5 px-4">Task Type</th>
-                        <th className="py-3.5 px-4">Customer</th>
-                        <th className="py-3.5 px-4">Contact Phone</th>
-                        <th className="py-3.5 px-4">Service Address</th>
-                        <th className="py-3.5 px-4">Priority</th>
-                        <th className="py-3.5 px-4">Status</th>
-                        <th className="py-3.5 px-4 text-center">Warnings</th>
-                        <th className="py-3.5 px-4 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentTasksPageData.map((t) => {
-                        const isOverdue = t.due_date && new Date(t.due_date) < new Date() && t.status !== 'completed';
-                        const isDueToday = t.due_date && new Date(t.due_date).toDateString() === new Date().toDateString() && t.status !== 'completed';
-                        
-                        return (
-                          <tr key={t.id} className="border-b border-slate-955/15 border-slate-950/20 text-slate-300 hover:bg-slate-900/10">
-                            <td className="py-3.5 px-4 font-mono">
-                              <button onClick={() => setSelectedItem(t)} className="text-cyan-405 text-cyan-400 font-bold hover:underline">
-                                TSK-{t.id}
-                              </button>
-                            </td>
-                            <td className="py-3.5 px-4 font-bold text-white uppercase text-[10px]">
-                              {t.task_type}
-                            </td>
-                            <td className="py-3.5 px-4 font-medium text-slate-200">
-                              <span>👤</span> {t.customer_name}
-                            </td>
-                            <td className="py-3.5 px-4">
-                              <span>📞</span> {t.customer_phone}
-                            </td>
-                            <td className="py-3.5 px-4 truncate max-w-[150px]" title={t.customer_address}>
-                              <span>📍</span> {t.customer_address}
-                            </td>
-                            <td className="py-3.5 px-4 uppercase">
-                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                                t.priority === 'urgent' ? 'bg-red-955/30 text-red-405 border border-red-800/30' :
-                                t.priority === 'high' ? 'bg-amber-955/25 text-amber-400' : 'bg-slate-900 text-slate-500'
-                              }`}>{t.priority}</span>
-                            </td>
-                            <td className="py-3.5 px-4 uppercase text-[10px] font-bold text-indigo-400">
-                              {t.status}
-                            </td>
-                            <td className="py-3.5 px-4 text-center">
-                              {isOverdue && (
-                                <span className="px-1.5 py-0.5 rounded text-[8px] bg-red-955/40 text-red-400 font-bold">⚠️ Overdue</span>
-                              )}
-                              {isDueToday && (
-                                <span className="px-1.5 py-0.5 rounded text-[8px] bg-amber-950 text-amber-405 font-bold">⚠️ Due Today</span>
-                              )}
-                              {!isOverdue && !isDueToday && (
-                                <span className="text-slate-600 text-[10px]">-</span>
-                              )}
-                            </td>
-                            <td className="py-3.5 px-4 text-right">
-                              <button
-                                onClick={() => setSelectedItem(t)}
-                                className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-850 hover:bg-slate-900 text-slate-300 font-semibold transition-colors"
-                              >
-                                View Details &rarr;
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Mobile View Cards Layout */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
-                  {currentTasksPageData.map((t) => {
-                    const isOverdue = t.due_date && new Date(t.due_date) < new Date() && t.status !== 'completed';
-                    const isDueToday = t.due_date && new Date(t.due_date).toDateString() === new Date().toDateString() && t.status !== 'completed';
-                    
-                    return (
-                      <div key={t.id} className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 space-y-3 text-xs">
-                        <div className="flex justify-between items-center">
-                          <span className="font-mono font-bold text-indigo-400">TSK-{t.id}</span>
-                          <span className="text-[10px] text-slate-550 uppercase font-bold">{t.task_type}</span>
-                        </div>
-                        
-                        <div className="pt-2 border-t border-slate-950 space-y-1.5 text-slate-300">
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Customer:</span>
-                            <span className="text-white font-semibold">{t.customer_name}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Address:</span>
-                            <span className="truncate max-w-[180px]">{t.customer_address}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Target Date:</span>
-                            <span>{t.due_date ? new Date(t.due_date).toLocaleDateString() : 'N/A'}</span>
-                          </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-slate-900 flex justify-between items-center">
-                          <div className="space-x-1.5 flex items-center">
-                            <span className="px-1.5 py-0.5 rounded text-[8px] bg-slate-955 bg-slate-950 text-slate-400 font-bold uppercase">{t.priority}</span>
-                            <span className="px-1.5 py-0.5 rounded text-[8px] bg-indigo-950 text-indigo-400 font-bold uppercase">{t.status}</span>
-                            {isOverdue && <span className="text-[9px] text-red-400 font-bold">⚠️ Overdue</span>}
-                            {isDueToday && <span className="text-[9px] text-amber-400 font-bold">⚠️ Today</span>}
-                          </div>
-                          
+              {/* Tasks List */}
+              <div className="p-5 rounded-2xl bg-[#090d18]/30 border border-[#151c2e] overflow-x-auto shadow-xl">
+                <table className="w-full text-left border-collapse text-xs min-w-[700px]">
+                  <thead>
+                    <tr className="border-b border-[#151c2e] text-slate-400 font-bold uppercase tracking-wider text-[9px]">
+                      <th className="pb-3.5 px-3">Task ID</th>
+                      <th className="pb-3.5 px-3">Request Type</th>
+                      <th className="pb-3.5 px-3">Customer Name</th>
+                      <th className="pb-3.5 px-3">Contact Phone</th>
+                      <th className="pb-3.5 px-3">Service Address</th>
+                      <th className="pb-3.5 px-3">Priority</th>
+                      <th className="pb-3.5 px-3">Status</th>
+                      <th className="pb-3.5 px-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentTasksPageData.map((t, idx) => (
+                      <tr key={idx} className="border-b border-[#151c2e]/60 hover:bg-slate-900/20 text-slate-300">
+                        <td className="py-3 px-3 font-mono font-bold text-white">TSK-{t.id}</td>
+                        <td className="py-3 px-3 font-bold text-white uppercase text-[10px]">{t.task_type}</td>
+                        <td className="py-3 px-3">{t.customer_name}</td>
+                        <td className="py-3 px-3">{t.customer_phone}</td>
+                        <td className="py-3 px-3 truncate max-w-[150px]">{t.customer_address}</td>
+                        <td className="py-3 px-3">
+                          <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
+                            t.priority === 'urgent' || t.priority === 'high' ? 'bg-red-950 text-red-400' : 'bg-slate-900 text-slate-500'
+                          }`}>{t.priority}</span>
+                        </td>
+                        <td className="py-3 px-3 uppercase text-[10px] font-bold text-cyan-400">{t.status}</td>
+                        <td className="py-3 px-3 text-right space-x-1.5">
                           <button
                             onClick={() => setSelectedItem(t)}
-                            className="px-3 py-1 bg-slate-900 border border-slate-850 text-slate-300 font-semibold rounded-lg"
+                            className="px-2.5 py-1 rounded bg-[#090d18] border border-slate-800 text-[10px] hover:text-white"
                           >
-                            Details &rarr;
+                            Details
                           </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                          {t.status !== 'completed' && (
+                            <button
+                              onClick={() => handleUpdateTaskStatus(t.id, 'completed')}
+                              className="px-2.5 py-1 rounded bg-emerald-600/20 border border-emerald-800 text-[10px] text-emerald-400 font-bold hover:bg-emerald-600 hover:text-white transition-colors"
+                            >
+                              Resolve
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
 
                 {filteredTasks.length === 0 && (
-                  <div className="py-20 text-center max-w-sm mx-auto space-y-4 animate-fade-in">
-                    <div className="w-14 h-14 rounded-2xl bg-indigo-955/20 border border-indigo-900/20 flex items-center justify-center text-indigo-400 mx-auto">
-                      🔧
-                    </div>
-                    <div className="space-y-1.5">
-                      <h4 className="font-black text-white text-base">You're All Caught Up</h4>
-                      <p className="text-xs text-slate-500 leading-relaxed">
-                        No installation or service tasks are currently assigned to you. New technical jobs assigned by your administrator will appear here.
-                      </p>
-                    </div>
-                  </div>
+                  <div className="py-12 text-center text-slate-500 italic">No service requests matches query filters.</div>
                 )}
-
-                {/* Pagination Selector for Tasks */}
-                {filteredTasks.length > 0 && (
-                  <div className="flex justify-between items-center text-xs text-slate-500 pt-2">
-                    <span>
-                      Showing {indexOfFirstTask + 1}–{Math.min(indexOfLastTask, filteredTasks.length)} of {filteredTasks.length} tasks
-                    </span>
-                    
-                    <div className="flex items-center space-x-1.5">
-                      <button
-                        onClick={() => setTasksCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={tasksCurrentPage === 1}
-                        className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-850 hover:bg-slate-850 hover:text-white transition-colors disabled:opacity-40"
-                      >
-                        Previous
-                      </button>
-                      
-                      {[...Array(totalTasksPages)].map((_, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setTasksCurrentPage(idx + 1)}
-                          className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-colors font-bold ${
-                            tasksCurrentPage === idx + 1
-                              ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-400'
-                              : 'bg-slate-900 border-slate-850 text-slate-400 hover:text-white hover:bg-slate-850'
-                          }`}
-                        >
-                          {idx + 1}
-                        </button>
-                      ))}
-
-                      <button
-                        onClick={() => setTasksCurrentPage(prev => Math.min(prev + 1, totalTasksPages))}
-                        disabled={tasksCurrentPage === totalTasksPages}
-                        className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-855 border-slate-850 hover:bg-slate-850 hover:text-white transition-colors disabled:opacity-40"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-                )}
-
               </div>
-
             </div>
           )}
 
           {/* ==============================================
-              TAB 4: WORK HISTORY & PERFORMANCE RECORDS
+              TAB 5: COMPLAINTS & SUPPORT (Real database integration)
               ============================================== */}
-          {activeTab === 'History' && (
-            <div className="space-y-6 animate-fade-in">
+          {activeTab === 'Complaints' && (
+            <div className="space-y-6 animate-fade-in duration-200">
               
-              {/* Summary Metrics Cards Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                
-                {/* Total jobs completed */}
-                <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-emerald-500/20 transition-all duration-300">
-                  <div className="flex justify-between items-start">
-                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Total Jobs Done</span>
-                    <span className="text-sm">📋</span>
-                  </div>
-                  <span className="text-2xl font-black text-white mt-2 block leading-none">{totalHistoryCount}</span>
-                  <span className="text-[9px] text-slate-550 block mt-1.5">Resolved operations</span>
+              <div className="flex justify-between items-center flex-wrap gap-4 pb-4 border-b border-[#151c2e]">
+                <div>
+                  <h2 className="text-lg font-bold text-white">Customer Support complaints</h2>
+                  <p className="text-xs text-slate-400">Resolve internet downtime tickets, hardware speed upgrades, and client conflicts.</p>
                 </div>
-
-                {/* Completed this week */}
-                <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-emerald-500/25 transition-all duration-300">
-                  <div className="flex justify-between items-start">
-                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Resolved Week</span>
-                    <span className="text-sm">📆</span>
+                <div className="flex items-center space-x-2.5">
+                  <div className="px-3 py-1 rounded-xl bg-slate-900 text-xs text-slate-405 text-slate-400 font-semibold border border-slate-800">
+                    Open Tickets: <strong className="text-white font-extrabold">{complaints.filter(c => c.status !== 'resolved').length}</strong>
                   </div>
-                  <span className="text-2xl font-black text-emerald-450 mt-2 block leading-none">{historyCompletedThisWeek}</span>
-                  <span className="text-[9px] text-slate-550 block mt-1.5">Last 7 calendar days</span>
-                </div>
-
-                {/* Completed this month */}
-                <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-emerald-500/25 transition-all duration-300">
-                  <div className="flex justify-between items-start">
-                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Resolved Month</span>
-                    <span className="text-sm">📅</span>
-                  </div>
-                  <span className="text-2xl font-black text-emerald-450 mt-2 block leading-none">{historyCompletedThisMonth}</span>
-                  <span className="text-[9px] text-slate-550 block mt-1.5">Last 30 calendar days</span>
-                </div>
-
-                {/* Avg resolution duration */}
-                <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-cyan-500/20 transition-all duration-300">
-                  <div className="flex justify-between items-start">
-                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Avg Closure Time</span>
-                    <span className="text-sm">⏱️</span>
-                  </div>
-                  <span className="text-2xl font-black text-cyan-400 mt-2 block leading-none">{avgCompletionTime}</span>
-                  <span className="text-[9px] text-slate-550 block mt-1.5">Avg resolution span</span>
-                </div>
-
-              </div>
-
-              {/* Performance insight overview widget panel */}
-              <div className="p-5 rounded-2xl bg-slate-900/15 border border-slate-900/80 backdrop-blur-sm space-y-4">
-                <h3 className="font-bold text-white text-xs uppercase tracking-wider">Technician Performance Audits Overview</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 text-xs">
-                  
-                  <div className="p-3 bg-slate-950/45 border border-slate-900 rounded-xl">
-                    <span className="text-slate-505 block text-[9px] uppercase font-bold">Total Operations</span>
-                    <span className="text-base font-black text-white mt-1 block leading-none">{totalHistoryCount}</span>
-                  </div>
-                  
-                  <div className="p-3 bg-slate-950/45 border border-slate-900 rounded-xl">
-                    <span className="text-slate-505 block text-[9px] uppercase font-bold">High Priority Jobs</span>
-                    <span className="text-base font-black text-amber-400 mt-1 block leading-none">{performanceHighPriorityCompleted}</span>
-                  </div>
-
-                  <div className="p-3 bg-slate-950/45 border border-slate-900 rounded-xl">
-                    <span className="text-slate-550 block text-[9px] uppercase font-bold">Complaint Resolved</span>
-                    <span className="text-base font-black text-cyan-400 mt-1 block leading-none">{performanceComplaintResolutions}</span>
-                  </div>
-
-                  <div className="p-3 bg-slate-950/45 border border-slate-900 rounded-xl">
-                    <span className="text-slate-550 block text-[9px] uppercase font-bold">Installations Done</span>
-                    <span className="text-base font-black text-indigo-400 mt-1 block leading-none">{performanceInstallations}</span>
-                  </div>
-
-                  <div className="p-3 bg-slate-950/45 border border-slate-900 rounded-xl">
-                    <span className="text-slate-550 block text-[9px] uppercase font-bold">Fiber Cable Repairs</span>
-                    <span className="text-base font-black text-emerald-450 mt-1 block leading-none">{performanceRepairs}</span>
-                  </div>
-
                 </div>
               </div>
 
-              {/* Advanced Audits Search & Filtering Toolbar */}
-              <div className="p-4 rounded-2xl bg-slate-900/20 border border-slate-900 flex flex-wrap gap-4 items-center">
-                
-                {/* Text query input */}
-                <div className="flex-grow min-w-[200px] relative">
+              {/* Advanced Search & Filtering Toolbar */}
+              <div className="p-4 rounded-2xl bg-[#090d18]/40 border border-[#151c2e] flex flex-wrap gap-4 items-center">
+                <div className="flex-grow min-w-[220px] relative">
                   <input
                     type="text"
-                    placeholder="Search history by Customer, Work description or ID..."
-                    value={historySearch}
-                    onChange={(e) => { setHistorySearch(e.target.value); setHistoryCurrentPage(1); }}
-                    className="w-full pl-9 pr-8 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500"
+                    placeholder="Search complaints by ID, Customer Name..."
+                    value={complaintsSearch}
+                    onChange={(e) => { setComplaintsSearch(e.target.value); setComplaintsCurrentPage(1); }}
+                    className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-cyan-500"
                   />
-                  <span className="absolute left-3.5 top-3 text-xs text-slate-500">🔍</span>
-                  {historySearch && (
-                    <button
-                      onClick={() => { setHistorySearch(''); setHistoryCurrentPage(1); }}
-                      className="absolute right-3 top-2.5 text-xs text-slate-500 hover:text-white"
-                    >
-                      ✕
-                    </button>
-                  )}
+                  <span className="absolute left-3 top-2 text-xs">🔍</span>
                 </div>
 
-                {/* Job type selection */}
-                <div className="w-40 shrink-0">
+                <div className="w-36 shrink-0">
                   <select
-                    value={historyFilterType}
-                    onChange={(e) => { setHistoryFilterType(e.target.value); setHistoryCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
+                    value={complaintsStatusFilter}
+                    onChange={(e) => { setComplaintsStatusFilter(e.target.value); setComplaintsCurrentPage(1); }}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-800 text-xs text-slate-300 focus:outline-none"
                   >
-                    <option value="all">All Job Types</option>
-                    <option value="complaint">Complaint Resolutions</option>
-                    <option value="task">Technical Tasks</option>
-                    <option value="Installation">Installation jobs</option>
-                    <option value="Fiber Repair">Fiber Cable repair</option>
-                    <option value="Router Replacement">Router replacement</option>
-                    <option value="ONU/ONT Replacement">ONU/ONT replace</option>
-                    <option value="Configuration">Configurations</option>
-                    <option value="Service Restoration">Restorations</option>
+                    <option value="all">All Statuses</option>
+                    <option value="pending">Assigned / Pending</option>
+                    <option value="on_the_way">On the Way</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
                   </select>
                 </div>
 
-                {/* Priority Selection */}
                 <div className="w-36 shrink-0">
                   <select
-                    value={historyFilterPriority}
-                    onChange={(e) => { setHistoryFilterPriority(e.target.value); setHistoryCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
+                    value={complaintsPriorityFilter}
+                    onChange={(e) => { setComplaintsPriorityFilter(e.target.value); setComplaintsCurrentPage(1); }}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-800 text-xs text-slate-300 focus:outline-none"
                   >
                     <option value="all">All Priorities</option>
                     <option value="low">Low</option>
@@ -1827,1119 +1310,932 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                     <option value="urgent">Urgent</option>
                   </select>
                 </div>
-
-                {/* Date filter dropdown */}
-                <div className="w-36 shrink-0">
-                  <select
-                    value={historyFilterDate}
-                    onChange={(e) => { setHistoryFilterDate(e.target.value); setHistoryCurrentPage(1); }}
-                    className="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-xs text-slate-350 focus:outline-none"
-                  >
-                    <option value="all">All Time</option>
-                    <option value="today">Today</option>
-                    <option value="week">This Week</option>
-                    <option value="month">This Month</option>
-                  </select>
-                </div>
-
               </div>
 
-              {/* History Audits List (Desktop Table / Mobile Cards) */}
-              <div className="space-y-4">
-                
-                {/* Desktop View Table */}
-                <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-900 bg-slate-900/10 shadow-xl">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-900 bg-slate-950/40 text-slate-400 font-bold uppercase">
-                        <th className="py-3.5 px-4">Job ID</th>
-                        <th className="py-3.5 px-4">Job Type</th>
-                        <th className="py-3.5 px-4">Customer</th>
-                        <th className="py-3.5 px-4">Description / Subject</th>
-                        <th className="py-3.5 px-4">Priority</th>
-                        <th className="py-3.5 px-4">Final Status</th>
-                        <th className="py-3.5 px-4">Completed Date</th>
-                        <th className="py-3.5 px-4 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {currentHistoryPageData.map((item, idx) => (
-                        <tr key={idx} className="border-b border-slate-955/20 text-slate-300 hover:bg-slate-900/10">
-                          <td className="py-3.5 px-4 font-mono">
-                            <button onClick={() => setSelectedHistoryItem(item)} className="text-cyan-400 font-bold hover:underline">
-                              {item.type === 'task' ? `TSK-${item.id}` : `CMP-${item.id}`}
-                            </button>
-                          </td>
-                          <td className="py-3.5 px-4 font-bold text-white uppercase text-[10px]">
-                            {item.type} ({item.work_type})
-                          </td>
-                          <td className="py-3.5 px-4 font-medium text-slate-202">
-                            👤 {item.customer_name}
-                          </td>
-                          <td className="py-3.5 px-4 truncate max-w-[200px]" title={item.description}>
-                            {item.description}
-                          </td>
-                          <td className="py-3.5 px-4 uppercase">
-                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold bg-slate-900 text-slate-405 text-slate-400`}>
-                              {item.priority}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4 uppercase">
-                            <span className="px-1.5 py-0.5 rounded text-[8px] font-bold bg-emerald-950/40 border border-emerald-800/30 text-emerald-450">
-                              {item.status}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-4 text-slate-500 font-medium">
-                            {new Date(item.completed_date).toLocaleString()}
-                          </td>
-                          <td className="py-3.5 px-4 text-right">
+              {/* Complaints Table */}
+              <div className="p-5 rounded-2xl bg-[#090d18]/30 border border-[#151c2e] overflow-x-auto shadow-xl">
+                <table className="w-full text-left border-collapse text-xs min-w-[700px]">
+                  <thead>
+                    <tr className="border-b border-[#151c2e] text-slate-400 font-bold uppercase tracking-wider text-[9px]">
+                      <th className="pb-3.5 px-3">Ticket ID</th>
+                      <th className="pb-3.5 px-3">Customer Name</th>
+                      <th className="pb-3.5 px-3">Subject / Issue</th>
+                      <th className="pb-3.5 px-3">Phone Number</th>
+                      <th className="pb-3.5 px-3">Priority</th>
+                      <th className="pb-3.5 px-3">Status</th>
+                      <th className="pb-3.5 px-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentComplaintsPageData.map((c, idx) => (
+                      <tr key={idx} className="border-b border-[#151c2e]/60 hover:bg-slate-900/20 text-slate-300">
+                        <td className="py-3 px-3 font-mono font-bold text-white">CMP-{c.id}</td>
+                        <td className="py-3 px-3 font-semibold text-slate-200">{c.customer_name}</td>
+                        <td className="py-3 px-3">
+                          <span className="font-bold block text-slate-200">{c.subject}</span>
+                          <span className="text-[10px] text-slate-500 font-light block truncate max-w-[200px]">{c.description}</span>
+                        </td>
+                        <td className="py-3 px-3">{c.customer_phone}</td>
+                        <td className="py-3 px-3 uppercase">
+                          <span className={`px-2 py-0.5 rounded text-[8px] font-bold ${
+                            c.priority === 'urgent' || c.priority === 'high' ? 'bg-red-955/20 text-red-400 border border-red-900/30' : 'bg-slate-900 text-slate-500'
+                          }`}>{c.priority}</span>
+                        </td>
+                        <td className="py-3 px-3 uppercase text-[10px] font-bold text-cyan-400">{c.status}</td>
+                        <td className="py-3 px-3 text-right space-x-1.5">
+                          <button
+                            onClick={() => setSelectedItem(c)}
+                            className="px-2.5 py-1 rounded bg-[#090d18] border border-slate-800 text-[10px] hover:text-white"
+                          >
+                            Details
+                          </button>
+                          {c.status !== 'resolved' && (
                             <button
-                              onClick={() => setSelectedHistoryItem(item)}
-                              className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-850 hover:bg-slate-900 text-slate-300 font-bold transition-colors"
+                              onClick={() => handleUpdateComplaintStatus(c.id, 'resolved')}
+                              className="px-2.5 py-1 rounded bg-emerald-600/20 border border-emerald-800 text-[10px] text-emerald-400 font-bold hover:bg-emerald-600 hover:text-white transition-colors"
                             >
-                              View Report
+                              Close Ticket
                             </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
 
-                {/* Mobile View Cards Layout */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:hidden">
-                  {currentHistoryPageData.map((item, idx) => (
-                    <div key={idx} className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 space-y-3 text-xs">
-                      <div className="flex justify-between items-center">
-                        <span className="font-mono font-bold text-cyan-405 text-cyan-400">
-                          {item.type === 'task' ? `TSK-${item.id}` : `CMP-${item.id}`}
-                        </span>
-                        <span className="text-[10px] text-slate-500 uppercase font-bold">{item.work_type}</span>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <span className="text-[10px] text-slate-500 capitalize block">Customer Profile:</span>
-                        <span className="font-bold text-white block">👤 {item.customer_name}</span>
-                      </div>
+                {filteredComplaints.length === 0 && (
+                  <div className="py-12 text-center text-slate-500 italic">No customer complaints found matching criteria.</div>
+                )}
+              </div>
+            </div>
+          )}
 
-                      <div className="pt-2 border-t border-slate-900 flex justify-between items-center">
-                        <div className="space-x-1.5">
-                          <span className="px-1.5 py-0.5 rounded text-[8px] bg-slate-950 text-slate-400 font-bold uppercase">{item.priority}</span>
-                          <span className="px-1.5 py-0.5 rounded text-[8px] bg-emerald-950 text-emerald-405 text-emerald-400 font-bold uppercase">{item.status}</span>
+          {/* ==============================================
+              TAB 6: TECHNICIAN COORDINATION
+              ============================================== */}
+          {activeTab === 'Technicians' && (
+            <div className="space-y-6 animate-fade-in duration-200">
+              <div className="pb-4 border-b border-[#151c2e]">
+                <h2 className="text-lg font-bold text-white">Technician Crew Registry</h2>
+                <p className="text-xs text-slate-400">Coordinate assignees, monitor technician schedules, availability, and active job counters.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {mockTechnicians.map((tech, idx) => (
+                  <div key={idx} className="p-5 rounded-2xl bg-[#090d18]/40 border border-[#151c2e] space-y-4">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-800 to-slate-900 flex items-center justify-center font-bold text-sm text-cyan-400 shadow-md">
+                          {tech.name.slice(0, 2).toUpperCase()}
                         </div>
-                        <button
-                          onClick={() => setSelectedHistoryItem(item)}
-                          className="px-3 py-1 bg-slate-900 border border-slate-850 text-slate-300 font-bold rounded-lg"
-                        >
-                          View Report
-                        </button>
+                        <div>
+                          <h4 className="font-extrabold text-white text-sm">{tech.name}</h4>
+                          <span className="text-[9px] text-slate-500">Field Technician</span>
+                        </div>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
+                        tech.status === 'Available' ? 'bg-emerald-950 text-emerald-400' :
+                        tech.status === 'On Job' ? 'bg-blue-950 text-blue-400' : 'bg-amber-950 text-amber-400'
+                      }`}>
+                        {tech.status}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 border-t border-slate-900 pt-3.5 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Contact Phone:</span>
+                        <span className="text-slate-300">{tech.phone}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Performance Rating:</span>
+                        <span className="text-cyan-400 font-bold">{tech.rating} ★</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Active Job Tasks:</span>
+                        <span className="text-white font-bold">{tech.activeJobs} assigned</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setAssignForm({ ticketId: '', technicianId: tech.name });
+                        setShowAssignTechModal(true);
+                      }}
+                      className="w-full py-2 bg-[#090d18] hover:bg-slate-900 border border-slate-800 text-xs font-bold rounded-xl text-slate-300 hover:text-white transition-colors"
+                    >
+                      Assign Task
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* ==============================================
+              TAB 7: BILLING & PAYMENTS
+              ============================================== */}
+          {activeTab === 'Billing' && (
+            <div className="space-y-6 animate-fade-in duration-200">
+              <div className="pb-4 border-b border-[#151c2e]">
+                <h2 className="text-lg font-bold text-white">Billing & Payments Registry</h2>
+                <p className="text-xs text-slate-400">Track invoice collections, pending client billing files, and check outstanding balances.</p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-[#090d18]/30 border border-[#151c2e] overflow-x-auto shadow-xl">
+                <table className="w-full text-left border-collapse text-xs min-w-[700px]">
+                  <thead>
+                    <tr className="border-b border-[#151c2e] text-slate-400 font-bold uppercase tracking-wider text-[9px]">
+                      <th className="pb-3.5 px-3">Invoice ID</th>
+                      <th className="pb-3.5 px-3">Customer Client</th>
+                      <th className="pb-3.5 px-3">Total Amount</th>
+                      <th className="pb-3.5 px-3">Payment Status</th>
+                      <th className="pb-3.5 px-3">Due Date</th>
+                      <th className="pb-3.5 px-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mockBillings.map((bill, idx) => (
+                      <tr key={idx} className="border-b border-[#151c2e]/60 hover:bg-slate-900/20 text-slate-300">
+                        <td className="py-3 px-3 font-mono font-bold text-white">{bill.invoiceId}</td>
+                        <td className="py-3 px-3 font-semibold text-slate-200">{bill.customer}</td>
+                        <td className="py-3 px-3 font-bold text-white">{bill.amount}</td>
+                        <td className="py-3 px-3">
+                          <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
+                            bill.status === 'Paid' ? 'bg-emerald-950 text-emerald-400' :
+                            bill.status === 'Pending' ? 'bg-amber-950 text-amber-400' : 'bg-red-955/20 text-red-400 border border-red-900/30'
+                          }`}>
+                            {bill.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-slate-500">{bill.dueDate}</td>
+                        <td className="py-3 px-3 text-right">
+                          <button
+                            onClick={() => showToast(`Dispatched invoice notification for ${bill.customer}`)}
+                            className="px-2.5 py-1 rounded bg-[#090d18] border border-slate-800 text-[10px] hover:text-white"
+                          >
+                            Remind Customer
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ==============================================
+              TAB 8: INSTALLATIONS SCHEDULES
+              ============================================== */}
+          {activeTab === 'Installations' && (
+            <div className="space-y-6 animate-fade-in duration-200">
+              <div className="pb-4 border-b border-[#151c2e]">
+                <h2 className="text-lg font-bold text-white">Installations Calendar Schedules</h2>
+                <p className="text-xs text-slate-400">Track and monitor today's broadband connections, routers setups, and scheduling times.</p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-[#090d18]/30 border border-[#151c2e] space-y-6 shadow-xl">
+                <div className="relative pl-6 border-l-2 border-slate-850 space-y-6">
+                  {mockInstallations.map((inst, idx) => (
+                    <div key={idx} className="relative text-xs">
+                      <div className="absolute -left-[31px] top-1 w-3.5 h-3.5 rounded-full bg-slate-950 border-2 border-cyan-500 shadow-md shadow-cyan-500/20" />
+                      <span className="text-[10px] font-bold text-cyan-400 block leading-none">{inst.time}</span>
+                      <h4 className="font-extrabold text-white text-sm mt-1.5">{inst.type}</h4>
+                      <p className="text-slate-400 mt-1">Customer Profile: <strong className="text-slate-200">{inst.customer}</strong></p>
+                      <p className="text-slate-400">Assigned Crew Technician: <span className="font-medium text-slate-300">{inst.technician}</span></p>
+                      <p className="text-slate-400">Area Location: <span className="font-light text-slate-400">{inst.area}</span></p>
+                      <div className="mt-2.5">
+                        <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
+                          inst.status === 'Completed' ? 'bg-emerald-950 text-emerald-400' :
+                          inst.status === 'In Progress' ? 'bg-blue-950 text-blue-400' : 'bg-slate-900 text-slate-500'
+                        }`}>
+                          {inst.status}
+                        </span>
                       </div>
                     </div>
                   ))}
                 </div>
-
-                {/* Empty State registers */}
-                {history.length === 0 && (
-                  <div className="py-24 text-center max-w-sm mx-auto space-y-4 animate-fade-in">
-                    <div className="w-14 h-14 rounded-2xl bg-emerald-955/20 border border-emerald-900/20 flex items-center justify-center text-emerald-450 text-lg mx-auto">
-                      📋
-                    </div>
-                    <div className="space-y-1">
-                      <h4 className="font-black text-white text-base">No Completed Work Yet</h4>
-                      <p className="text-xs text-slate-505 text-slate-500 leading-relaxed">
-                        Your completed installations, repairs and service jobs will appear here as resolving closures are committed.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Filter Empty Results State */}
-                {history.length > 0 && filteredHistory.length === 0 && (
-                  <div className="py-14 text-center max-w-xs mx-auto space-y-3 animate-fade-in">
-                    <span className="text-xl">🔍</span>
-                    <h4 className="font-bold text-white text-xs">No matching work records</h4>
-                    <p className="text-[10px] text-slate-500">Try changing your search or filters.</p>
-                    <button
-                      onClick={() => { setHistorySearch(''); setHistoryFilterType('all'); setHistoryFilterPriority('all'); setHistoryFilterDate('all'); }}
-                      className="px-3 py-1 rounded bg-slate-900 border border-slate-850 text-slate-300 hover:text-white"
-                    >
-                      Clear Filters
-                    </button>
-                  </div>
-                )}
-
-                {/* Pagination Controls */}
-                {filteredHistory.length > 0 && (
-                  <div className="flex justify-between items-center text-xs text-slate-500 pt-2">
-                    <span>
-                      Showing {indexOfFirstHistory + 1}–{Math.min(indexOfLastHistory, filteredHistory.length)} of {filteredHistory.length} completed records
-                    </span>
-                    
-                    <div className="flex items-center space-x-1.5">
-                      <button
-                        onClick={() => setHistoryCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={historyCurrentPage === 1}
-                        className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-855 border-slate-850 hover:bg-slate-850 hover:text-white transition-colors disabled:opacity-40"
-                      >
-                        Previous
-                      </button>
-                      
-                      {[...Array(totalHistoryPages)].map((_, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setHistoryCurrentPage(idx + 1)}
-                          className={`w-8 h-8 rounded-xl border flex items-center justify-center transition-colors font-bold ${
-                            historyCurrentPage === idx + 1
-                              ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400'
-                              : 'bg-slate-900 border-slate-850 text-slate-400 hover:text-white hover:bg-slate-850'
-                          }`}
-                        >
-                          {idx + 1}
-                        </button>
-                      ))}
-
-                      <button
-                        onClick={() => setHistoryCurrentPage(prev => Math.min(prev + 1, totalHistoryPages))}
-                        disabled={historyCurrentPage === totalHistoryPages}
-                        className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-850 hover:bg-slate-850 hover:text-white transition-colors disabled:opacity-40"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-                )}
-
               </div>
-
             </div>
           )}
 
           {/* ==============================================
-              TAB 5: NOTIFICATIONS HUB
+              TAB 9: OPERATIONAL REPORTS
+              ============================================== */}
+          {activeTab === 'Reports' && (
+            <div className="space-y-6 animate-fade-in duration-200">
+              <div className="pb-4 border-b border-[#151c2e]">
+                <h2 className="text-lg font-bold text-white">ISP Operations & Analytics Reports</h2>
+                <p className="text-xs text-slate-400">View diagnostic visual charts, packet loads, complaint closures, and subscriber growths.</p>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                
+                {/* Chart 1: SVG Customer Growth */}
+                <div className="p-5 rounded-2xl bg-[#090d18]/40 border border-[#151c2e] space-y-4">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Subscribers Growth Rate</h4>
+                  <div className="h-44 w-full flex items-end justify-between px-2 pt-4 bg-[#070b14]/50 rounded-xl border border-slate-900">
+                    {[35, 45, 60, 50, 75, 90].map((height, idx) => (
+                      <div key={idx} className="flex flex-col items-center space-y-2 flex-grow">
+                        <div className="w-6 bg-gradient-to-t from-cyan-600 to-blue-500 rounded-t" style={{ height: `${height * 1.2}px` }}></div>
+                        <span className="text-[9px] text-slate-500">M{idx + 1}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-555 text-slate-500 text-center font-light leading-relaxed">Monthly new client signups showing positive growth trajectory.</p>
+                </div>
+
+                {/* Chart 2: SVG Package Distribution */}
+                <div className="p-5 rounded-2xl bg-[#090d18]/40 border border-[#151c2e] space-y-4">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Plan Distribution Rates</h4>
+                  <div className="h-44 w-full flex items-center justify-center bg-[#070b14]/50 rounded-xl border border-slate-900">
+                    <svg className="w-28 h-28 transform -rotate-90" viewBox="0 0 32 32">
+                      <circle r="16" cx="16" cy="16" fill="transparent" stroke="#1e293b" strokeWidth="6" />
+                      <circle r="16" cx="16" cy="16" fill="transparent" stroke="#06b6d4" strokeWidth="6" strokeDasharray="40 100" strokeDashoffset="0" />
+                      <circle r="16" cx="16" cy="16" fill="transparent" stroke="#3b82f6" strokeWidth="6" strokeDasharray="30 100" strokeDashoffset="-40" />
+                      <circle r="16" cx="16" cy="16" fill="transparent" stroke="#10b981" strokeWidth="6" strokeDasharray="20 100" strokeDashoffset="-70" />
+                      <circle r="16" cx="16" cy="16" fill="transparent" stroke="#f59e0b" strokeWidth="6" strokeDasharray="10 100" strokeDashoffset="-90" />
+                    </svg>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-[9px] text-slate-400">
+                    <div className="flex items-center space-x-1"><span className="w-2 h-2 rounded-full bg-cyan-400 block" /><span>Gold (40%)</span></div>
+                    <div className="flex items-center space-x-1"><span className="w-2 h-2 rounded-full bg-blue-500 block" /><span>Silver (30%)</span></div>
+                    <div className="flex items-center space-x-1"><span className="w-2 h-2 rounded-full bg-emerald-500 block" /><span>Bronze (20%)</span></div>
+                    <div className="flex items-center space-x-1"><span className="w-2 h-2 rounded-full bg-amber-500 block" /><span>Platinum (10%)</span></div>
+                  </div>
+                </div>
+
+                {/* Chart 3: Service SLA performance */}
+                <div className="p-5 rounded-2xl bg-[#090d18]/40 border border-[#151c2e] space-y-4">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Trouble Ticket Performance SLA</h4>
+                  <div className="h-44 w-full flex flex-col justify-center space-y-3 px-4 bg-[#070b14]/50 rounded-xl border border-slate-900">
+                    <div>
+                      <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+                        <span>Complaints Closure:</span>
+                        <span className="font-bold text-white">92.5%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500" style={{ width: '92.5%' }} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+                        <span>New Connections Deployment SLA:</span>
+                        <span className="font-bold text-white">88.0%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-cyan-500" style={{ width: '88.0%' }} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+                        <span>Average Ticket Fix Time:</span>
+                        <span className="font-bold text-white">3.4 hrs</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-500" style={{ width: '70%' }} />
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-555 text-slate-500 text-center font-light leading-relaxed">Ticket handling time compared against SLA limits.</p>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+          {/* ==============================================
+              TAB 10: NOTIFICATIONS HUB
               ============================================== */}
           {activeTab === 'Notifications' && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-6 animate-fade-in duration-200">
               
-              {/* Notifications Header toolbar */}
-              <div className="flex justify-between items-center flex-wrap gap-4 pb-4 border-b border-slate-900/50">
-                <div className="space-y-1">
-                  <h2 className="text-lg font-black text-white">Notifications Hub</h2>
-                  <p className="text-xs text-slate-500 font-light">Stay updated with your latest tasks, complaints and system activity.</p>
+              <div className="flex justify-between items-center flex-wrap gap-4 pb-4 border-b border-[#151c2e]">
+                <div>
+                  <h2 className="text-lg font-bold text-white">Notifications Registry Hub</h2>
+                  <p className="text-xs text-slate-400">View real-time deployment notifications, system alerts, and task dispatch logs.</p>
                 </div>
-                
-                {notifUnreadCount > 0 && (
+                {unreadCount > 0 && (
                   <button
                     onClick={handleMarkNotificationsAsRead}
-                    className="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-850 hover:border-cyan-500/30 text-cyan-400 font-bold text-xs hover:shadow hover:shadow-cyan-500/5 transition-all"
+                    className="px-3.5 py-1.5 bg-[#090d18] hover:bg-slate-900 border border-slate-850 hover:text-white text-slate-300 font-bold text-xs rounded-xl transition-colors"
                   >
-                    ✓ Mark all as read
+                    Mark All as Read
                   </button>
                 )}
               </div>
 
-              {/* Dynamic Notification Summary Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                
-                {/* 1. Unread */}
-                <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-cyan-500/20 transition-all duration-300 flex items-center justify-between group">
-                  <div className="space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Unread Notifications</span>
-                    <span className="text-2xl font-black text-cyan-400 block pt-1.5 leading-none">{notifUnreadCount}</span>
-                  </div>
-                  <div className="w-10 h-10 rounded-xl bg-cyan-950/20 border border-cyan-900/20 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
-                    ✉️
-                  </div>
-                </div>
-
-                {/* 2. Today */}
-                <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-amber-500/20 transition-all duration-300 flex items-center justify-between group">
-                  <div className="space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Received Today</span>
-                    <span className="text-2xl font-black text-amber-400 block pt-1.5 leading-none">{notifTodayCount}</span>
-                  </div>
-                  <div className="w-10 h-10 rounded-xl bg-amber-955/20 border border-amber-900/20 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
-                    📅
-                  </div>
-                </div>
-
-                {/* 3. Important */}
-                <div className="p-4 rounded-2xl bg-slate-900/30 border border-slate-900 hover:border-red-500/20 transition-all duration-300 flex items-center justify-between group">
-                  <div className="space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-slate-500 block leading-none">Important Alerts</span>
-                    <span className="text-2xl font-black text-red-400 block pt-1.5 leading-none">{notifImportantCount}</span>
-                  </div>
-                  <div className="w-10 h-10 rounded-xl bg-red-955/20 border border-red-900/20 flex items-center justify-center text-lg group-hover:scale-105 transition-transform">
-                    ⚠️
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Notifications Feed */}
-              <div className="space-y-3.5 max-w-3xl">
-                {notifications.map((n) => {
-                  const isHighPriority = n.priority === 'high' || n.title?.toLowerCase().includes('priority') || n.title?.toLowerCase().includes('urgent');
-                  
-                  return (
-                    <div
-                      key={n.id}
-                      onClick={() => handleMarkNotificationAsRead(n)}
-                      className={`p-4 rounded-2xl border flex items-start space-x-4 transition-all duration-200 cursor-pointer group relative ${
-                        n.is_read
-                          ? 'bg-slate-900/10 border-slate-900 opacity-60'
-                          : 'bg-slate-900/40 border-slate-850 shadow-md hover:shadow-cyan-500/5 hover:border-cyan-500/20 ring-l-2 ring-cyan-400'
-                      }`}
-                    >
-                      {/* Left Circular Icon Container */}
-                      <div className={`w-10 h-10 rounded-full shrink-0 flex items-center justify-center text-base border ${
-                        n.is_read 
-                          ? 'bg-slate-955 bg-slate-950 border-slate-850 text-slate-500' 
-                          : isHighPriority 
-                            ? 'bg-red-950/20 border-red-900/30 text-red-400'
-                            : 'bg-cyan-950/20 border-cyan-900/30 text-cyan-400'
-                      }`}>
-                        {n.title?.includes('🔧') || n.category === 'task' ? '🔧' :
-                         n.title?.includes('📋') || n.category === 'complaint' ? '📋' :
-                         n.title?.includes('⚡') || n.category === 'priority' ? '⚡' :
-                         n.title?.includes('✅') || n.category === 'system' ? '✅' : '🔔'}
+              <div className="p-5 rounded-2xl bg-[#090d18]/30 border border-[#151c2e] space-y-4 max-h-[500px] overflow-y-auto shadow-xl">
+                {notifications.map((notif, idx) => (
+                  <div
+                    key={idx}
+                    onClick={() => handleMarkNotificationAsRead(notif)}
+                    className={`p-4 rounded-xl border flex items-start justify-between cursor-pointer transition-all duration-150 ${
+                      notif.is_read
+                        ? 'bg-slate-950/20 border-slate-900 text-slate-400'
+                        : 'bg-[#090d18] border-slate-800 text-white hover:border-cyan-500/20 shadow-md shadow-cyan-500/5'
+                    }`}
+                  >
+                    <div className="flex items-start space-x-3.5">
+                      <span className="text-lg shrink-0 mt-0.5">🔔</span>
+                      <div className="space-y-1">
+                        <h4 className="font-extrabold text-sm leading-none">{notif.title}</h4>
+                        <p className="text-xs font-light text-slate-400 leading-snug">{notif.message}</p>
+                        <span className="text-[9px] text-slate-500 block">{new Date(notif.created_at).toLocaleString()}</span>
                       </div>
-
-                      {/* Notification Body */}
-                      <div className="flex-grow space-y-1 text-xs">
-                        <div className="flex justify-between items-start">
-                          <h4 className={`font-bold text-sm tracking-tight ${n.is_read ? 'text-slate-400' : 'text-white'}`}>
-                            {n.title}
-                          </h4>
-                          <span className="text-[10px] text-slate-500 shrink-0 ml-4 font-light">
-                            {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                        <p className={`font-light leading-relaxed ${n.is_read ? 'text-slate-500' : 'text-slate-300'}`}>
-                          {n.message}
-                        </p>
-
-                        {/* Optional action buttons */}
-                        {!n.is_read && (n.category === 'task' || n.title?.toLowerCase().includes('task')) && (
-                          <div className="pt-2">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleMarkNotificationAsRead(n); setActiveTab('Tasks'); }}
-                              className="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-[10px] uppercase tracking-wide transition-colors"
-                            >
-                              View Task &rarr;
-                            </button>
-                          </div>
-                        )}
-                        {!n.is_read && (n.category === 'complaint' || n.title?.toLowerCase().includes('complaint')) && (
-                          <div className="pt-2">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleMarkNotificationAsRead(n); setActiveTab('Complaints'); }}
-                              className="px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-[10px] uppercase tracking-wide transition-colors"
-                            >
-                              View Ticket &rarr;
-                            </button>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Tiny Unread dot */}
-                      {!n.is_read && (
-                        <div className="absolute right-4 bottom-4 w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping pulse-subtle" />
-                      )}
                     </div>
-                  );
-                })}
+                    {!notif.is_read && (
+                      <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 shrink-0 ml-4 animate-pulse" />
+                    )}
+                  </div>
+                ))}
 
                 {notifications.length === 0 && (
-                  <div className="py-24 text-center max-w-sm mx-auto space-y-4 animate-fade-in">
-                    <div className="relative w-16 h-16 rounded-full bg-cyan-950/20 border border-cyan-900/30 flex items-center justify-center text-cyan-400 mx-auto shadow-xl">
-                      <div className="absolute inset-0 rounded-full bg-cyan-500/5 blur-md pulse-subtle" />
-                      <span className="text-xl">🔔</span>
-                    </div>
-                    <div className="space-y-1.5">
-                      <h4 className="font-black text-white text-base">You're all caught up!</h4>
-                      <p className="text-xs text-slate-500 leading-relaxed">
-                        No new notifications right now. We'll let you know when something needs your attention.
-                      </p>
-                    </div>
-                  </div>
+                  <div className="py-12 text-center text-slate-500 italic">No notifications logs recorded.</div>
                 )}
               </div>
-
             </div>
           )}
 
           {/* ==============================================
-              TAB 6: PROFILE & PASSWORD CONFIG (Redesigned SaaS dashboard)
+              TAB 11: MY PROFILE & SETTINGS
               ============================================== */}
           {activeTab === 'Profile' && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-6 animate-fade-in duration-200">
               
-              {/* Premium Page Header */}
-              <div className="flex justify-between items-center flex-wrap gap-4 pb-4 border-b border-slate-900/50">
-                <div className="space-y-1">
-                  <h2 className="text-lg font-black text-white">Account Settings</h2>
-                  <p className="text-xs text-slate-500 font-light">Manage your profile, security and technician account preferences.</p>
-                </div>
-                
-                <div className="px-3.5 py-1.5 rounded-full bg-emerald-950/30 border border-emerald-800/30 text-[10px] font-bold text-emerald-400 uppercase flex items-center space-x-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                  <span>🟢 Account Active</span>
-                </div>
+              <div className="pb-4 border-b border-[#151c2e]">
+                <h2 className="text-lg font-bold text-white">Employee Account Settings</h2>
+                <p className="text-xs text-slate-400">Configure notifications, edit personal profile data, and update password credentials.</p>
               </div>
 
-              {/* Grid: Left Column (Profile Hero & Info Tiles) | Right Column (Account Security Card) */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
-                {/* Left Column Container */}
-                <div className="space-y-6">
-                  
-                  {/* Profile Hero Card */}
-                  <div className="p-6 rounded-3xl bg-slate-900/20 border border-slate-900 shadow-xl hover:shadow-cyan-500/5 hover:border-cyan-500/10 transition-all duration-300 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-tr from-cyan-500/10 to-indigo-500/10 rounded-full blur-xl pointer-events-none" />
-                    
-                    <div className="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-5">
-                      
-                      {/* Large rounded avatar with glow */}
-                      <div className="relative">
-                        <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-cyan-500/20 to-indigo-650/20 border border-slate-800 flex items-center justify-center text-cyan-400 font-black text-2xl shadow-xl ring-2 ring-cyan-500/20 animate-pulse-subtle">
-                          {profile?.full_name?.slice(0, 2).toUpperCase() || 'ME'}
-                        </div>
-                        <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 border-2 border-slate-900 flex items-center justify-center" title="Online Status">
-                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
-                        </span>
-                      </div>
-
-                      {/* Profile details */}
-                      <div className="text-center sm:text-left space-y-1.5 flex-grow">
-                        <div className="flex items-center justify-center sm:justify-start space-x-2">
-                          <span className="px-2 py-0.5 rounded text-[8px] bg-cyan-955 border border-cyan-800/30 text-cyan-400 font-extrabold uppercase tracking-wide">
-                            FIELD OFFICER
-                          </span>
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            {profile?.employee_code || 'EMP-928575'}
-                          </span>
-                        </div>
-                        
-                        <h3 className="text-lg font-black text-white leading-none">
-                          {profile?.full_name || 'Mehmood'}
-                        </h3>
-                        
-                        <p className="text-[11px] text-slate-400 font-light">
-                          Field Operations • Technician Portal
-                        </p>
-                      </div>
-
-                      {/* Action edit button */}
-                      <div className="shrink-0">
-                        {isEditingProfile ? (
-                          <button
-                            onClick={() => setIsEditingProfile(false)}
-                            className="px-3.5 py-1.5 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-850 text-slate-400 text-xs font-bold transition-all"
-                          >
-                            Cancel
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => setIsEditingProfile(true)}
-                            className="px-3.5 py-1.5 rounded-xl bg-slate-950 hover:bg-slate-900 border border-slate-850 hover:border-cyan-500/20 text-cyan-400 text-xs font-bold transition-all shadow shadow-cyan-500/5"
-                          >
-                            Edit Profile
-                          </button>
-                        )}
-                      </div>
-
+                {/* 1. Account Details Card */}
+                <div className="lg:col-span-2 p-6 rounded-2xl bg-[#090d18]/30 border border-[#151c2e] space-y-6">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-500/20 to-blue-600/20 border border-[#151c2e] flex items-center justify-center text-cyan-400 font-extrabold text-lg">
+                      {(profile?.full_name || user?.name || 'AL').slice(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-white text-base leading-none">{profile?.full_name || user?.name || 'Ali Raza'}</h3>
+                      <p className="text-xs text-slate-500 mt-1">ISP coordinator | Designation: {profile?.designation || 'EMPLOYEE'}</p>
                     </div>
                   </div>
 
-                  {/* Profile Information Grid (Tiles) */}
-                  {isEditingProfile ? (
-                    <form onSubmit={handleUpdateProfile} className="p-6 rounded-3xl bg-slate-900/20 border border-slate-900 space-y-4 text-xs">
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Contact Phone</label>
-                        <input
-                          type="text"
-                          value={editProfileForm.phone}
-                          onChange={(e) => setEditProfileForm({ ...editProfileForm, phone: e.target.value })}
-                          className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
-                          required
-                        />
+                  {!isEditingProfile ? (
+                    <div className="space-y-4 border-t border-slate-900 pt-4 text-xs">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <span className="text-slate-505 text-slate-500 block text-[9px] uppercase font-bold">Email Address:</span>
+                          <span className="text-white block font-semibold mt-1">{profile?.email || 'ali.raza@isp.com'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-505 text-slate-505 text-slate-500 block text-[9px] uppercase font-bold">Employee Code:</span>
+                          <span className="text-white block font-semibold mt-1">{profile?.employee_code || 'EMP-3042'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-505 text-slate-505 text-slate-500 block text-[9px] uppercase font-bold">Contact Phone:</span>
+                          <span className="text-white block font-medium mt-1">{profile?.phone || '0300-1234567'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-505 text-slate-505 text-slate-500 block text-[9px] uppercase font-bold">Office Address:</span>
+                          <span className="text-white block font-medium mt-1">{profile?.address || 'ISP Operations Hub, Lahore'}</span>
+                        </div>
                       </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Residential Address</label>
-                        <textarea
-                          value={editProfileForm.address}
-                          onChange={(e) => setEditProfileForm({ ...editProfileForm, address: e.target.value })}
-                          className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500 h-24 resize-none"
-                          required
-                        />
-                      </div>
-                      <div className="pt-2 flex space-x-2">
-                        <button type="submit" className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-indigo-650 text-white font-bold rounded-xl hover:brightness-105 active:scale-[0.99] transition-all">Save Changes</button>
-                        <button type="button" onClick={() => setIsEditingProfile(false)} className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-400 rounded-xl">Cancel</button>
-                      </div>
-                    </form>
+                      <button
+                        onClick={() => setIsEditingProfile(true)}
+                        className="px-4 py-2 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-xs font-bold rounded-xl text-slate-300 hover:text-white transition-colors"
+                      >
+                        Edit Contact Details
+                      </button>
+                    </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      
-                      {/* Tile 1: Employee Code */}
-                      <div className="p-4 rounded-2xl bg-slate-900/10 border border-slate-900/80 hover:border-slate-800 transition-all flex items-center space-x-3.5 group">
-                        <span className="text-lg">🆔</span>
-                        <div>
-                          <span className="text-[9px] uppercase font-extrabold text-slate-500 block leading-none">Employee Code</span>
-                          <span className="text-xs font-mono font-bold text-white mt-1.5 block">{profile?.employee_code || 'EMP-928575'}</span>
-                        </div>
-                      </div>
-
-                      {/* Tile 2: Office Email */}
-                      <div className="p-4 rounded-2xl bg-slate-900/10 border border-slate-900/80 hover:border-slate-800 transition-all flex items-center space-x-3.5 group">
-                        <span className="text-lg">✉️</span>
-                        <div className="min-w-0">
-                          <span className="text-[9px] uppercase font-extrabold text-slate-500 block leading-none">Office Email</span>
-                          <span className="text-xs font-bold text-white mt-1.5 block truncate" title={profile?.email}>{profile?.email || 'mehmood@gmail.com'}</span>
-                        </div>
-                      </div>
-
-                      {/* Tile 3: Contact Phone */}
-                      <div className="p-4 rounded-2xl bg-slate-900/10 border border-slate-900/80 hover:border-slate-800 transition-all flex items-center space-x-3.5 group">
-                        <span className="text-lg">📞</span>
-                        <div>
-                          <span className="text-[9px] uppercase font-extrabold text-slate-500 block leading-none">Contact Phone</span>
-                          <span className="text-xs font-bold text-white mt-1.5 block">{profile?.phone || 'Not provided'}</span>
-                        </div>
-                      </div>
-
-                      {/* Tile 4: CNIC Identifier */}
-                      <div className="p-4 rounded-2xl bg-slate-900/10 border border-slate-900/80 hover:border-slate-800 transition-all flex items-center space-x-3.5 group">
-                        <span className="text-lg">🪪</span>
-                        <div>
-                          <span className="text-[9px] uppercase font-extrabold text-slate-500 block leading-none">CNIC Identifier</span>
-                          <span className="text-xs font-mono font-bold text-white mt-1.5 block">{profile?.cnic || 'Not provided'}</span>
-                        </div>
-                      </div>
-
-                      {/* Tile 5: Residential Address */}
-                      <div className="col-span-1 sm:col-span-2 p-4 rounded-2xl bg-slate-900/10 border border-slate-900/80 hover:border-slate-800 transition-all flex items-center space-x-3.5 group">
-                        <span className="text-lg">📍</span>
-                        <div className="min-w-0">
-                          <span className="text-[9px] uppercase font-extrabold text-slate-500 block leading-none">Residential Address</span>
-                          <span className="text-xs font-bold text-slate-200 mt-1.5 block truncate" title={profile?.address}>{profile?.address || 'Peshawar'}</span>
-                        </div>
-                      </div>
-
-                      {/* Tile 6: Portal Role */}
-                      <div className="col-span-1 sm:col-span-2 p-4 rounded-2xl bg-slate-900/10 border border-slate-900/80 hover:border-slate-800 transition-all flex items-center space-x-3.5 group">
-                        <span className="text-lg">🛡️</span>
-                        <div>
-                          <span className="text-[9px] uppercase font-extrabold text-slate-500 block leading-none">Portal Access Context</span>
-                          <span className="text-xs font-bold text-cyan-400 mt-1.5 block uppercase">ROLE: {profile?.role || 'EMPLOYEE'}</span>
-                        </div>
-                      </div>
-
-                    </div>
-                  )}
-
-                </div>
-
-                {/* Right Column Container (Account Security) */}
-                <div className="space-y-6">
-                  
-                  {/* Change Password Security Card */}
-                  <div className="p-6 rounded-3xl bg-slate-900/30 border border-slate-900 space-y-5 shadow-xl hover:shadow-cyan-500/5 hover:border-cyan-500/10 transition-all duration-300">
-                    <div className="space-y-1">
-                      <h3 className="font-black text-white text-base flex items-center space-x-2">
-                        <span>🔐 Account Security</span>
-                      </h3>
-                      <p className="text-xs text-slate-500 font-light">Keep your technician account protected with a strong password.</p>
-                    </div>
-
-                    {passwordError && (
-                      <div className="p-3.5 rounded-xl bg-red-955/20 border border-red-900/35 text-red-405 text-red-400 text-xs">
-                        {passwordError}
-                      </div>
-                    )}
-
-                    <form onSubmit={handleChangePassword} className="space-y-4 text-xs">
-                      
-                      {/* Current Password */}
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Current Password</label>
-                        <div className="relative">
+                    <form onSubmit={handleUpdateProfile} className="space-y-4 border-t border-slate-900 pt-4 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Phone Number</label>
                           <input
-                            type={showOldPassword ? 'text' : 'password'}
-                            placeholder="••••••••••••"
-                            value={passwordForm.oldPassword}
-                            onChange={(e) => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
-                            className="w-full pl-4 pr-10 py-2.5 rounded-xl bg-slate-955 bg-slate-905 bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
-                            required
+                            type="text"
+                            value={editProfileForm.phone}
+                            onChange={(e) => setEditProfileForm({ ...editProfileForm, phone: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-cyan-500"
                           />
-                          <button
-                            type="button"
-                            onClick={() => setShowOldPassword(!showOldPassword)}
-                            className="absolute right-3.5 top-3 text-slate-500 hover:text-white"
-                          >
-                            {showOldPassword ? '👁️' : '👁️‍wagon'}
-                          </button>
                         </div>
-                      </div>
-
-                      {/* New Password */}
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">New Secure Password</label>
-                        <div className="relative">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Address Location</label>
                           <input
-                            type={showNewPassword ? 'text' : 'password'}
-                            placeholder="••••••••••••"
-                            value={passwordForm.newPassword}
-                            onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                            className="w-full pl-4 pr-10 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
-                            required
+                            type="text"
+                            value={editProfileForm.address}
+                            onChange={(e) => setEditProfileForm({ ...editProfileForm, address: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-cyan-500"
                           />
-                          <button
-                            type="button"
-                            onClick={() => setShowNewPassword(!showNewPassword)}
-                            className="absolute right-3.5 top-3 text-slate-500 hover:text-white"
-                          >
-                            {showNewPassword ? '👁️' : '👁️‍wagon'}
-                          </button>
-                        </div>
-                        
-                        {/* Password strength indicator */}
-                        {passwordForm.newPassword && (
-                          <div className="pt-2 space-y-1.5">
-                            <div className="flex justify-between items-center text-[10px] text-slate-500">
-                              <span>Password Strength:</span>
-                              <span className="font-bold text-slate-300">
-                                {calculatePasswordStrength(passwordForm.newPassword).text}
-                              </span>
-                            </div>
-                            <div className="w-full h-1.5 rounded-full bg-slate-955 bg-slate-950 overflow-hidden">
-                              <div 
-                                className={`h-full transition-all duration-300 ${calculatePasswordStrength(passwordForm.newPassword).color}`}
-                                style={{ width: `${(calculatePasswordStrength(passwordForm.newPassword).score / 4) * 100}%` }}
-                              />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Confirm Password */}
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Confirm New Password</label>
-                        <div className="relative">
-                          <input
-                            type={showConfirmPassword ? 'text' : 'password'}
-                            placeholder="••••••••••••"
-                            value={passwordForm.confirmPassword}
-                            onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                            className="w-full pl-4 pr-10 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
-                            required
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            className="absolute right-3.5 top-3 text-slate-500 hover:text-white"
-                          >
-                            {showConfirmPassword ? '👁️' : '👁️‍wagon'}
-                          </button>
                         </div>
                       </div>
-
-                      <div className="pt-2">
+                      <div className="flex space-x-2.5">
                         <button
                           type="submit"
-                          className="w-full py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-650 text-white font-bold hover:shadow hover:shadow-cyan-500/10 hover:brightness-105 transition-all"
+                          className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl transition-colors"
                         >
-                          Update Password
+                          Save Profile
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditProfileForm({ phone: profile?.phone || '', address: profile?.address || '' });
+                            setIsEditingProfile(false);
+                          }}
+                          className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-400 font-semibold rounded-xl"
+                        >
+                          Cancel
                         </button>
                       </div>
-
                     </form>
-                  </div>
-
-                  {/* Security Status Panel */}
-                  <div className="p-4 rounded-2xl bg-slate-900/10 border border-slate-900 space-y-3 text-xs">
-                    <h4 className="font-bold text-white text-[10px] uppercase tracking-wider">🛡️ Security Status</h4>
-                    <div className="space-y-2 text-[11px] text-slate-400">
-                      <div className="flex justify-between items-center">
-                        <span>Password Protection:</span>
-                        <span className="text-emerald-450 font-bold">🟢 Protected</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span>Account Access:</span>
-                        <span className="text-emerald-450 font-bold">🟢 Active</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span>Last Security Scan:</span>
-                        <span className="text-cyan-400 font-medium">Recently (Today)</span>
-                      </div>
-                    </div>
-                  </div>
-
+                  )}
                 </div>
 
-              </div>
-
-              {/* Preferences Section */}
-              <div className="p-6 rounded-3xl bg-slate-900/30 border border-slate-900 space-y-5">
-                <div>
-                  <h3 className="font-black text-white text-base">Preferences</h3>
-                  <p className="text-[10px] text-slate-500 mt-0.5">Toggle optional account configurations</p>
-                </div>
-
-                <div className="divide-y divide-slate-850/40 text-xs">
+                {/* 2. Change Password Forms */}
+                <div className="p-6 rounded-2xl bg-[#090d18]/30 border border-[#151c2e] space-y-4">
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Update Security Credentials</h4>
+                  {passwordError && <p className="text-xs text-red-400 bg-red-955/30 p-2.5 rounded-xl border border-red-900/40">{passwordError}</p>}
                   
-                  {/* Preference 1: Notifications */}
-                  <div className="py-3 flex justify-between items-center">
-                    <div>
-                      <span className="font-bold text-white block">🔔 Notification Preferences</span>
-                      <span className="text-[10px] text-slate-500 font-light">Choose how you receive task and complaint updates.</span>
+                  <form onSubmit={handleChangePassword} className="space-y-4 text-xs">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Current Password</label>
+                      <input
+                        type="password"
+                        placeholder="••••••••"
+                        value={passwordForm.oldPassword}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                      />
                     </div>
-                    <button 
-                      onClick={() => setPrefNotifications(!prefNotifications)}
-                      className={`w-11 h-6 rounded-full transition-all duration-300 relative ${prefNotifications ? 'bg-cyan-500' : 'bg-slate-950'}`}
-                    >
-                      <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${prefNotifications ? 'right-1' : 'left-1'}`} />
-                    </button>
-                  </div>
 
-                  {/* Preference 2: Theme */}
-                  <div className="py-3 flex justify-between items-center">
-                    <div>
-                      <span className="font-bold text-white block">🌙 Interface Theme</span>
-                      <span className="text-[10px] text-slate-500 font-light">Dark mode enabled (System preference).</span>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">New Password</label>
+                      <input
+                        type="password"
+                        placeholder="Minimum 6 characters"
+                        value={passwordForm.newPassword}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                      />
                     </div>
-                    <button 
-                      disabled
-                      className="w-11 h-6 rounded-full bg-cyan-600 opacity-60 cursor-not-allowed relative"
-                    >
-                      <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-white" />
-                    </button>
-                  </div>
 
-                  {/* Preference 3: Task Alerts */}
-                  <div className="py-3 flex justify-between items-center">
-                    <div>
-                      <span className="font-bold text-white block">⚡ Task Alerts</span>
-                      <span className="text-[10px] text-slate-500 font-light">Receive alerts for priority technical tasks.</span>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Confirm New Password</label>
+                      <input
+                        type="password"
+                        placeholder="Confirm password"
+                        value={passwordForm.confirmPassword}
+                        onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                      />
                     </div>
-                    <button 
-                      onClick={() => setPrefAlerts(!prefAlerts)}
-                      className={`w-11 h-6 rounded-full transition-all duration-300 relative ${prefAlerts ? 'bg-cyan-500' : 'bg-slate-955 bg-slate-950'}`}
-                    >
-                      <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${prefAlerts ? 'right-1' : 'left-1'}`} />
-                    </button>
-                  </div>
 
+                    <button
+                      type="submit"
+                      className="w-full py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:brightness-105 text-white font-bold rounded-xl transition-all"
+                    >
+                      Update Password
+                    </button>
+                  </form>
                 </div>
-              </div>
 
-              {/* Danger Zone / Account Actions */}
-              <div className="p-5 rounded-3xl bg-slate-900/10 border border-slate-900/60 flex justify-between items-center flex-wrap gap-4">
-                <div className="space-y-0.5">
-                  <span className="font-bold text-white text-xs block">Account Actions</span>
-                  <span className="text-[10px] text-slate-500 font-light block">Need to change accounts? Log out of this session safely.</span>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="px-5 py-2.5 rounded-xl border border-red-500/20 hover:border-red-500 bg-red-950/20 text-red-400 font-bold text-xs transition-all active:scale-[0.98]"
-                >
-                  🚪 Logout Session
-                </button>
               </div>
-
             </div>
           )}
-
-          </div>
-
-          <div className="pt-8 border-t border-slate-900/40 text-[10px] text-slate-600 flex justify-between items-center">
-            <span>ISP Operational Technician Client Dashboard (NOC Console)</span>
-            <span>Local Time: {new Date().toLocaleTimeString()}</span>
-          </div>
 
         </main>
       </div>
 
-      {/* ==============================================
-          MODAL 1: ASSIGNED ITEM DETAILS & PROGRESSIONS
-          ============================================== */}
-      {selectedItem && !showReportForm && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-[580px] max-w-full rounded-[26px] bg-slate-900 border border-slate-800 p-6 shadow-2xl relative space-y-5 animate-fade-in-up">
-            
-            {/* Header */}
-            <div className="flex justify-between items-start pb-3.5 border-b border-slate-850/60">
+      {/* =======================================================================
+          MODALS & DIALOG POPUPS
+          ======================================================================= */}
+
+      {/* 1. VIEW DETAILED MODAL DRAWER (Used for Task/Complaint detailed views) */}
+      {selectedItem && (
+        <div className="fixed inset-0 z-50 bg-[#070b14]/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-[500px] max-w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto scrollbar-thin">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <div>
-                <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest block">
-                  {selectedItem.task_type ? `TECHNICAL TASK // TSK-${selectedItem.id}` : `COMPLAINT TICKET // CMP-${selectedItem.id}`}
-                </span>
-                <h3 className="font-extrabold text-white text-lg mt-1 flex items-center space-x-2">
-                  <span>{selectedItem.task_type || selectedItem.subject}</span>
+                <h3 className="font-extrabold text-white text-base">
+                  Ticket details - {selectedItem.id ? `CMP-${selectedItem.id}` : `TSK-${selectedItem.id}`}
                 </h3>
-                <div className="flex items-center space-x-2 mt-2">
-                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${
-                    selectedItem.priority === 'urgent' || selectedItem.priority === 'high' ? 'bg-red-955/30 text-red-405 border border-red-800/30' : 'bg-slate-955 bg-slate-950 text-slate-400'
-                  }`}>{selectedItem.priority}</span>
-                  <span className="px-1.5 py-0.5 rounded text-[8px] bg-cyan-950 text-cyan-400 font-bold uppercase">{selectedItem.status}</span>
-                </div>
+                <span className="text-[10px] text-slate-500">Customer operation dispatch logs.</span>
               </div>
-              <button onClick={() => setSelectedItem(null)} className="text-slate-500 hover:text-white font-bold text-lg transition-colors">✕</button>
+              <button onClick={() => setSelectedItem(null)} className="text-slate-400 hover:text-white text-lg font-bold">✕</button>
             </div>
 
-            {/* Content Details Grid */}
-            <div className="grid grid-cols-2 gap-4 text-xs">
-              
-              <div className="col-span-2 p-3.5 rounded-xl bg-slate-955 bg-slate-950/30 border border-slate-850 space-y-2">
-                <h4 className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Customer Contact Profile</h4>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="text-slate-505 text-slate-500 block">Name:</span>
-                    <span className="text-white block mt-0.5 font-semibold">{selectedItem.customer_name}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-505 text-slate-500 block">Contact Phone:</span>
-                    <span className="text-white block mt-0.5 font-medium">{selectedItem.customer_phone}</span>
-                  </div>
-                  <div className="col-span-2 pt-1.5 border-t border-slate-900">
-                    <span className="text-slate-505 text-slate-500 block">Service Address Location:</span>
-                    <span className="text-slate-300 block mt-0.5 leading-relaxed">{selectedItem.customer_address}</span>
-                  </div>
-                </div>
+            <div className="space-y-3.5 text-xs">
+              <div className="p-3 bg-slate-950/40 rounded-xl border border-slate-800 space-y-2">
+                <span className="text-[9px] text-slate-500 block uppercase font-bold">Client Information</span>
+                <p className="text-white font-semibold">Name: {selectedItem.customer_name}</p>
+                <p className="text-slate-350 text-slate-300 font-medium">Contact Number: {selectedItem.customer_phone}</p>
+                <p className="text-slate-350">Service address: {selectedItem.customer_address}</p>
               </div>
 
-              <div className="col-span-2">
-                <span className="text-slate-505 text-slate-500 text-[10px] uppercase font-bold block">Description / Notes</span>
-                <p className="text-slate-350 block mt-1 leading-relaxed max-h-24 overflow-y-auto pr-1 select-text bg-slate-950/20 p-2.5 rounded-xl border border-slate-850">
-                  {selectedItem.description}
+              <div className="space-y-1">
+                <span className="text-[9px] text-slate-500 block uppercase font-bold">Description of issue</span>
+                <p className="p-3 bg-slate-950/20 border border-slate-800 text-slate-300 rounded-xl leading-relaxed">
+                  {selectedItem.subject || selectedItem.task_type || 'Customer requested service assistance.'} - {selectedItem.description}
                 </p>
               </div>
 
-              {selectedItem.admin_notes && (
-                <div className="col-span-2">
-                  <span className="text-slate-505 text-slate-500 text-[10px] uppercase font-bold block">Admin Manager Notes</span>
-                  <p className="text-slate-350 block mt-1 leading-relaxed bg-slate-950/25 p-2.5 rounded-xl border border-slate-850">
-                    {selectedItem.admin_notes}
-                  </p>
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <div>
+                  <span className="text-slate-505 text-slate-500 text-[9px] block uppercase font-bold">Priority level</span>
+                  <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-bold block text-center mt-1 uppercase text-[10px]">{selectedItem.priority}</span>
                 </div>
-              )}
-
-              <div>
-                <span className="text-slate-505 text-slate-500 text-[10px] uppercase font-bold block">Assigned / Created Date</span>
-                <span className="text-slate-350 block mt-0.5">{new Date(selectedItem.created_at).toLocaleString()}</span>
-              </div>
-
-              <div>
-                <span className="text-slate-505 text-slate-500 text-[10px] uppercase font-bold block">Task Due Date</span>
-                <span className="text-slate-300 block mt-0.5">{selectedItem.due_date ? new Date(selectedItem.due_date).toLocaleDateString() : 'Immediate Target'}</span>
-              </div>
-
-            </div>
-
-            {/* Quick Actions Workflow Panels */}
-            <div className="p-4 rounded-xl bg-slate-950/30 border border-slate-850 space-y-3.5 text-xs">
-              <h4 className="font-bold text-slate-550 uppercase tracking-wider text-[9px]">Technician Operations Action Toolbar</h4>
-              
-              <div className="flex flex-wrap gap-2.5">
-                
-                {/* 1. Quick call customer (mock) */}
-                <button
-                  onClick={() => alert(`Dialing customer ${selectedItem.customer_name} at: ${selectedItem.customer_phone}`)}
-                  className="px-3.5 py-2 bg-slate-900 border border-slate-850 hover:bg-slate-855 text-slate-305 text-slate-300 hover:text-white rounded-xl font-bold flex items-center space-x-1.5 transition-all active:scale-[0.98]"
-                >
-                  <span>📞</span>
-                  <span>Call Customer</span>
-                </button>
-
-                {/* 2. Map coordinates (mock) */}
-                <button
-                  onClick={() => alert(`Navigating via GPS maps coordinates to address: ${selectedItem.customer_address}`)}
-                  className="px-3.5 py-2 bg-slate-900 border border-slate-850 hover:bg-slate-850 text-slate-300 hover:text-white rounded-xl font-bold flex items-center space-x-1.5 transition-all active:scale-[0.98]"
-                >
-                  <span>📍</span>
-                  <span>View Location</span>
-                </button>
-
-                {/* 3. Status Transitions Trigger Buttons */}
-                {selectedItem.subject && (
-                  <>
-                    {selectedItem.status === 'pending' && (
-                      <button
-                        onClick={() => handleUpdateComplaintStatus(selectedItem.id, 'on_the_way')}
-                        className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl flex items-center space-x-1 transition-all active:scale-[0.98]"
-                      >
-                        <span>▶</span>
-                        <span>Start Job</span>
-                      </button>
-                    )}
-                    {selectedItem.status === 'on_the_way' && (
-                      <button
-                        onClick={() => handleUpdateComplaintStatus(selectedItem.id, 'in_progress')}
-                        className="px-3.5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl flex items-center space-x-1 transition-all active:scale-[0.98]"
-                      >
-                        <span>⏸</span>
-                        <span>Mark In Progress</span>
-                      </button>
-                    )}
-                    {selectedItem.status !== 'resolved' && (
-                      <button
-                        onClick={() => handleUpdateComplaintStatus(selectedItem.id, 'resolved')}
-                        className="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold rounded-xl flex items-center space-x-1 transition-all active:scale-[0.98]"
-                      >
-                        <span>✓</span>
-                        <span>Resolve Ticket</span>
-                      </button>
-                    )}
-                  </>
-                )}
-
-                {/* Technical Tasks Transitions */}
-                {selectedItem.task_type && (
-                  <>
-                    {selectedItem.status === 'assigned' && (
-                      <button
-                        onClick={() => handleUpdateTaskStatus(selectedItem.id, 'on_the_way')}
-                        className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl flex items-center space-x-1 transition-all active:scale-[0.98]"
-                      >
-                        <span>▶</span>
-                        <span>Start Job</span>
-                      </button>
-                    )}
-                    {selectedItem.status === 'on_the_way' && (
-                      <button
-                        onClick={() => handleUpdateTaskStatus(selectedItem.id, 'in_progress')}
-                        className="px-3.5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl flex items-center space-x-1 transition-all active:scale-[0.98]"
-                      >
-                        <span>⏸</span>
-                        <span>Mark In Progress</span>
-                      </button>
-                    )}
-                    {selectedItem.status !== 'completed' && (
-                      <button
-                        onClick={() => handleUpdateTaskStatus(selectedItem.id, 'completed')}
-                        className="px-3.5 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold rounded-xl flex items-center space-x-1 transition-all active:scale-[0.98]"
-                      >
-                        <span>✓</span>
-                        <span>Complete Task</span>
-                      </button>
-                    )}
-                  </>
-                )}
-
+                <div>
+                  <span className="text-slate-505 text-slate-500 text-[9px] block uppercase font-bold">Current status</span>
+                  <span className="px-2 py-0.5 rounded bg-cyan-955 text-cyan-405 font-bold block text-center mt-1 uppercase text-[10px]">{selectedItem.status}</span>
+                </div>
               </div>
             </div>
 
+            <div className="pt-3 border-t border-slate-800 flex justify-end">
+              <button
+                onClick={() => setSelectedItem(null)}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-405 font-bold rounded-xl text-xs"
+              >
+                Close Details
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* ==============================================
-          MODAL 2: WORK REPORT SUBMISSIONS
-          ============================================== */}
-      {showReportForm && selectedItem && (
-        <div className="fixed inset-0 z-50 bg-slate-955 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-[520px] max-w-full rounded-[26px] bg-slate-900 border border-slate-800 p-6 shadow-2xl relative space-y-5 animate-fade-in-up">
-            
-            {/* Header */}
-            <div className="flex justify-between items-start pb-3 border-b border-slate-850/60">
+      {/* 2. SUBMIT WORK REPORT MODAL FORM */}
+      {showReportForm && (
+        <div className="fixed inset-0 z-50 bg-[#070b14]/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-[500px] max-w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto scrollbar-thin">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <div>
-                <span className="text-[9px] font-mono text-slate-550 uppercase tracking-widest block">WORK COMPLETION REPORT</span>
-                <h3 className="font-extrabold text-white text-lg mt-0.5">
-                  Log report for: {selectedItem.task_type || selectedItem.subject}
-                </h3>
+                <h3 className="font-extrabold text-white text-base">Submit Operations Diagnostic Report</h3>
+                <span className="text-[10px] text-slate-505 text-slate-500">Provide final diagnostics to close this service assignment.</span>
               </div>
-              <button onClick={() => { setShowReportForm(false); setSelectedItem(null); }} className="text-slate-500 hover:text-white font-bold text-lg">✕</button>
+              <button onClick={() => { setShowReportForm(false); setSelectedItem(null); }} className="text-slate-405 hover:text-white text-lg font-bold">✕</button>
             </div>
 
-            <form onSubmit={handleSubmitWorkReport} className="space-y-4 text-xs">
-              
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block">Resolution Summary / Problem Found</label>
-                <textarea
-                  placeholder="Describe the root issue diagnosed..."
+            <form onSubmit={handleSubmitWorkReport} className="space-y-3.5 text-xs">
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-555 text-slate-500 uppercase">Problem Diagnosed</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Broken fiber core at node splice, faulty ONU..."
                   value={reportForm.problem_found}
                   onChange={(e) => setReportForm({ ...reportForm, problem_found: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500 h-16 resize-none"
-                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-cyan-500"
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block">Work Performed / Operations Done</label>
-                <textarea
-                  placeholder="Describe details of repairs/installations..."
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Work Performed</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Spliced fiber at box 14, swapped patch cord..."
                   value={reportForm.work_performed}
                   onChange={(e) => setReportForm({ ...reportForm, work_performed: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500 h-16 resize-none"
-                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-cyan-500"
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block">Final Solution</label>
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Resolution Solution</label>
                 <input
                   type="text"
-                  placeholder="e.g. Fiber splice replaced, signals restored to normal."
+                  required
+                  placeholder="e.g. Connection re-established with normal optical levels..."
                   value={reportForm.solution}
                   onChange={(e) => setReportForm({ ...reportForm, solution: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
-                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-cyan-500"
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block">Materials / Equipment Used</label>
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Equipment / Materials Used</label>
                 <input
                   type="text"
-                  placeholder="e.g. 1x ONU router, 2x fiber adapters, 15m optical patch cable."
+                  placeholder="e.g. 5m Patch cord, Fiber Splice Sleeve (Optional)..."
                   value={reportForm.equipment_used}
                   onChange={(e) => setReportForm({ ...reportForm, equipment_used: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-855 text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-955 bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-cyan-500"
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block">Additional Notes</label>
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Additional Observations</label>
                 <input
                   type="text"
-                  placeholder="Extra observations or admin warnings..."
+                  placeholder="Additional warnings or comments..."
                   value={reportForm.additional_notes}
                   onChange={(e) => setReportForm({ ...reportForm, additional_notes: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-950 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-cyan-500"
                 />
               </div>
 
               <div className="pt-2 flex justify-end space-x-2">
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-650 text-white font-bold rounded-xl hover:brightness-105 active:scale-[0.99] transition-all"
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-650 text-white font-bold rounded-xl"
                 >
-                  Submit & Resolve Job
+                  Submit & Close Ticket
                 </button>
                 <button
                   type="button"
                   onClick={() => { setShowReportForm(false); setSelectedItem(null); }}
-                  className="px-5 py-2.5 bg-slate-900 hover:bg-slate-850 text-slate-400 font-bold rounded-xl"
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-400 font-bold rounded-xl"
                 >
                   Cancel
                 </button>
               </div>
-
             </form>
           </div>
         </div>
       )}
 
-      {/* ==============================================
-          MODAL 3: VIEW COMPLETED WORK REPORT DRAWER
-          ============================================== */}
-      {selectedHistoryItem && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex justify-end">
-          <div className="w-[500px] max-w-full h-full bg-slate-900 border-l border-slate-850 p-6 shadow-2xl overflow-y-auto space-y-6 relative animate-fade-in-up scrollbar-thin">
-            
-            {/* Header drawer */}
-            <div className="flex justify-between items-start pb-4 border-b border-slate-850/60">
+      {/* 3. ADD NEW CUSTOMER MODAL */}
+      {showAddCustomerModal && (
+        <div className="fixed inset-0 z-50 bg-[#070b14]/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-[500px] max-w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <div>
-                <span className="text-[9px] font-mono text-slate-550 uppercase tracking-wider block">COMPLETED FIELD OPERATIONS REPORT</span>
-                <h3 className="font-extrabold text-white text-lg mt-1">
-                  Report #{selectedHistoryItem.type === 'task' ? `TSK-${selectedHistoryItem.id}` : `CMP-${selectedHistoryItem.id}`}
-                </h3>
-                <div className="flex items-center space-x-2 mt-2">
-                  <span className="px-2 py-0.5 rounded text-[8px] bg-emerald-950 border border-emerald-800/30 text-emerald-450 font-bold uppercase">{selectedHistoryItem.status}</span>
-                  <span className="px-2 py-0.5 rounded text-[8px] bg-slate-950 text-slate-405 text-slate-400 font-bold uppercase">{selectedHistoryItem.priority} priority</span>
-                </div>
+                <h3 className="font-extrabold text-white text-base">Add New ISP Customer</h3>
+                <span className="text-[10px] text-slate-505 text-slate-500">Register a new client profile into the operations database.</span>
               </div>
-              <button onClick={() => setSelectedHistoryItem(null)} className="text-slate-505 hover:text-white font-bold text-lg transition-colors">✕</button>
+              <button onClick={() => setShowAddCustomerModal(false)} className="text-slate-405 hover:text-white text-lg font-bold">✕</button>
             </div>
 
-            {/* Customer Details Info block */}
-            <div className="space-y-4 text-xs">
-              
-              <div className="p-4 rounded-xl bg-slate-950/30 border border-slate-850 space-y-2.5">
-                <h4 className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Customer Details</h4>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div>
-                    <span className="text-slate-500 block text-[10px]">Name:</span>
-                    <span className="text-white block font-bold mt-0.5">{selectedHistoryItem.customer_name}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[10px]">Phone Number:</span>
-                    <span className="text-white block font-medium mt-0.5">{selectedHistoryItem.customer_phone}</span>
-                  </div>
-                  <div className="col-span-2 pt-2 border-t border-slate-900/60">
-                    <span className="text-slate-500 block text-[10px]">Residential Address:</span>
-                    <span className="text-slate-300 block leading-relaxed mt-0.5">{selectedHistoryItem.customer_address}</span>
-                  </div>
+            <form onSubmit={handleAddCustomerSubmit} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 block">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Customer name"
+                  value={newCustomerForm.name}
+                  onChange={(e) => setNewCustomerForm({ ...newCustomerForm, name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-500 block">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="email@domain.com"
+                    value={newCustomerForm.email}
+                    onChange={(e) => setNewCustomerForm({ ...newCustomerForm, email: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-500 block">Phone Number</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="03xx-xxxxxxx"
+                    value={newCustomerForm.phone}
+                    onChange={(e) => setNewCustomerForm({ ...newCustomerForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none"
+                  />
                 </div>
               </div>
 
-              {/* Job description details */}
-              <div className="space-y-1.5">
-                <span className="text-slate-550 text-slate-500 text-[10px] uppercase font-bold block">Job Type & Subject</span>
-                <span className="text-white font-semibold block capitalize">{selectedHistoryItem.type} ({selectedHistoryItem.work_type})</span>
-                <p className="p-3 rounded-xl bg-slate-950/20 border border-slate-850 text-slate-355 leading-relaxed font-light mt-1">
-                  {selectedHistoryItem.description}
-                </p>
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 block">Service address</label>
+                <input
+                  type="text"
+                  placeholder="Physical street address"
+                  value={newCustomerForm.address}
+                  onChange={(e) => setNewCustomerForm({ ...newCustomerForm, address: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none"
+                />
               </div>
 
-              {/* Work report entries */}
-              <div className="space-y-3.5 pt-2.5 border-t border-slate-850/60">
-                <h4 className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">Field Diagnostics & Operations</h4>
-                
-                <div className="space-y-2 bg-slate-950/25 p-3.5 rounded-xl border border-slate-850">
-                  <div>
-                    <span className="text-slate-505 text-slate-505 text-slate-500 text-[9px] uppercase font-bold">Problem Diagnosed</span>
-                    <p className="text-slate-300 block font-light mt-0.5">{selectedHistoryItem.problem_found || 'Standard field diagnostics.'}</p>
-                  </div>
-                  <div className="pt-2 border-t border-slate-900/60">
-                    <span className="text-slate-505 text-slate-500 text-[9px] uppercase font-bold">Work Performed</span>
-                    <p className="text-slate-305 text-slate-300 block font-light mt-0.5">{selectedHistoryItem.work_performed || 'Job completed successfully.'}</p>
-                  </div>
-                  <div className="pt-2 border-t border-slate-900/60">
-                    <span className="text-slate-500 text-[9px] uppercase font-bold">Resolution Solution</span>
-                    <p className="text-white block font-semibold mt-0.5">{selectedHistoryItem.solution || 'Connection stabilized.'}</p>
-                  </div>
-                  {selectedHistoryItem.equipment_used && (
-                    <div className="pt-2 border-t border-slate-905 border-slate-900/60">
-                      <span className="text-slate-500 text-[9px] uppercase font-bold">Materials / Equipment Used</span>
-                      <p className="text-slate-300 block font-light mt-0.5">{selectedHistoryItem.equipment_used}</p>
-                    </div>
-                  )}
-                  {selectedHistoryItem.additional_notes && (
-                    <div className="pt-2 border-t border-slate-900/60">
-                      <span className="text-slate-500 text-[9px] uppercase font-bold">Additional notes</span>
-                      <p className="text-slate-400 block font-light italic mt-0.5">{selectedHistoryItem.additional_notes}</p>
-                    </div>
-                  )}
-                </div>
-
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-555 text-slate-500 block">Initial Package Plan</label>
+                <select
+                  value={newCustomerForm.plan}
+                  onChange={(e) => setNewCustomerForm({ ...newCustomerForm, plan: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none"
+                >
+                  <option value="Bronze">Fiber Bronze (50 Mbps)</option>
+                  <option value="Silver">Fiber Silver (100 Mbps)</option>
+                  <option value="Gold">Fiber Gold (250 Mbps)</option>
+                  <option value="Platinum">Fiber Platinum (1 Gbps)</option>
+                </select>
               </div>
 
-              {/* Completion Timeline Tracker */}
-              <div className="space-y-3.5 pt-2.5 border-t border-slate-850/60">
-                <h4 className="text-[10px] font-bold text-emerald-450 uppercase tracking-wider">Completion Operation Timeline</h4>
-                
-                <div className="space-y-4 pl-4 relative border-l border-slate-800">
-                  
-                  {/* Step 1: Created */}
-                  <div className="relative text-xs">
-                    <div className="absolute -left-[21px] top-0.5 w-2.5 h-2.5 rounded-full bg-slate-800 border-2 border-slate-900" />
-                    <span className="text-slate-500 block text-[9px] uppercase font-bold">Assigned</span>
-                    <span className="text-slate-350 block mt-0.5">{new Date(selectedHistoryItem.created_at).toLocaleString()}</span>
-                  </div>
-
-                  {/* Step 2: Completed */}
-                  <div className="relative text-xs">
-                    <div className="absolute -left-[21px] top-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-slate-900" />
-                    <span className="text-emerald-400 block text-[9px] uppercase font-bold">Resolved / Completed</span>
-                    <span className="text-white block mt-0.5">{new Date(selectedHistoryItem.completed_date).toLocaleString()}</span>
-                  </div>
-
-                </div>
-
+              <div className="pt-2 flex justify-end space-x-2">
+                <button type="submit" className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl transition-colors">
+                  Create Account
+                </button>
+                <button type="button" onClick={() => setShowAddCustomerModal(false)} className="px-4 py-2 bg-slate-900 text-slate-400 font-bold rounded-xl">
+                  Cancel
+                </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
 
+      {/* 4. NEW REQUEST MODAL */}
+      {showNewRequestModal && (
+        <div className="fixed inset-0 z-50 bg-[#070b14]/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-[500px] max-w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="font-extrabold text-white text-base">New Service Connection Request</h3>
+                <span className="text-[10px] text-slate-500">File a new technical connection or bandwidth modification request.</span>
+              </div>
+              <button onClick={() => setShowNewRequestModal(false)} className="text-slate-405 hover:text-white text-lg font-bold">✕</button>
             </div>
 
+            <form onSubmit={handleNewRequestSubmit} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 block">Customer Client Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Ahmed Khan"
+                  value={newRequestForm.customerName}
+                  onChange={(e) => setNewRequestForm({ ...newRequestForm, customerName: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 block">Request Job Type</label>
+                <select
+                  value={newRequestForm.requestType}
+                  onChange={(e) => setNewRequestForm({ ...newRequestForm, requestType: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none"
+                >
+                  <option value="New Connection">New Connection</option>
+                  <option value="Package Upgrade">Package Upgrade</option>
+                  <option value="Disconnection">Disconnection</option>
+                  <option value="Speed Upgrade">Speed Upgrade</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-555 text-slate-500 block">Notes & Specifications</label>
+                <textarea
+                  required
+                  rows="3"
+                  placeholder="Provide parameters and specific requests..."
+                  value={newRequestForm.notes}
+                  onChange={(e) => setNewRequestForm({ ...newRequestForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end space-x-2">
+                <button type="submit" className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl transition-colors">
+                  Submit Request
+                </button>
+                <button type="button" onClick={() => setShowNewRequestModal(false)} className="px-4 py-2 bg-slate-900 text-slate-400 font-bold rounded-xl">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5. CREATE COMPLAINT MODAL */}
+      {showCreateComplaintModal && (
+        <div className="fixed inset-0 z-50 bg-[#070b14]/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-[500px] max-w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="font-extrabold text-white text-base">File Customer Operations Complaint</h3>
+                <span className="text-[10px] text-slate-500">Log a verified internet downtime or speed complaint ticket.</span>
+              </div>
+              <button onClick={() => setShowCreateComplaintModal(false)} className="text-slate-405 hover:text-white text-lg font-bold">✕</button>
+            </div>
+
+            <form onSubmit={handleCreateComplaintSubmit} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 block">Customer Client Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Customer name"
+                  value={newComplaintForm.customerName}
+                  onChange={(e) => setNewComplaintForm({ ...newComplaintForm, customerName: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-555 block">Verified Issue Topic</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Internet Down, Router Issue"
+                    value={newComplaintForm.issue}
+                    onChange={(e) => setNewComplaintForm({ ...newComplaintForm, issue: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-500 block">Severity Priority</label>
+                  <select
+                    value={newComplaintForm.priority}
+                    onChange={(e) => setNewComplaintForm({ ...newComplaintForm, priority: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none"
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Urgent">Urgent</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 block">Detailed Symptoms Description</label>
+                <textarea
+                  required
+                  rows="3"
+                  placeholder="Provide details about symptoms, optical levels, power losses..."
+                  value={newComplaintForm.description}
+                  onChange={(e) => setNewComplaintForm({ ...newComplaintForm, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end space-x-2">
+                <button type="submit" className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl transition-colors">
+                  Create Complaint
+                </button>
+                <button type="button" onClick={() => setShowCreateComplaintModal(false)} className="px-4 py-2 bg-slate-900 text-slate-400 font-bold rounded-xl">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 6. ASSIGN TECHNICIAN MODAL */}
+      {showAssignTechModal && (
+        <div className="fixed inset-0 z-50 bg-[#070b14]/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-[500px] max-w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="font-extrabold text-white text-base">Assign Crew Technician</h3>
+                <span className="text-[10px] text-slate-555 text-slate-500 font-light">Assign field tasks or support complaints to crew technicians.</span>
+              </div>
+              <button onClick={() => setShowAssignTechModal(false)} className="text-slate-405 hover:text-white text-lg font-bold">✕</button>
+            </div>
+
+            <form onSubmit={handleAssignTechSubmit} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 block">Ticket ID (Complaint / Request ID)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. REQ-1048 or CMP-1048"
+                  value={assignForm.ticketId}
+                  onChange={(e) => setAssignForm({ ...assignForm, ticketId: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 block">Select Technician</label>
+                <select
+                  value={assignForm.technicianId}
+                  onChange={(e) => setAssignForm({ ...assignForm, technicianId: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none"
+                >
+                  {mockTechnicians.map((tech, idx) => (
+                    <option key={idx} value={tech.name}>
+                      {tech.name} — ({tech.status} | {tech.activeJobs} Active Jobs)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="pt-2 flex justify-end space-x-2">
+                <button type="submit" className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl transition-colors">
+                  Assign Ticket
+                </button>
+                <button type="button" onClick={() => setShowAssignTechModal(false)} className="px-4 py-2 bg-slate-900 text-slate-400 font-bold rounded-xl">
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
