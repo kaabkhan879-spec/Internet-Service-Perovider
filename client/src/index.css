@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    color-scheme: dark;
+  }
   body {
     background-color: #0f172a;
     color: #f8fafc;
