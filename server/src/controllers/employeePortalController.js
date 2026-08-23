@@ -348,6 +348,274 @@ async function updateProfile(req, res) {
   }
 }
 
+/**
+ * Get ISP operations data for employee portal dashboard
+ */
+async function getOperationsDashboardData(req, res) {
+  try {
+    const totalCustomersQuery = db.query('SELECT COUNT(*)::int FROM customers');
+    const activeServicesQuery = db.query("SELECT COUNT(*)::int FROM subscriptions WHERE status = 'active'");
+    const pendingRequestsQuery = db.query("SELECT COUNT(*)::int FROM technical_tasks WHERE status != 'completed'");
+    const openComplaintsQuery = db.query("SELECT COUNT(*)::int FROM complaints WHERE status IN ('pending', 'open', 'in_progress')");
+    const todayInstallationsQuery = db.query("SELECT COUNT(*)::int FROM technical_tasks WHERE task_type = 'Installation' AND due_date = CURRENT_DATE");
+    const pendingPaymentsQuery = db.query("SELECT COUNT(*)::int FROM bills WHERE status IN ('unpaid', 'overdue')");
+
+    const recentRequestsQuery = db.query(`
+      SELECT t.id, t.task_type, t.priority, t.status, t.due_date, t.created_at, cust.full_name as customer_name, emp.full_name as technician_name
+      FROM technical_tasks t
+      JOIN customers cust ON t.customer_id = cust.id
+      LEFT JOIN employees emp ON t.assigned_employee_id = emp.id
+      ORDER BY t.created_at DESC
+      LIMIT 10;
+    `);
+
+    const recentComplaintsQuery = db.query(`
+      SELECT c.id, c.subject, c.priority, c.status, c.created_at, cust.full_name as customer_name, emp.full_name as technician_name
+      FROM complaints c
+      JOIN customers cust ON c.customer_id = cust.id
+      LEFT JOIN employees emp ON c.assigned_employee_id = emp.id
+      ORDER BY c.created_at DESC
+      LIMIT 10;
+    `);
+
+    const todayInstallationsListQuery = db.query(`
+      SELECT t.id, t.task_type, t.due_date, cust.full_name as customer_name, emp.full_name as technician_name, cust.address as customer_address, t.status
+      FROM technical_tasks t
+      JOIN customers cust ON t.customer_id = cust.id
+      LEFT JOIN employees emp ON t.assigned_employee_id = emp.id
+      WHERE t.task_type = 'Installation' AND t.due_date = CURRENT_DATE
+      ORDER BY t.created_at ASC;
+    `);
+
+    const techniciansQuery = db.query(`
+      SELECT emp.id, emp.full_name as name, emp.status, emp.designation, emp.phone,
+        (SELECT COUNT(*)::int FROM technical_tasks WHERE assigned_employee_id = emp.id AND status != 'completed') as active_jobs
+      FROM employees emp
+      WHERE emp.status = 'active'
+      ORDER BY emp.full_name;
+    `);
+
+    const customersQuery = db.query(`
+      SELECT c.id, c.customer_code, c.full_name as name, c.email, c.phone, c.address, c.status, c.created_at
+      FROM customers c
+      ORDER BY c.created_at DESC;
+    `);
+
+    const billingQuery = db.query(`
+      SELECT b.id as invoice_id, c.full_name as customer, b.amount::float as amount, b.status, b.due_date
+      FROM bills b
+      JOIN customers c ON b.customer_id = c.id
+      ORDER BY b.created_at DESC;
+    `);
+
+    const packagesQuery = db.query(`
+      SELECT id, name, speed_mbps, monthly_price::float as price, description, status
+      FROM packages
+      ORDER BY id ASC;
+    `);
+
+    const [
+      totalCustomersRes,
+      activeServicesRes,
+      pendingRequestsRes,
+      openComplaintsRes,
+      todayInstallationsRes,
+      pendingPaymentsRes,
+      recentRequestsRes,
+      recentComplaintsRes,
+      todayInstallationsListRes,
+      techniciansRes,
+      customersRes,
+      billingRes,
+      packagesRes
+    ] = await Promise.all([
+      totalCustomersQuery,
+      activeServicesQuery,
+      pendingRequestsQuery,
+      openComplaintsQuery,
+      todayInstallationsQuery,
+      pendingPaymentsQuery,
+      recentRequestsQuery,
+      recentComplaintsQuery,
+      todayInstallationsListQuery,
+      techniciansQuery,
+      customersQuery,
+      billingQuery,
+      packagesQuery
+    ]);
+
+    return res.json({
+      stats: {
+        totalCustomers: totalCustomersRes.rows[0].count,
+        activeServices: activeServicesRes.rows[0].count,
+        pendingRequests: pendingRequestsRes.rows[0].count,
+        openComplaints: openComplaintsRes.rows[0].count,
+        todayInstallations: todayInstallationsRes.rows[0].count,
+        pendingPayments: pendingPaymentsRes.rows[0].count
+      },
+      recentRequests: recentRequestsRes.rows,
+      recentComplaints: recentComplaintsRes.rows,
+      todayInstallationsList: todayInstallationsListRes.rows,
+      technicians: techniciansRes.rows,
+      customers: customersRes.rows,
+      billing: billingRes.rows,
+      packages: packagesRes.rows
+    });
+  } catch (err) {
+    console.error('[EmployeePortalController] getOperationsDashboardData error:', err.message);
+    return res.status(500).json({ error: 'Failed to retrieve operations dashboard statistics.' });
+  }
+}
+
+/**
+ * Provision a new customer profile via employee operations
+ */
+async function createCustomer(req, res) {
+  const { full_name, phone, email, cnic, address, status, package_id } = req.body;
+  if (!full_name || !phone || !email) {
+    return res.status(400).json({ error: 'Full name, phone, and email are required fields.' });
+  }
+  try {
+    const checkEmail = await db.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (checkEmail.rows.length > 0) {
+      return res.status(400).json({ error: 'Email address is already registered.' });
+    }
+    const randomDigits = Math.floor(100000 + Math.random() * 900000);
+    const customerCode = `CUST-${randomDigits}`;
+    const defaultPassword = 'customer123';
+    const passwordHash = await hashPassword(defaultPassword);
+    
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const userRes = await client.query(
+        "INSERT INTO users (name, email, password_hash, role, status) VALUES ($1, $2, $3, 'customer', $4) RETURNING id",
+        [full_name, email, passwordHash, status || 'active']
+      );
+      const userId = userRes.rows[0].id;
+      const customerRes = await client.query(
+        "INSERT INTO customers (user_id, customer_code, full_name, phone, email, address, cnic, status, installation_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id",
+        [userId, customerCode, full_name, phone, email, address || null, cnic || null, status || 'active', new Date()]
+      );
+      const customerId = customerRes.rows[0].id;
+      if (package_id) {
+        await client.query(
+          "INSERT INTO subscriptions (customer_id, package_id, start_date, status) VALUES ($1, $2, $3, 'active')",
+          [customerId, package_id, new Date()]
+        );
+      }
+      await client.query('COMMIT');
+      return res.status(201).json({ message: 'Customer created successfully.', customer: { id: customerId, customer_code: customerCode, full_name } });
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('[EmployeePortalController] createCustomer error:', err.message);
+    return res.status(500).json({ error: 'Failed to create customer.' });
+  }
+}
+
+/**
+ * File a new connection task via employee operations
+ */
+async function createTask(req, res) {
+  const { task_type, customer_id, assigned_employee_id, description, priority, due_date } = req.body;
+  if (!task_type || !customer_id || !assigned_employee_id) {
+    return res.status(400).json({ error: 'Task type, customer ID, and assigned technician are required.' });
+  }
+  try {
+    const queryStr = `
+      INSERT INTO technical_tasks (task_type, customer_id, assigned_employee_id, description, priority, due_date)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *;
+    `;
+    const result = await db.query(queryStr, [
+      task_type,
+      customer_id,
+      assigned_employee_id,
+      description || '',
+      priority || 'medium',
+      due_date || null
+    ]);
+    const task = result.rows[0];
+    await db.query(
+      `INSERT INTO employee_notifications (employee_id, title, message) VALUES ($1, $2, $3)`,
+      [assigned_employee_id, 'New Technical Task Assigned', `You have been assigned a new task: ${task_type}.`]
+    );
+    return res.json({ message: 'Technical task created successfully.', task });
+  } catch (err) {
+    console.error('[EmployeePortalController] createTask error:', err.message);
+    return res.status(500).json({ error: 'Failed to create technical task.' });
+  }
+}
+
+/**
+ * Register a new customer complaint via employee operations
+ */
+async function createComplaint(req, res) {
+  const { customer_id, subject, description, priority } = req.body;
+  if (!customer_id || !subject || !description) {
+    return res.status(400).json({ error: 'Customer ID, subject, and description are required.' });
+  }
+  try {
+    const queryStr = `
+      INSERT INTO complaints (customer_id, subject, description, priority, status)
+      VALUES ($1, $2, $3, $4, 'pending')
+      RETURNING *;
+    `;
+    const result = await db.query(queryStr, [
+      customer_id,
+      subject,
+      description,
+      priority || 'medium'
+    ]);
+    return res.json({ message: 'Complaint filed successfully.', complaint: result.rows[0] });
+  } catch (err) {
+    console.error('[EmployeePortalController] createComplaint error:', err.message);
+    return res.status(500).json({ error: 'Failed to create complaint.' });
+  }
+}
+
+/**
+ * Assign a crew technician to a task or complaint
+ */
+async function assignTechnician(req, res) {
+  const { type, ticketId, technicianId } = req.body;
+  if (!type || !ticketId || !technicianId) {
+    return res.status(400).json({ error: 'Type (task/complaint), ticket ID, and technician ID are required.' });
+  }
+  try {
+    if (type === 'task') {
+      await db.query(
+        'UPDATE technical_tasks SET assigned_employee_id = $1 WHERE id = $2',
+        [technicianId, ticketId]
+      );
+      await db.query(
+        'INSERT INTO employee_notifications (employee_id, title, message) VALUES ($1, $2, $3)',
+        [technicianId, 'Technical Task Assigned', `Task #${ticketId} has been assigned to you.`]
+      );
+    } else if (type === 'complaint') {
+      await db.query(
+        'UPDATE complaints SET assigned_employee_id = $1 WHERE id = $2',
+        [technicianId, ticketId]
+      );
+      await db.query(
+        'INSERT INTO employee_notifications (employee_id, title, message) VALUES ($1, $2, $3)',
+        [technicianId, 'Complaint Ticket Assigned', `Complaint #${ticketId} has been assigned to you.`]
+      );
+    } else {
+      return res.status(400).json({ error: 'Invalid assignment type.' });
+    }
+    return res.json({ message: 'Technician assigned successfully.' });
+  } catch (err) {
+    console.error('[EmployeePortalController] assignTechnician error:', err.message);
+    return res.status(500).json({ error: 'Failed to assign technician.' });
+  }
+}
+
 module.exports = {
   getAssignedComplaints,
   updateComplaintStatus,
@@ -359,5 +627,10 @@ module.exports = {
   getUnreadNotificationsCount,
   markNotificationsAsRead,
   changePassword,
-  updateProfile
+  updateProfile,
+  getOperationsDashboardData,
+  createCustomer,
+  createTask,
+  createComplaint,
+  assignTechnician
 };

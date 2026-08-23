@@ -11,7 +11,12 @@ const {
   getUnreadNotificationsCount,
   markNotificationsAsRead,
   changePassword,
-  updateProfile
+  updateProfile,
+  getOperationsDashboardData,
+  createCustomer,
+  createTask,
+  createComplaint,
+  assignTechnician
 } = require('../controllers/employeePortalController');
 const { requireAuth } = require('../middleware/authMiddleware');
 
@@ -41,6 +46,13 @@ router.post('/work-reports', submitWorkReport);
 
 // Work history endpoint
 router.get('/work-history', getWorkHistory);
+
+// Operations Dashboard Data endpoint
+router.get('/dashboard-stats', getOperationsDashboardData);
+router.post('/customers', createCustomer);
+router.post('/tasks', createTask);
+router.post('/complaints', createComplaint);
+router.post('/assign-technician', assignTechnician);
 
 // Notifications endpoints
 router.get('/notifications', getNotifications);
