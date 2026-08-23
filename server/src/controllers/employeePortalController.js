@@ -286,13 +286,14 @@ async function getUnreadNotificationsCount(req, res) {
 async function markNotificationsAsRead(req, res) {
   try {
     const employeeId = await getEmployeeId(req.user.id);
-    const { id } = req.body;
+    const { id, isRead } = req.body;
+    const isReadVal = isRead !== undefined ? !!isRead : true;
     if (id) {
-      await db.query('UPDATE employee_notifications SET is_read = TRUE WHERE employee_id = $1 AND id = $2', [employeeId, id]);
-      return res.json({ success: true, message: 'Notification marked as read.' });
+      await db.query('UPDATE employee_notifications SET is_read = $3 WHERE employee_id = $1 AND id = $2', [employeeId, id, isReadVal]);
+      return res.json({ success: true, message: `Notification marked as ${isReadVal ? 'read' : 'unread'}.` });
     } else {
-      await db.query('UPDATE employee_notifications SET is_read = TRUE WHERE employee_id = $1', [employeeId]);
-      return res.json({ success: true, message: 'All notifications marked as read.' });
+      await db.query('UPDATE employee_notifications SET is_read = $2 WHERE employee_id = $1', [employeeId, isReadVal]);
+      return res.json({ success: true, message: `All notifications marked as ${isReadVal ? 'read' : 'unread'}.` });
     }
   } catch (err) {
     console.error('[EmployeePortalController] markNotificationsAsRead error:', err.message);

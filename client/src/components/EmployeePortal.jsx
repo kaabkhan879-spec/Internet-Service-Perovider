@@ -143,6 +143,13 @@ function EmployeePortal({ user, onLogoutSuccess }) {
   const [refreshError, setRefreshError] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState('');
 
+  // Notifications tab filter/search/refresh states
+  const [notifSearch, setNotifSearch] = useState('');
+  const [notifReadFilter, setNotifReadFilter] = useState('all');
+  const [notifCategoryFilter, setNotifCategoryFilter] = useState('all');
+  const [notifPriorityFilter, setNotifPriorityFilter] = useState('all');
+  const [notifLastRefreshed, setNotifLastRefreshed] = useState(new Date());
+
   // Installations Tab specific search/filter/calendar/wizard states
   const [installSearch, setInstallSearch] = useState('');
   const [installStatusFilter, setInstallStatusFilter] = useState('all');
@@ -285,6 +292,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
       if (notificationsRes.ok) {
         const fetchedNotifs = await notificationsRes.json();
         setNotifications(fetchedNotifs || []);
+        setNotifLastRefreshed(new Date());
         const unreadVal = fetchedNotifs.filter(n => !n.is_read).length;
         if (unreadVal > unreadCount) {
           setTriggerBellRing(true);
@@ -1336,11 +1344,22 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                 <div className="absolute right-0 mt-2.5 w-80 rounded-2xl bg-slate-900 border border-slate-800 shadow-2xl py-3 z-55 animate-fade-in-up text-xs ring-1 ring-cyan-500/10">
                   <div className="px-4 pb-2.5 border-b border-slate-800 flex justify-between items-center">
                     <span className="font-extrabold text-white">Operations Updates</span>
-                    {unreadCount > 0 && (
-                      <button onClick={handleMarkNotificationsAsRead} className="text-cyan-400 hover:underline font-medium text-[10px]">
-                        Mark read
+                    <div className="flex space-x-2.5 items-center">
+                      <button
+                        onClick={() => { setActiveTab('Notifications'); setShowNotifDropdown(false); }}
+                        className="text-slate-400 hover:text-white font-semibold text-[10px] transition-colors"
+                      >
+                        View All
                       </button>
-                    )}
+                      {unreadCount > 0 && (
+                        <span className="text-slate-700">|</span>
+                      )}
+                      {unreadCount > 0 && (
+                        <button onClick={handleMarkNotificationsAsRead} className="text-cyan-400 hover:underline font-medium text-[10px]">
+                          Mark read
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="max-h-64 overflow-y-auto custom-scrollbar px-2 py-1.5 space-y-1">
                     {notifications.length > 0 ? (
@@ -5238,62 +5257,312 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           {/* ==============================================
               TAB 10: NOTIFICATIONS HUB
               ============================================== */}
-          {activeTab === 'Notifications' && (
-            <div className="space-y-6 animate-fade-in-up">
-              <div className="flex justify-between items-center flex-wrap gap-4 pb-4 border-b border-[#111827]">
-                <div>
-                  <h2 className="text-lg font-bold text-white">Notifications Registry Hub</h2>
-                  <p className="text-xs text-slate-400">View real-time deployment notifications, system alerts, and task dispatch logs.</p>
-                </div>
-                {unreadCount > 0 && (
-                  <button
-                    onClick={handleMarkNotificationsAsRead}
-                    className="px-3.5 py-1.5 bg-[#090d16] hover:bg-slate-900 border border-slate-800 hover:text-white text-slate-300 font-bold text-xs rounded-xl transition-colors"
-                  >
-                    Mark All as Read
-                  </button>
-                )}
-              </div>
+          {activeTab === 'Notifications' && (() => {
+            // Helper function to dynamically parse categories and priorities from text content
+            const parseNotifMeta = (notif) => {
+              const text = (notif.title + ' ' + notif.message).toLowerCase();
+              
+              let category = 'System';
+              let icon = '⚙️';
+              if (text.includes('complaint') || text.includes('ticket')) {
+                category = 'Complaints';
+                icon = '🎫';
+              } else if (text.includes('bill') || text.includes('invoice')) {
+                category = 'Billing';
+                icon = '💳';
+              } else if (text.includes('payment')) {
+                category = 'Payments';
+                icon = '💵';
+              } else if (text.includes('request') || text.includes('connection')) {
+                category = 'Service Requests';
+                icon = '🛠️';
+              } else if (text.includes('technician') || text.includes('crew')) {
+                category = 'Technicians';
+                icon = '👷';
+              }
 
-              {loading ? (
-                <div className="h-40 bg-slate-900/30 rounded-2xl animate-pulse" />
-              ) : notifications.length > 0 ? (
-                <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-[#111827] space-y-3.5 max-h-[500px] overflow-y-auto custom-scrollbar shadow-xl">
-                  {notifications.map((notif, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => handleMarkNotificationAsRead(notif)}
-                      className={`p-4 rounded-xl border flex items-start justify-between cursor-pointer transition-all duration-150 animate-fade-in-up ${
-                        notif.is_read
-                          ? 'bg-slate-950/20 border-slate-900 text-slate-405'
-                          : 'bg-[#090d16] border-slate-800 text-white hover:border-cyan-500/20 shadow-md shadow-cyan-500/5'
-                      }`}
-                    >
-                      <div className="flex items-start space-x-3.5">
-                        <span className="text-lg shrink-0 mt-0.5">🔔</span>
-                        <div className="space-y-1">
-                          <h4 className="font-extrabold text-sm leading-none">{notif.title}</h4>
-                          <p className="text-xs font-light text-slate-400 leading-snug">{notif.message}</p>
-                          <span className="text-[9px] text-slate-500 block">{new Date(notif.created_at).toLocaleString()}</span>
-                        </div>
-                      </div>
-                      {!notif.is_read && (
-                        <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 shrink-0 ml-4 animate-pulse" />
+              let priority = 'Low';
+              if (text.includes('urgent') || text.includes('high') || text.includes('fail') || text.includes('alert') || text.includes('warning') || text.includes('conflict')) {
+                priority = 'High';
+              } else if (text.includes('medium') || text.includes('update') || text.includes('assign') || text.includes('progress')) {
+                priority = 'Medium';
+              }
+
+              return { category, icon, priority };
+            };
+
+            // Today's date reference
+            const todayStr = new Date().toDateString();
+
+            // Enrich all raw notifications from state with metadata properties
+            const enrichedNotifs = notifications.map(notif => {
+              const meta = parseNotifMeta(notif);
+              return { ...notif, ...meta };
+            });
+
+            // Calculate card statistics
+            const totalCount = enrichedNotifs.length;
+            const highCount = enrichedNotifs.filter(n => n.priority === 'High').length;
+            const todayCount = enrichedNotifs.filter(n => new Date(n.created_at).toDateString() === todayStr).length;
+
+            // Apply search & filters
+            const filteredNotifs = enrichedNotifs.filter(n => {
+              const q = notifSearch.toLowerCase().trim();
+              const matchQ = !q || n.title.toLowerCase().includes(q) || n.message.toLowerCase().includes(q);
+              
+              const matchRead = notifReadFilter === 'all' || 
+                (notifReadFilter === 'unread' && !n.is_read) || 
+                (notifReadFilter === 'read' && n.is_read);
+
+              const matchCategory = notifCategoryFilter === 'all' || n.category === notifCategoryFilter;
+              const matchPriority = notifPriorityFilter === 'all' || n.priority === notifPriorityFilter;
+
+              return matchQ && matchRead && matchCategory && matchPriority;
+            });
+
+            // Calculate minutes since last refresh
+            const elapsedMins = notifLastRefreshed ? Math.max(0, Math.floor((new Date() - notifLastRefreshed) / 60000)) : 0;
+            const updatedText = elapsedMins === 0 ? 'Just now' : `${elapsedMins} min ago`;
+
+            // Function to toggle single read/unread status
+            const toggleReadStatus = async (notif) => {
+              try {
+                const response = await fetch('http://localhost:5000/api/employee/notifications/mark-read', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ id: notif.id, isRead: !notif.is_read }),
+                  credentials: 'include'
+                });
+                if (!response.ok) throw new Error("Failed to update status.");
+                showToast(`Notification marked as ${!notif.is_read ? 'read' : 'unread'}.`);
+                loadPortalData(true);
+              } catch (err) {
+                console.error(err);
+              }
+            };
+
+            return (
+              <div className="space-y-6 animate-fade-in-up">
+                
+                {/* 1. Page Header */}
+                <div className="pb-4 border-b border-[#111827] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-white tracking-tight flex items-center space-x-2">
+                      <span>Notifications</span>
+                      {unreadCount > 0 && (
+                        <span className="px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-800 text-[10px] font-bold text-cyan-405">
+                          {unreadCount} Unread
+                        </span>
                       )}
+                    </h2>
+                    <p className="text-xs text-slate-400">Stay updated with service requests, complaints, billing alerts and operational activities.</p>
+                  </div>
+                  <div className="flex space-x-2.5 items-center">
+                    <span className="text-[10px] text-slate-500 font-light">Last updated: {updatedText}</span>
+                    <button
+                      onClick={() => loadPortalData(true)}
+                      className="p-2 bg-slate-955 border border-slate-850 hover:bg-slate-900 rounded-xl text-slate-400 hover:text-white transition-colors"
+                      title="Refresh Notifications"
+                    >
+                      🔄
+                    </button>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const response = await fetch('http://localhost:5000/api/employee/notifications/mark-read', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({}),
+                              credentials: 'include'
+                            });
+                            if (!response.ok) throw new Error("Failed to mark all as read.");
+                            showToast("All notifications marked as read.");
+                            loadPortalData(true);
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                        className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:brightness-105 text-white font-bold text-xs rounded-xl shadow-lg transition-all"
+                      >
+                        Mark All as Read
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Notification Summary Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in-up">
+                  {[
+                    { label: 'ALL NOTIFICATIONS', val: totalCount, icon: '📋', desc: 'Total database entries' },
+                    { label: 'UNREAD ALERTS', val: unreadCount, icon: '🔔', desc: 'Action required' },
+                    { label: 'HIGH PRIORITY', val: highCount, icon: '⚡', desc: 'Critical operations' },
+                    { label: 'TODAY LOGGED', val: todayCount, icon: '📅', desc: 'Activity logs logged today' }
+                  ].map((k, idx) => (
+                    <div key={idx} className="p-4 rounded-2xl bg-[#090d16]/30 border border-slate-850 flex flex-col justify-between hover:shadow-md transition-all duration-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-bold tracking-wider text-slate-500 uppercase">{k.label}</span>
+                        <span className="text-xs">{k.icon}</span>
+                      </div>
+                      <div className="mt-3">
+                        <div className="text-lg font-black text-white">
+                          <AnimatedNumber value={k.val} />
+                        </div>
+                        <span className="text-[8px] text-slate-550 block mt-1">{k.desc}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="py-20 text-center border border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center space-y-3">
-                  <span className="text-3xl opacity-60">🔔</span>
-                  <div>
-                    <h4 className="font-extrabold text-white text-sm">No notifications</h4>
-                    <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">You're all caught up! New operations updates will appear here.</p>
+
+                {/* 3. Filters & Search Toolbar */}
+                <div className="p-4 rounded-2xl bg-[#090d16]/30 border border-[#111827] flex flex-wrap gap-4 items-center justify-between">
+                  <div className="flex flex-wrap gap-3 items-center flex-grow">
+                    
+                    {/* Search Field */}
+                    <div className="min-w-[260px] flex-grow md:flex-grow-0 relative">
+                      <input
+                        type="text"
+                        placeholder="Search notifications..."
+                        value={notifSearch}
+                        onChange={(e) => setNotifSearch(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500/60 transition-all"
+                      />
+                      <span className="absolute left-3 top-2.5 text-xs opacity-50">🔍</span>
+                    </div>
+
+                    {/* Status Filter */}
+                    <div className="w-36">
+                      <select
+                        value={notifReadFilter}
+                        onChange={(e) => setNotifReadFilter(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="all">All Statuses</option>
+                        <option value="unread">Unread</option>
+                        <option value="read">Read</option>
+                      </select>
+                    </div>
+
+                    {/* Category Filter */}
+                    <div className="w-36">
+                      <select
+                        value={notifCategoryFilter}
+                        onChange={(e) => setNotifCategoryFilter(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="all">All Categories</option>
+                        <option value="Complaints">Complaints</option>
+                        <option value="Billing">Billing</option>
+                        <option value="Payments">Payments</option>
+                        <option value="Service Requests">Requests</option>
+                        <option value="Technicians">Technicians</option>
+                        <option value="System">System</option>
+                      </select>
+                    </div>
+
+                    {/* Priority Filter */}
+                    <div className="w-36">
+                      <select
+                        value={notifPriorityFilter}
+                        onChange={(e) => setNotifPriorityFilter(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="all">All Priorities</option>
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                      </select>
+                    </div>
+
                   </div>
+
+                  {(notifSearch || notifReadFilter !== 'all' || notifCategoryFilter !== 'all' || notifPriorityFilter !== 'all') && (
+                    <button
+                      onClick={() => {
+                        setNotifSearch('');
+                        setNotifReadFilter('all');
+                        setNotifCategoryFilter('all');
+                        setNotifPriorityFilter('all');
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-slate-955 hover:bg-slate-900 border border-slate-850 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                    >
+                      Clear Filters
+                    </button>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
+
+                {/* 4. Notification Roster Lists */}
+                {loading ? (
+                  <div className="space-y-3.5">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="h-20 bg-slate-900/30 border border-slate-900 rounded-2xl animate-pulse" />
+                    ))}
+                  </div>
+                ) : filteredNotifs.length > 0 ? (
+                  <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-[#111827] space-y-3.5 max-h-[520px] overflow-y-auto custom-scrollbar shadow-xl">
+                    {filteredNotifs.map((notif) => {
+                      const isUnread = !notif.is_read;
+                      
+                      return (
+                        <div
+                          key={notif.id}
+                          className={`p-4 rounded-xl border flex items-start justify-between transition-all duration-150 animate-fade-in-up hover:border-slate-800 ${
+                            isUnread
+                              ? 'bg-[#0a0f1b]/80 border-slate-850 text-white shadow-md shadow-cyan-500/5'
+                              : 'bg-slate-950/20 border-slate-900 text-slate-405'
+                          }`}
+                        >
+                          <div className="flex items-start space-x-3.5 flex-grow">
+                            <span className="text-xl shrink-0 mt-0.5">{notif.icon}</span>
+                            <div className="space-y-1.5 flex-grow">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h4 className={`text-sm leading-none ${isUnread ? 'font-extrabold text-white' : 'font-semibold text-slate-350'}`}>
+                                  {notif.title}
+                                </h4>
+                                <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                                  notif.priority === 'High' ? 'bg-red-950/30 text-red-400 border border-red-900/40' :
+                                  notif.priority === 'Medium' ? 'bg-amber-955/20 text-amber-400 border border-amber-900/40' :
+                                  'bg-slate-900 text-slate-400'
+                                }`}>
+                                  {notif.priority}
+                                </span>
+                                <span className="text-[8px] bg-slate-900 text-slate-500 px-1.5 py-0.5 rounded font-medium">
+                                  {notif.category}
+                                </span>
+                              </div>
+                              <p className="text-xs font-light text-slate-400 leading-relaxed max-w-4xl">{notif.message}</p>
+                              <span className="text-[9px] text-slate-500 block font-light">🕒 {new Date(notif.created_at).toLocaleString()}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-2.5 shrink-0 ml-4">
+                            {isUnread && (
+                              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                            )}
+                            <button
+                              onClick={() => toggleReadStatus(notif)}
+                              className="px-2.5 py-1 rounded bg-slate-955 hover:bg-slate-900 border border-slate-850 text-[9px] font-bold text-slate-405 hover:text-white transition-colors"
+                            >
+                              {isUnread ? 'Mark Read' : 'Mark Unread'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  // Compact elegant empty state
+                  <div className="py-14 text-center border border-dashed border-slate-850 rounded-2xl flex flex-col items-center justify-center space-y-3.5 max-w-lg mx-auto">
+                    <span className="text-3xl animate-bounce">🔔</span>
+                    <div>
+                      <h4 className="font-extrabold text-white text-sm">No new notifications</h4>
+                      <p className="text-xs text-slate-500 mt-1">You're all caught up! New operational updates will appear here.</p>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            );
+          })()}
 
           {/* ==============================================
               TAB 11: MY PROFILE & SETTINGS
