@@ -120,6 +120,17 @@ function EmployeePortal({ user, onLogoutSuccess }) {
   const [showEditCustomerModal, setShowEditCustomerModal] = useState(false);
   const [editCustomerForm, setEditCustomerForm] = useState({ id: '', name: '', email: '', phone: '', cnic: '', address: '' });
 
+  // Package Page Operations states
+  const [showAddPackageModal, setShowAddPackageModal] = useState(false);
+  const [showEditPackageModal, setShowEditPackageModal] = useState(false);
+  const [newPackageForm, setNewPackageForm] = useState({ name: '', speed_mbps: '', monthly_price: '', data_limit_gb: '', description: '', status: 'active' });
+  const [editPackageForm, setEditPackageForm] = useState({ id: '', name: '', speed_mbps: '', monthly_price: '', data_limit_gb: '', description: '', status: 'active' });
+  const [packageSearch, setPackageSearch] = useState('');
+  const [packageStatusFilter, setPackageStatusFilter] = useState('all');
+  const [packageSpeedFilter, setPackageSpeedFilter] = useState('all');
+  const [packageSortFilter, setPackageSortFilter] = useState('newest');
+  const [refreshingPackages, setRefreshingPackages] = useState(false);
+
   // Complaints Tab specific filter/search/pagination states
   const [complaintsSearch, setComplaintsSearch] = useState('');
   const [complaintsStatusFilter, setComplaintsStatusFilter] = useState('all'); 
@@ -700,6 +711,122 @@ function EmployeePortal({ user, onLogoutSuccess }) {
     }
   };
 
+  const handleCreatePackageSubmit = async (e) => {
+    e.preventDefault();
+    if (!newPackageForm.name || !newPackageForm.speed_mbps || !newPackageForm.monthly_price) {
+      alert('Please fill out Name, Speed, and Monthly Price.');
+      return;
+    }
+    try {
+      const response = await fetch('http://localhost:5000/api/employee/packages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newPackageForm.name,
+          speed_mbps: parseInt(newPackageForm.speed_mbps, 10),
+          monthly_price: parseFloat(newPackageForm.monthly_price),
+          data_limit_gb: newPackageForm.data_limit_gb ? parseInt(newPackageForm.data_limit_gb, 10) : null,
+          description: newPackageForm.description,
+          status: newPackageForm.status
+        }),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to create package.');
+      }
+
+      showToast('Package created successfully');
+      setShowAddPackageModal(false);
+      setNewPackageForm({ name: '', speed_mbps: '', monthly_price: '', data_limit_gb: '', description: '', status: 'active' });
+      loadPortalData(true);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleEditPackageSubmit = async (e) => {
+    e.preventDefault();
+    if (!editPackageForm.name || !editPackageForm.speed_mbps || !editPackageForm.monthly_price) {
+      alert('Please fill out Name, Speed, and Monthly Price.');
+      return;
+    }
+    try {
+      const response = await fetch(`http://localhost:5000/api/employee/packages/${editPackageForm.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editPackageForm.name,
+          speed_mbps: parseInt(editPackageForm.speed_mbps, 10),
+          monthly_price: parseFloat(editPackageForm.monthly_price),
+          data_limit_gb: editPackageForm.data_limit_gb ? parseInt(editPackageForm.data_limit_gb, 10) : null,
+          description: editPackageForm.description,
+          status: editPackageForm.status
+        }),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to update package.');
+      }
+
+      showToast('Package updated successfully');
+      setShowEditPackageModal(false);
+      loadPortalData(true);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleTogglePackageStatus = async (packageId, currentStatus) => {
+    const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    if (!window.confirm(`Are you sure you want to ${newStatus === 'active' ? 'ACTIVATE' : 'DEACTIVATE'} this package?`)) {
+      return;
+    }
+    try {
+      const response = await fetch(`http://localhost:5000/api/employee/packages/${packageId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to update package status.');
+      }
+
+      showToast(newStatus === 'active' ? 'Package activated' : 'Package deactivated');
+      loadPortalData(true);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeletePackage = async (packageId) => {
+    if (!window.confirm("Delete this package? Customers currently subscribed to this package may be affected.")) {
+      return;
+    }
+    try {
+      const response = await fetch(`http://localhost:5000/api/employee/packages/${packageId}`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to delete package.');
+      }
+
+      showToast('Package deleted successfully');
+      loadPortalData(true);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   // Staggered transitions calculations for lists
   const sortedAndFilteredCustomers = [...customersList].filter(c => {
     const q = customerSearch.toLowerCase().trim();
@@ -752,6 +879,36 @@ function EmployeePortal({ user, onLogoutSuccess }) {
     const matchStatus = complaintsStatusFilter === 'all' || c.status === complaintsStatusFilter;
     const matchPriority = complaintsPriorityFilter === 'all' || c.priority === complaintsPriorityFilter;
     return matchQ && matchStatus && matchPriority;
+  });
+
+  const sortedAndFilteredPackages = [...packagesList].filter(p => {
+    const q = packageSearch.toLowerCase().trim();
+    const matchesSearch = !q || p.name?.toLowerCase().includes(q) || p.speed_mbps?.toString().includes(q);
+    const matchesStatus = packageStatusFilter === 'all' || p.status === packageStatusFilter;
+    
+    let matchesSpeed = true;
+    if (packageSpeedFilter === 'low') {
+      matchesSpeed = p.speed_mbps < 15;
+    } else if (packageSpeedFilter === 'medium') {
+      matchesSpeed = p.speed_mbps >= 15 && p.speed_mbps <= 30;
+    } else if (packageSpeedFilter === 'high') {
+      matchesSpeed = p.speed_mbps > 30;
+    }
+    
+    return matchesSearch && matchesStatus && matchesSpeed;
+  }).sort((a, b) => {
+    if (packageSortFilter === 'newest') {
+      return b.id - a.id;
+    } else if (packageSortFilter === 'oldest') {
+      return a.id - b.id;
+    } else if (packageSortFilter === 'price_low_high') {
+      return a.price - b.price;
+    } else if (packageSortFilter === 'price_high_low') {
+      return b.price - a.price;
+    } else if (packageSortFilter === 'speed_low_high') {
+      return a.speed_mbps - b.speed_mbps;
+    }
+    return 0;
   });
 
   return (
@@ -1781,52 +1938,335 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           {/* ==============================================
               TAB 3: SERVICE PLANS
               ============================================== */}
-          {activeTab === 'ServicePlans' && (
-            <div className="space-y-6 animate-fade-in-up">
-              <div className="pb-4 border-b border-[#111827]">
-                <h2 className="text-lg font-bold text-white">ISP Broadband Packages</h2>
-                <p className="text-xs text-slate-400">Configure speeds, bandwidth allowances, pricing tiers, and active subscription plans.</p>
-              </div>
+          {activeTab === 'ServicePlans' && (() => {
+            // Live KPI values computed from packagesList database results
+            const totalPackages = packagesList.length;
+            const activePackages = packagesList.filter(p => p.status === 'active').length;
+            const inactivePackages = packagesList.filter(p => p.status === 'inactive').length;
+            const totalSubscribers = packagesList.reduce((acc, curr) => acc + (curr.customer_count || 0), 0);
 
-              {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse">
-                  {[...Array(3)].map((_, i) => (
-                    <div key={i} className="h-44 bg-slate-900/30 rounded-2xl border border-slate-800" />
-                  ))}
+            return (
+              <div className="space-y-6 animate-fade-in-up">
+                
+                {/* 1. Header Area */}
+                <div className="flex justify-between items-center flex-wrap gap-4 pb-4 border-b border-[#111827]">
+                  <div>
+                    <h2 className="text-xl font-bold text-white tracking-tight">ISP Broadband Packages</h2>
+                    <p className="text-xs text-slate-400">Create, manage and monitor internet packages offered to your customers.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setNewPackageForm({ name: '', speed_mbps: '', monthly_price: '', data_limit_gb: '', description: '', status: 'active' });
+                      setShowAddPackageModal(true);
+                    }}
+                    className="px-4.5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/10 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 flex items-center space-x-2"
+                  >
+                    <span>📡</span>
+                    <span>+ Add New Package</span>
+                  </button>
                 </div>
-              ) : packagesList.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {packagesList.map((plan, idx) => (
-                    <div key={idx} className="p-6 rounded-2xl bg-[#090d16]/30 border border-[#111827] hover:border-cyan-500/20 transition-all duration-200 space-y-4 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-cyan-500/5 group">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span className="px-2 py-0.5 rounded text-[8px] bg-cyan-950 border border-cyan-800 text-cyan-400 font-bold uppercase">{plan.speed_mbps} Mbps</span>
-                          <h3 className="font-extrabold text-white text-base mt-2">{plan.name}</h3>
-                        </div>
-                        <span className="text-base font-black text-cyan-400">Rs. {plan.price.toLocaleString()}/mo</span>
-                      </div>
 
-                      <div className="space-y-2 border-t border-slate-900/50 pt-3.5 text-xs text-slate-300">
-                        <p className="text-slate-400 text-[11px] leading-relaxed italic">"{plan.description || 'Dedicated High-Speed Fiber link.'}"</p>
-                        <div className="flex justify-between pt-1">
-                          <span className="text-slate-500">Service Status:</span>
-                          <span className="font-semibold text-emerald-400 capitalize">{plan.status}</span>
-                        </div>
+                {/* 2. KPI Cards Row */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: 'TOTAL PACKAGES', val: totalPackages, color: 'border-[#111827]', icon: '📦', desc: 'Active & inactive catalog' },
+                    { label: 'ACTIVE PLANS', val: activePackages, color: 'border-emerald-500/10 text-emerald-405', icon: '🟢', desc: 'Offered to new signups' },
+                    { label: 'INACTIVE PLANS', val: inactivePackages, color: 'border-red-500/10 text-red-405', icon: '🔴', desc: 'Archived catalog items' },
+                    { label: 'TOTAL SUBSCRIBERS', val: totalSubscribers, color: 'border-cyan-500/10 text-cyan-405', icon: '⚡', desc: 'Active broadband links' }
+                  ].map((k, idx) => (
+                    <div key={idx} className={`p-4 rounded-2xl bg-[#090d16]/30 border ${k.color} flex flex-col justify-between hover:shadow-md transition-all duration-200`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-bold tracking-wider text-slate-500 uppercase">{k.label}</span>
+                        <span className="text-xs">{k.icon}</span>
+                      </div>
+                      <div className="mt-3">
+                        {loading ? (
+                          <div className="w-8 h-5 bg-slate-900 rounded animate-pulse" />
+                        ) : (
+                          <div className="text-lg font-black text-white">
+                            <AnimatedNumber value={k.val} />
+                          </div>
+                        )}
+                        <span className="text-[8px] text-slate-550 block mt-1">{k.desc}</span>
                       </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="py-20 text-center border border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center space-y-3">
-                  <span className="text-3xl opacity-60">📦</span>
-                  <div>
-                    <h4 className="font-extrabold text-white text-sm">No service packages configured</h4>
-                    <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">ISP broadband packages will appear here once seeded or created by admin.</p>
+
+                {/* 3. Search + Filter Control Bar */}
+                <div className="p-4 rounded-2xl bg-[#090d16]/30 border border-[#111827] flex flex-wrap gap-4 items-center justify-between">
+                  <div className="flex flex-wrap gap-3 items-center flex-grow">
+                    
+                    {/* Search Field */}
+                    <div className="min-w-[240px] flex-grow md:flex-grow-0 relative">
+                      <input
+                        type="text"
+                        placeholder="Search by package name or speed..."
+                        value={packageSearch}
+                        onChange={(e) => setPackageSearch(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-950 border border-slate-850 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500/60 transition-all"
+                      />
+                      <span className="absolute left-3 top-2.5 text-xs opacity-50">🔍</span>
+                    </div>
+
+                    {/* Status Filter */}
+                    <div className="w-36">
+                      <select
+                        value={packageStatusFilter}
+                        onChange={(e) => setPackageStatusFilter(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="all">All Statuses</option>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                      </select>
+                    </div>
+
+                    {/* Speed Filter */}
+                    <div className="w-36">
+                      <select
+                        value={packageSpeedFilter}
+                        onChange={(e) => setPackageSpeedFilter(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="all">All Speeds</option>
+                        <option value="low">Low Speed (&lt;15 Mbps)</option>
+                        <option value="medium">Medium (15-30 Mbps)</option>
+                        <option value="high">High Speed (&gt;30 Mbps)</option>
+                      </select>
+                    </div>
+
+                    {/* Sort Selector */}
+                    <div className="w-44">
+                      <select
+                        value={packageSortFilter}
+                        onChange={(e) => setPackageSortFilter(e.target.value)}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-slate-300 focus:outline-none"
+                      >
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="price_low_high">Price: Low → High</option>
+                        <option value="price_high_low">Price: High → Low</option>
+                        <option value="speed_low_high">Speed: Low → High</option>
+                      </select>
+                    </div>
+
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => {
+                        setPackageSearch('');
+                        setPackageStatusFilter('all');
+                        setPackageSpeedFilter('all');
+                        setPackageSortFilter('newest');
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-slate-955 hover:bg-slate-900 border border-slate-850 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                    >
+                      Clear Filters
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setRefreshingPackages(true);
+                        loadPortalData(true).then(() => {
+                          setTimeout(() => setRefreshingPackages(false), 500);
+                        });
+                      }}
+                      className="p-2 rounded-xl bg-slate-955 hover:bg-slate-900 border border-slate-850 text-xs hover:text-white transition-all flex items-center justify-center"
+                      title="Refresh Packages"
+                    >
+                      <span className={`text-sm shrink-0 inline-block transition-transform duration-500 ${refreshingPackages ? 'rotate-180 scale-90' : ''}`}>
+                        🔄
+                      </span>
+                    </button>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
+
+                {/* 4. Packages Display Grid */}
+                {loading ? (
+                  // Pulse Skeletons
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {[...Array(3)].map((_, idx) => (
+                      <div key={idx} className="p-6 rounded-2xl bg-[#090d16]/30 border border-[#111827] space-y-4 animate-pulse">
+                        <div className="flex justify-between items-start">
+                          <div className="w-12 h-12 rounded-xl bg-slate-850" />
+                          <div className="w-20 h-4 bg-slate-850 rounded" />
+                        </div>
+                        <div className="space-y-2">
+                          <div className="w-32 h-4 bg-slate-850 rounded" />
+                          <div className="w-full h-3 bg-slate-855 rounded" />
+                          <div className="w-2/3 h-3 bg-slate-855 rounded" />
+                        </div>
+                        <div className="h-8 bg-slate-900/60 rounded-xl" />
+                      </div>
+                    ))}
+                  </div>
+                ) : sortedAndFilteredPackages.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {sortedAndFilteredPackages.map((plan, idx) => {
+                      // Visual accent colors based on speed limits
+                      const isHighSpeed = plan.speed_mbps > 30;
+                      const isMedSpeed = plan.speed_mbps >= 15 && plan.speed_mbps <= 30;
+                      const speedAccent = isHighSpeed ? 'from-cyan-500/10 to-blue-500/10 border-cyan-500/30 text-cyan-405' :
+                                          isMedSpeed ? 'from-indigo-500/10 to-purple-500/10 border-indigo-500/30 text-indigo-400' :
+                                          'from-slate-500/10 to-slate-800/10 border-slate-700 text-slate-400';
+
+                      return (
+                        <div
+                          key={plan.id}
+                          style={{ animationDelay: `${idx * 50}ms` }}
+                          className="p-6 rounded-2xl bg-gradient-to-br from-[#070b14] to-[#0c1322] border border-[#111827] hover:border-cyan-500/30 hover:shadow-xl hover:shadow-cyan-500/2 hover:-translate-y-1 transition-all duration-200 flex flex-col justify-between group relative overflow-hidden animate-fade-in-up"
+                        >
+                          {/* Inner glowing glow */}
+                          <div className="absolute -top-12 -left-12 w-24 h-24 rounded-full bg-cyan-500/5 blur-xl group-hover:bg-cyan-500/10 transition-colors duration-300" />
+                          
+                          <div>
+                            {/* Card Top: Icon & Speed Badge */}
+                            <div className="flex justify-between items-center mb-4">
+                              <div className={`w-10 h-10 rounded-xl bg-gradient-to-tr ${speedAccent} flex items-center justify-center border font-bold text-xs group-hover:scale-105 transition-transform duration-200`}>
+                                📡
+                              </div>
+                              <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
+                                plan.status === 'active' ? 'bg-emerald-950/60 border-emerald-800 text-emerald-450' : 'bg-red-955/20 border-red-900/40 text-red-405'
+                              }`}>
+                                {plan.status}
+                              </span>
+                            </div>
+
+                            {/* Plan Name & Price */}
+                            <div className="space-y-1">
+                              <h3 className="font-extrabold text-white text-base tracking-tight group-hover:text-cyan-300 transition-colors leading-snug">{plan.name}</h3>
+                              <div className="flex items-baseline space-x-1.5 pt-1">
+                                <span className="text-lg font-black text-white">Rs. {plan.price.toLocaleString()}</span>
+                                <span className="text-[10px] text-slate-500">/ month</span>
+                              </div>
+                            </div>
+
+                            {/* Description */}
+                            <p className="text-xs text-slate-455 mt-3 leading-relaxed min-h-[36px]">
+                              {plan.description || 'High-performance shared broadband link with symmetric optical transport.'}
+                            </p>
+
+                            {/* Tech Specifications */}
+                            <div className="mt-4 pt-4 border-t border-slate-900/60 grid grid-cols-2 gap-2 text-[10px] text-slate-500 font-medium">
+                              <div className="flex items-center space-x-1.5">
+                                <span className="text-xs">⚡</span>
+                                <span>Speed: <strong>{plan.speed_mbps} Mbps</strong></span>
+                              </div>
+                              <div className="flex items-center space-x-1.5">
+                                <span className="text-xs">💾</span>
+                                <span>Limit: <strong>{plan.data_limit_gb ? `${plan.data_limit_gb} GB` : 'Unlimited'}</strong></span>
+                              </div>
+                              <div className="flex items-center space-x-1.5">
+                                <span className="text-xs">🌐</span>
+                                <span>IP: <strong>Shared Fiber</strong></span>
+                              </div>
+                              <div className="flex items-center space-x-1.5">
+                                <span className="text-xs">👥</span>
+                                <span>Users: <strong>{plan.customer_count ?? 0} active</strong></span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Action Controls */}
+                          <div className="mt-6 pt-4 border-t border-slate-900/60 flex items-center justify-between gap-2.5">
+                            <button
+                              onClick={() => {
+                                setEditPackageForm({
+                                  id: plan.id,
+                                  name: plan.name,
+                                  speed_mbps: plan.speed_mbps.toString(),
+                                  monthly_price: plan.price.toString(),
+                                  data_limit_gb: plan.data_limit_gb ? plan.data_limit_gb.toString() : '',
+                                  description: plan.description || '',
+                                  status: plan.status
+                                });
+                                setShowEditPackageModal(true);
+                              }}
+                              className="flex-1 py-1.5 rounded-lg bg-slate-950 border border-slate-850 hover:bg-slate-900 text-[10px] text-slate-350 font-bold hover:text-white transition-colors"
+                            >
+                              Edit Plan
+                            </button>
+
+                            {plan.status === 'active' ? (
+                              <button
+                                onClick={() => handleTogglePackageStatus(plan.id, plan.status)}
+                                className="flex-1 py-1.5 rounded-lg bg-amber-600/10 border border-amber-800/40 hover:bg-amber-600/20 text-[10px] text-amber-450 font-bold transition-colors"
+                              >
+                                Deactivate
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleTogglePackageStatus(plan.id, plan.status)}
+                                className="flex-1 py-1.5 rounded-lg bg-emerald-600/10 border border-emerald-800/40 hover:bg-emerald-600/20 text-[10px] text-emerald-450 font-bold transition-colors"
+                              >
+                                Activate
+                              </button>
+                            )}
+
+                            <button
+                              onClick={() => handleDeletePackage(plan.id)}
+                              className="px-2 py-1.5 rounded-lg bg-red-650/10 border border-red-900/40 hover:bg-red-650/20 text-[10px] text-red-400 font-bold transition-colors"
+                              title="Delete package"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  // Search empty state vs Catalogue empty state
+                  <div className="py-20 text-center border border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center space-y-4 animate-fade-in-up">
+                    <div className="w-16 h-16 rounded-2xl bg-slate-950/80 border border-slate-900 flex items-center justify-center shadow-lg relative overflow-hidden group">
+                      <svg className="w-8 h-8 text-cyan-405 text-cyan-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                      </svg>
+                    </div>
+                    
+                    {packagesList.length > 0 ? (
+                      <div className="space-y-1">
+                        <h4 className="font-extrabold text-white text-base">No matching packages</h4>
+                        <p className="text-xs text-slate-500 max-w-xs mx-auto">Try changing your search keywords or active filter parameters.</p>
+                        <div className="pt-3">
+                          <button
+                            onClick={() => {
+                              setPackageSearch('');
+                              setPackageStatusFilter('all');
+                              setPackageSpeedFilter('all');
+                            }}
+                            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl"
+                          >
+                            Clear Filters
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <h4 className="font-extrabold text-white text-base">No packages yet</h4>
+                        <p className="text-xs text-slate-500 max-w-xs mx-auto">You haven't created any internet packages in the catalog.</p>
+                        <div className="pt-3">
+                          <button
+                            onClick={() => {
+                              setNewPackageForm({ name: '', speed_mbps: '', monthly_price: '', data_limit_gb: '', description: '', status: 'active' });
+                              setShowAddPackageModal(true);
+                            }}
+                            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl"
+                          >
+                            Create Your First Package
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              </div>
+            );
+          })()}
 
           {/* ==============================================
               TAB 4: SERVICE REQUESTS (Real Tasks database integration)
@@ -3242,6 +3682,203 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   Save Changes
                 </button>
                 <button type="button" onClick={() => setShowEditCustomerModal(false)} className="px-4 py-2 bg-slate-900 text-slate-400 font-bold rounded-xl">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 9. ADD PACKAGE MODAL */}
+      {showAddPackageModal && (
+        <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-[500px] max-w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4 animate-fade-in-up">
+            <div className="flex justify-between items-center border-b border-slate-805 pb-3">
+              <div>
+                <h3 className="font-extrabold text-white text-base">Add New Internet Package</h3>
+                <span className="text-[10px] text-slate-505 font-light">Create a new broadband plan in the ISP package catalog.</span>
+              </div>
+              <button onClick={() => setShowAddPackageModal(false)} className="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+            </div>
+
+            <form onSubmit={handleCreatePackageSubmit} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 block">Package Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Premium Fiber Pro"
+                  value={newPackageForm.name}
+                  onChange={(e) => setNewPackageForm({ ...newPackageForm, name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-500 block">Download Speed (Mbps)</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    placeholder="e.g. 50"
+                    value={newPackageForm.speed_mbps}
+                    onChange={(e) => setNewPackageForm({ ...newPackageForm, speed_mbps: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-500 block">Monthly Price (PKR)</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    placeholder="e.g. 2500"
+                    value={newPackageForm.monthly_price}
+                    onChange={(e) => setNewPackageForm({ ...newPackageForm, monthly_price: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-500 block">Data Allowance Limit (GB)</label>
+                  <input
+                    type="number"
+                    placeholder="Leave empty for Unlimited"
+                    value={newPackageForm.data_limit_gb}
+                    onChange={(e) => setNewPackageForm({ ...newPackageForm, data_limit_gb: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-500 block">Catalogue Status</label>
+                  <select
+                    value={newPackageForm.status}
+                    onChange={(e) => setNewPackageForm({ ...newPackageForm, status: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-xs text-white focus:outline-none"
+                  >
+                    <option value="active">Active (Available)</option>
+                    <option value="inactive">Inactive (Archived)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 block">Description & Service Inclusions</label>
+                <textarea
+                  rows={2}
+                  placeholder="Describe broadband details, installation inclusions, routing specs..."
+                  value={newPackageForm.description}
+                  onChange={(e) => setNewPackageForm({ ...newPackageForm, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end space-x-2">
+                <button type="submit" className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold rounded-xl transition-all shadow-md active:scale-[0.98]">
+                  Create Package
+                </button>
+                <button type="button" onClick={() => setShowAddPackageModal(false)} className="px-4 py-2 bg-slate-900 text-slate-400 font-bold rounded-xl">
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 10. EDIT PACKAGE MODAL */}
+      {showEditPackageModal && (
+        <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-[500px] max-w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4 animate-fade-in-up">
+            <div className="flex justify-between items-center border-b border-slate-805 pb-3">
+              <div>
+                <h3 className="font-extrabold text-white text-base">Edit Service Package</h3>
+                <span className="text-[10px] text-slate-505 font-light">Modify catalogue configuration parameters for this broadband plan.</span>
+              </div>
+              <button onClick={() => setShowEditPackageModal(false)} className="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+            </div>
+
+            <form onSubmit={handleEditPackageSubmit} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 block">Package Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editPackageForm.name}
+                  onChange={(e) => setEditPackageForm({ ...editPackageForm, name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-500 block">Download Speed (Mbps)</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    value={editPackageForm.speed_mbps}
+                    onChange={(e) => setEditPackageForm({ ...editPackageForm, speed_mbps: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-500 block">Monthly Price (PKR)</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={editPackageForm.monthly_price}
+                    onChange={(e) => setEditPackageForm({ ...editPackageForm, monthly_price: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-500 block">Data Allowance Limit (GB)</label>
+                  <input
+                    type="number"
+                    placeholder="Leave empty for Unlimited"
+                    value={editPackageForm.data_limit_gb}
+                    onChange={(e) => setEditPackageForm({ ...editPackageForm, data_limit_gb: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-500 block">Catalogue Status</label>
+                  <select
+                    value={editPackageForm.status}
+                    onChange={(e) => setEditPackageForm({ ...editPackageForm, status: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-855 text-xs text-white focus:outline-none"
+                  >
+                    <option value="active">Active (Available)</option>
+                    <option value="inactive">Inactive (Archived)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 block">Description & Service Inclusions</label>
+                <textarea
+                  rows={2}
+                  placeholder="Describe broadband details..."
+                  value={editPackageForm.description}
+                  onChange={(e) => setEditPackageForm({ ...editPackageForm, description: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end space-x-2">
+                <button type="submit" className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl transition-all shadow-md active:scale-[0.98]">
+                  Save Changes
+                </button>
+                <button type="button" onClick={() => setShowEditPackageModal(false)} className="px-4 py-2 bg-slate-900 text-slate-400 font-bold rounded-xl">
                   Cancel
                 </button>
               </div>

@@ -412,9 +412,12 @@ async function getOperationsDashboardData(req, res) {
     `);
 
     const packagesQuery = db.query(`
-      SELECT id, name, speed_mbps, monthly_price::float as price, description, status
-      FROM packages
-      ORDER BY id ASC;
+      SELECT p.id, p.name, p.speed_mbps, p.monthly_price::float as price, p.description, p.status, p.data_limit_gb,
+             COUNT(s.id)::int as customer_count
+      FROM packages p
+      LEFT JOIN subscriptions s ON s.package_id = p.id AND s.status = 'active'
+      GROUP BY p.id
+      ORDER BY p.id ASC;
     `);
 
     const [
@@ -770,6 +773,99 @@ async function toggleCustomerStatus(req, res) {
   }
 }
 
+/**
+ * Create a new Internet broadband package via employee operations
+ */
+async function createPackage(req, res) {
+  const { name, speed_mbps, monthly_price, data_limit_gb, description, status } = req.body;
+  if (!name) return res.status(400).json({ error: 'Package name is required.' });
+  const speed = parseInt(speed_mbps, 10);
+  if (isNaN(speed) || speed <= 0) return res.status(400).json({ error: 'Speed must be greater than 0.' });
+  const price = parseFloat(monthly_price);
+  if (isNaN(price) || price < 0) return res.status(400).json({ error: 'Monthly price must be greater than or equal to 0.' });
+  
+  try {
+    const queryStr = `
+      INSERT INTO packages (name, speed_mbps, monthly_price, data_limit_gb, description, status)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id, name, speed_mbps, monthly_price::float as price, status, description, data_limit_gb;
+    `;
+    const result = await db.query(queryStr, [name, speed, price, data_limit_gb ? parseInt(data_limit_gb, 10) : null, description || null, status || 'active']);
+    return res.status(201).json({ message: 'Package created successfully.', package: result.rows[0] });
+  } catch (err) {
+    console.error('[EmployeePortalController] createPackage error:', err.message);
+    return res.status(500).json({ error: 'Failed to create package.' });
+  }
+}
+
+/**
+ * Update an existing package via employee operations
+ */
+async function updatePackage(req, res) {
+  const { id } = req.params;
+  const { name, speed_mbps, monthly_price, data_limit_gb, description, status } = req.body;
+  if (!name) return res.status(400).json({ error: 'Package name is required.' });
+  const speed = parseInt(speed_mbps, 10);
+  if (isNaN(speed) || speed <= 0) return res.status(400).json({ error: 'Speed must be greater than 0.' });
+  const price = parseFloat(monthly_price);
+  if (isNaN(price) || price < 0) return res.status(400).json({ error: 'Monthly price must be greater than or equal to 0.' });
+
+  try {
+    const check = await db.query('SELECT id FROM packages WHERE id = $1', [id]);
+    if (check.rows.length === 0) return res.status(404).json({ error: 'Package not found.' });
+
+    await db.query(
+      'UPDATE packages SET name = $1, speed_mbps = $2, monthly_price = $3, data_limit_gb = $4, description = $5, status = $6 WHERE id = $7',
+      [name, speed, price, data_limit_gb ? parseInt(data_limit_gb, 10) : null, description || null, status || 'active', id]
+    );
+    return res.json({ message: 'Package updated successfully.' });
+  } catch (err) {
+    console.error('[EmployeePortalController] updatePackage error:', err.message);
+    return res.status(500).json({ error: 'Failed to update package.' });
+  }
+}
+
+/**
+ * Toggle package active status via employee operations
+ */
+async function togglePackageStatus(req, res) {
+  const { id } = req.params;
+  const { status } = req.body;
+  if (!status || !['active', 'inactive'].includes(status)) {
+    return res.status(400).json({ error: 'Valid status ("active" or "inactive") is required.' });
+  }
+  try {
+    const check = await db.query('SELECT id FROM packages WHERE id = $1', [id]);
+    if (check.rows.length === 0) return res.status(404).json({ error: 'Package not found.' });
+
+    await db.query('UPDATE packages SET status = $1 WHERE id = $2', [status, id]);
+    return res.json({ message: `Package status updated to ${status}.` });
+  } catch (err) {
+    console.error('[EmployeePortalController] togglePackageStatus error:', err.message);
+    return res.status(500).json({ error: 'Failed to update status.' });
+  }
+}
+
+/**
+ * Delete a package via employee operations (fails if actively referenced by active subscribers due to RESTRICT check)
+ */
+async function deletePackage(req, res) {
+  const { id } = req.params;
+  try {
+    const checkSub = await db.query("SELECT COUNT(*)::int FROM subscriptions WHERE package_id = $1 AND status = 'active'", [id]);
+    if (checkSub.rows[0].count > 0) {
+      return res.status(400).json({ error: 'Cannot delete package. Active subscribers are currently using this plan.' });
+    }
+    
+    const result = await db.query('DELETE FROM packages WHERE id = $1 RETURNING *', [id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Package not found.' });
+    return res.json({ message: 'Package deleted successfully.' });
+  } catch (err) {
+    console.error('[EmployeePortalController] deletePackage error:', err.message);
+    return res.status(500).json({ error: 'Failed to delete package. It may be referenced by legacy records.' });
+  }
+}
+
 module.exports = {
   getAssignedComplaints,
   updateComplaintStatus,
@@ -789,5 +885,9 @@ module.exports = {
   assignTechnician,
   getCustomerDetails,
   updateCustomer,
-  toggleCustomerStatus
+  toggleCustomerStatus,
+  createPackage,
+  updatePackage,
+  togglePackageStatus,
+  deletePackage
 };
