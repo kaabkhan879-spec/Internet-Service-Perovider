@@ -102,6 +102,23 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
   // Search & filters for Customer list
   const [customerSearch, setCustomerSearch] = useState('');
+  const [customerStatusFilter, setCustomerStatusFilter] = useState('all');
+  const [customerPlanFilter, setCustomerPlanFilter] = useState('all');
+  const [customerSortField, setCustomerSortField] = useState('name');
+  const [customerSortOrder, setCustomerSortOrder] = useState('asc');
+  const [customerCurrentPage, setCustomerCurrentPage] = useState(1);
+  const customerPerPage = 5;
+  const [refreshingCustomers, setRefreshingCustomers] = useState(false);
+  
+  // Drawer states
+  const [showCustomerDrawer, setShowCustomerDrawer] = useState(false);
+  const [selectedCustomerForDrawer, setSelectedCustomerForDrawer] = useState(null);
+  const [drawerDetails, setDrawerDetails] = useState({ complaints: [], tasks: [], bills: [] });
+  const [loadingDrawerDetails, setLoadingDrawerDetails] = useState(false);
+
+  // Edit Customer Modal states
+  const [showEditCustomerModal, setShowEditCustomerModal] = useState(false);
+  const [editCustomerForm, setEditCustomerForm] = useState({ id: '', name: '', email: '', phone: '', cnic: '', address: '' });
 
   // Complaints Tab specific filter/search/pagination states
   const [complaintsSearch, setComplaintsSearch] = useState('');
@@ -597,11 +614,129 @@ function EmployeePortal({ user, onLogoutSuccess }) {
     }
   };
 
+  const fetchDrawerDetails = async (customerId) => {
+    setLoadingDrawerDetails(true);
+    try {
+      const response = await fetch(`http://localhost:5000/api/employee/customers/${customerId}`, { credentials: 'include' });
+      if (!response.ok) {
+        throw new Error('Failed to retrieve customer details.');
+      }
+      const data = await response.json();
+      setSelectedCustomerForDrawer(data.customer);
+      setDrawerDetails({
+        bills: data.bills || [],
+        payments: data.payments || [],
+        complaints: data.complaints || [],
+        tasks: data.tasks || []
+      });
+    } catch (err) {
+      console.error(err.message);
+      showToast('Error loading customer operations history.');
+    } finally {
+      setLoadingDrawerDetails(false);
+    }
+  };
+
+  const handleEditCustomerSubmit = async (e) => {
+    e.preventDefault();
+    if (!editCustomerForm.name || !editCustomerForm.phone || !editCustomerForm.email) {
+      alert('Please fill out Name, Phone, and Email.');
+      return;
+    }
+    try {
+      const response = await fetch(`http://localhost:5000/api/employee/customers/${editCustomerForm.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: editCustomerForm.name,
+          phone: editCustomerForm.phone,
+          email: editCustomerForm.email,
+          cnic: editCustomerForm.cnic,
+          address: editCustomerForm.address
+        }),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to update customer.');
+      }
+
+      showToast(`Updated customer: ${editCustomerForm.name}`);
+      setShowEditCustomerModal(false);
+      if (showCustomerDrawer && selectedCustomerForDrawer?.id === editCustomerForm.id) {
+        fetchDrawerDetails(editCustomerForm.id);
+      }
+      loadPortalData(true);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleToggleCustomerStatus = async (customerId, newStatus) => {
+    if (!window.confirm(`Are you sure you want to change customer status to '${newStatus.toUpperCase()}'?`)) {
+      return;
+    }
+    try {
+      const response = await fetch(`http://localhost:5000/api/employee/customers/${customerId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Failed to toggle status.');
+      }
+
+      showToast(`Customer status updated to ${newStatus.toUpperCase()}`);
+      if (showCustomerDrawer && selectedCustomerForDrawer?.id === customerId) {
+        fetchDrawerDetails(customerId);
+      }
+      loadPortalData(true);
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
   // Staggered transitions calculations for lists
-  const filteredCustomers = customersList.filter(c => {
+  const sortedAndFilteredCustomers = [...customersList].filter(c => {
     const q = customerSearch.toLowerCase().trim();
-    return !q || c.name.toLowerCase().includes(q) || c.phone.includes(q) || c.customer_code.toLowerCase().includes(q);
+    const matchesSearch = !q || 
+      (c.name && c.name.toLowerCase().includes(q)) || 
+      (c.phone && c.phone.includes(q)) || 
+      (c.customer_code && c.customer_code.toLowerCase().includes(q)) || 
+      (c.email && c.email.toLowerCase().includes(q));
+      
+    const matchesStatus = customerStatusFilter === 'all' || c.status === customerStatusFilter;
+    const matchesPlan = customerPlanFilter === 'all' || c.package_name === customerPlanFilter;
+    
+    return matchesSearch && matchesStatus && matchesPlan;
+  }).sort((a, b) => {
+    let fieldA = '';
+    let fieldB = '';
+    
+    if (customerSortField === 'name') {
+      fieldA = a.name || '';
+      fieldB = b.name || '';
+    } else if (customerSortField === 'created_at') {
+      fieldA = a.created_at || '';
+      fieldB = b.created_at || '';
+    } else if (customerSortField === 'status') {
+      fieldA = a.status || '';
+      fieldB = b.status || '';
+    } else if (customerSortField === 'package_name') {
+      fieldA = a.package_name || '';
+      fieldB = b.package_name || '';
+    }
+    
+    if (fieldA < fieldB) return customerSortOrder === 'asc' ? -1 : 1;
+    if (fieldA > fieldB) return customerSortOrder === 'asc' ? 1 : -1;
+    return 0;
   });
+
+  const filteredCustomers = sortedAndFilteredCustomers;
 
   const filteredTasks = recentRequests.filter(t => {
     const q = tasksSearch.toLowerCase().trim();
@@ -1232,84 +1367,416 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
             </div>
           )}
-
           {/* ==============================================
               TAB 2: CUSTOMERS DIRECTORY
               ============================================== */}
-          {activeTab === 'Customers' && (
-            <div className="space-y-6 animate-fade-in-up">
-              <div className="flex justify-between items-center flex-wrap gap-4 pb-4 border-b border-[#111827]">
-                <div>
-                  <h2 className="text-lg font-bold text-white">Active Subscriber Directory</h2>
-                  <p className="text-xs text-slate-400">View profiles, configure subscription plans, and manage internet users.</p>
-                </div>
-                <button
-                  onClick={() => setShowAddCustomerModal(true)}
-                  className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/10 active:scale-[0.98] transition-all duration-150"
-                >
-                  + Add New Customer
-                </button>
-              </div>
+          {activeTab === 'Customers' && (() => {
+            // Compute pagination variables locally
+            const totalCustomersCount = filteredCustomers.length;
+            const totalPages = Math.ceil(totalCustomersCount / customerPerPage) || 1;
+            const indexOfLastCustomer = customerCurrentPage * customerPerPage;
+            const indexOfFirstCustomer = indexOfLastCustomer - customerPerPage;
+            const currentCustomers = filteredCustomers.slice(indexOfFirstCustomer, indexOfLastCustomer);
 
-              <div className="flex items-center space-x-2 bg-[#090d16]/30 border border-[#111827] px-4 py-2.5 rounded-xl max-w-md">
-                <span className="text-xs">🔍</span>
-                <input
-                  type="text"
-                  placeholder="Search customers by name, code, phone..."
-                  value={customerSearch}
-                  onChange={(e) => setCustomerSearch(e.target.value)}
-                  className="w-full bg-transparent text-xs text-white focus:outline-none placeholder:text-slate-600"
-                />
-              </div>
+            // Compute statistics from live loaded database data
+            const statsTotal = customersList.length;
+            const statsActive = customersList.filter(c => c.status === 'active').length;
+            const statsSuspended = customersList.filter(c => c.status === 'suspended').length;
+            const statsInactive = customersList.filter(c => c.status === 'inactive').length;
 
-              {loading ? (
-                <div className="h-40 bg-slate-900/30 rounded-2xl border border-slate-800 animate-pulse" />
-              ) : filteredCustomers.length > 0 ? (
-                <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-[#111827] overflow-x-auto shadow-xl custom-scrollbar">
-                  <table className="w-full text-left border-collapse text-xs min-w-[700px]">
-                    <thead>
-                      <tr className="border-b border-[#111827] text-slate-400 font-bold uppercase tracking-wider text-[9px]">
-                        <th className="pb-3.5 px-3">Customer ID</th>
-                        <th className="pb-3.5 px-3">Full Name</th>
-                        <th className="pb-3.5 px-3">Email Address</th>
-                        <th className="pb-3.5 px-3">Contact Phone</th>
-                        <th className="pb-3.5 px-3">Residential Address</th>
-                        <th className="pb-3.5 px-3">Status</th>
-                        <th className="pb-3.5 px-3">Registration Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredCustomers.map((cust, idx) => (
-                        <tr key={idx} className="border-b border-[#111827]/40 hover:bg-[#131b2e]/30 text-slate-350 hover:text-white transition-colors">
-                          <td className="py-3.5 px-3 font-mono font-bold text-white">{cust.customer_code}</td>
-                          <td className="py-3.5 px-3 font-semibold text-white">{cust.name}</td>
-                          <td className="py-3.5 px-3 text-slate-400">{cust.email}</td>
-                          <td className="py-3.5 px-3">{cust.phone}</td>
-                          <td className="py-3.5 px-3 truncate max-w-[150px]" title={cust.address}>{cust.address || 'N/A'}</td>
-                          <td className="py-3.5 px-3">
-                            <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
-                              cust.status === 'active' ? 'bg-emerald-950/60 border border-emerald-800 text-emerald-400' : 'bg-red-950/60 border border-red-800 text-red-405 text-red-400'
-                            }`}>
-                              {cust.status}
-                            </span>
-                          </td>
-                          <td className="py-3.5 px-3 text-slate-500">{new Date(cust.created_at).toLocaleDateString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="py-20 text-center border border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center space-y-3 animate-fade-in-up stagger-1">
-                  <span className="text-3xl opacity-60">👥</span>
+            return (
+              <div className="space-y-6 animate-fade-in-up">
+                
+                {/* 1. Page Header */}
+                <div className="flex justify-between items-center flex-wrap gap-4 pb-4 border-b border-[#111827]">
                   <div>
-                    <h4 className="font-extrabold text-white text-sm">No customers yet</h4>
-                    <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">Customer records will appear here once they are added.</p>
+                    <h2 className="text-xl font-bold text-white tracking-tight">Customer Management</h2>
+                    <p className="text-xs text-slate-400">View, manage and monitor all ISP subscribers from one place.</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setNewCustomerForm({ name: '', email: '', phone: '', address: '', planId: packagesList[0]?.id.toString() || '' });
+                      setShowAddCustomerModal(true);
+                    }}
+                    className="px-4.5 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/10 hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-200 flex items-center space-x-2"
+                  >
+                    <span>👥</span>
+                    <span>+ Add New Customer</span>
+                  </button>
+                </div>
+
+                {/* 2. Customer Statistics Row */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {[
+                    { label: 'TOTAL CUSTOMERS', val: statsTotal, color: 'border-[#111827]', icon: '👥' },
+                    { label: 'ACTIVE SUBSCRIBERS', val: statsActive, color: 'border-emerald-500/10 text-emerald-405', icon: '🟢' },
+                    { label: 'SUSPENDED LINKS', val: statsSuspended, color: 'border-amber-500/10 text-amber-405', icon: '🟡' },
+                    { label: 'INACTIVE ACCOUNTS', val: statsInactive, color: 'border-red-500/10 text-red-405', icon: '🔴' }
+                  ].map((s, idx) => (
+                    <div key={idx} className={`p-4 rounded-2xl bg-[#090d16]/30 border ${s.color} hover:shadow-md hover:shadow-cyan-500/2 transition-all duration-200 flex flex-col justify-between`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-bold tracking-wider text-slate-500 uppercase">{s.label}</span>
+                        <span className="text-xs">{s.icon}</span>
+                      </div>
+                      <div className="mt-3">
+                        {loading ? (
+                          <div className="w-10 h-5 bg-slate-900 rounded animate-pulse" />
+                        ) : (
+                          <div className="text-lg font-black text-white">
+                            <AnimatedNumber value={s.val} />
+                          </div>
+                        )}
+                        <span className="text-[8px] text-slate-550 block mt-1">Live database total</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 3. Search + Filters Toolbar */}
+                <div className="p-4 rounded-2xl bg-[#090d16]/30 border border-[#111827] flex flex-wrap gap-4 items-center justify-between">
+                  <div className="flex flex-wrap gap-3 items-center flex-grow">
+                    
+                    {/* Search Field */}
+                    <div className="min-w-[280px] flex-grow md:flex-grow-0 relative">
+                      <input
+                        type="text"
+                        placeholder="Search by name, customer ID, phone or email..."
+                        value={customerSearch}
+                        onChange={(e) => { setCustomerSearch(e.target.value); setCustomerCurrentPage(1); }}
+                        className="w-full pl-9 pr-8 py-2 rounded-xl bg-slate-950 border border-slate-850 text-xs text-white placeholder:text-slate-655 focus:outline-none focus:border-cyan-500/60 focus:ring-1 focus:ring-cyan-500/30 transition-all duration-200"
+                      />
+                      <span className="absolute left-3 top-2 text-xs opacity-50">🔍</span>
+                    </div>
+
+                    {/* Status Filter */}
+                    <div className="w-36">
+                      <select
+                        value={customerStatusFilter}
+                        onChange={(e) => { setCustomerStatusFilter(e.target.value); setCustomerCurrentPage(1); }}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-855 text-xs text-slate-300 focus:outline-none focus:border-cyan-500/40"
+                      >
+                        <option value="all">All Statuses</option>
+                        <option value="active">Active</option>
+                        <option value="suspended">Suspended</option>
+                        <option value="inactive">Inactive</option>
+                      </select>
+                    </div>
+
+                    {/* Service Plan Filter */}
+                    <div className="w-44">
+                      <select
+                        value={customerPlanFilter}
+                        onChange={(e) => { setCustomerPlanFilter(e.target.value); setCustomerCurrentPage(1); }}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-855 text-xs text-slate-300 focus:outline-none focus:border-cyan-500/40"
+                      >
+                        <option value="all">All Service Plans</option>
+                        {packagesList.map((p, idx) => (
+                          <option key={idx} value={p.name}>{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => {
+                        setCustomerSearch('');
+                        setCustomerStatusFilter('all');
+                        setCustomerPlanFilter('all');
+                        setCustomerCurrentPage(1);
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-slate-955 hover:bg-slate-900 border border-slate-850 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                    >
+                      Clear Filters
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setRefreshingCustomers(true);
+                        loadPortalData(true).then(() => {
+                          setTimeout(() => setRefreshingCustomers(false), 500);
+                        });
+                      }}
+                      className="p-2 rounded-xl bg-slate-955 hover:bg-slate-900 border border-slate-850 text-xs hover:text-white transition-all flex items-center justify-center"
+                      title="Refresh Directory"
+                    >
+                      <span className={`text-sm shrink-0 inline-block transition-transform duration-500 ${refreshingCustomers ? 'rotate-180 scale-90' : ''}`}>
+                        🔄
+                      </span>
+                    </button>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
+
+                {/* 4. Table / Skeleton Loaders / Empty State */}
+                {loading ? (
+                  // Pulse skeleton table cells
+                  <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-[#111827] space-y-4">
+                    {[...Array(5)].map((_, idx) => (
+                      <div key={idx} className="flex justify-between items-center h-12 bg-slate-900/40 rounded-xl px-4 animate-pulse">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8.5 h-8.5 rounded-full bg-slate-855" />
+                          <div className="space-y-1.5">
+                            <div className="w-24 h-3 bg-slate-855 rounded" />
+                            <div className="w-16 h-2 bg-slate-855 rounded" />
+                          </div>
+                        </div>
+                        <div className="w-32 h-3 bg-slate-855 rounded" />
+                        <div className="w-20 h-3 bg-slate-855 rounded" />
+                        <div className="w-14 h-4 bg-slate-850 rounded-full" />
+                        <div className="w-16 h-4 bg-slate-855 rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ) : currentCustomers.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-[#111827] overflow-x-auto shadow-xl custom-scrollbar">
+                      <table className="w-full text-left border-collapse text-xs min-w-[850px]">
+                        <thead>
+                          <tr className="border-b border-[#111827] text-slate-400 font-bold uppercase tracking-wider text-[9px] select-none">
+                            <th className="pb-3.5 px-3">
+                              <button
+                                onClick={() => {
+                                  setCustomerSortOrder(customerSortField === 'name' && customerSortOrder === 'asc' ? 'desc' : 'asc');
+                                  setCustomerSortField('name');
+                                }}
+                                className="flex items-center space-x-1.5 hover:text-white"
+                              >
+                                <span>Customer Profile</span>
+                                <span className="text-[10px]">{customerSortField === 'name' ? (customerSortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
+                              </button>
+                            </th>
+                            <th className="pb-3.5 px-3">Contact Details</th>
+                            <th className="pb-3.5 px-3">
+                              <button
+                                onClick={() => {
+                                  setCustomerSortOrder(customerSortField === 'package_name' && customerSortOrder === 'asc' ? 'desc' : 'asc');
+                                  setCustomerSortField('package_name');
+                                }}
+                                className="flex items-center space-x-1.5 hover:text-white"
+                              >
+                                <span>Service Plan</span>
+                                <span className="text-[10px]">{customerSortField === 'package_name' ? (customerSortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
+                              </button>
+                            </th>
+                            <th className="pb-3.5 px-3">
+                              <button
+                                onClick={() => {
+                                  setCustomerSortOrder(customerSortField === 'status' && customerSortOrder === 'asc' ? 'desc' : 'asc');
+                                  setCustomerSortField('status');
+                                }}
+                                className="flex items-center space-x-1.5 hover:text-white"
+                              >
+                                <span>Link Status</span>
+                                <span className="text-[10px]">{customerSortField === 'status' ? (customerSortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
+                              </button>
+                            </th>
+                            <th className="pb-3.5 px-3">
+                              <button
+                                onClick={() => {
+                                  setCustomerSortOrder(customerSortField === 'created_at' && customerSortOrder === 'asc' ? 'desc' : 'asc');
+                                  setCustomerSortField('created_at');
+                                }}
+                                className="flex items-center space-x-1.5 hover:text-white"
+                              >
+                                <span>Registration</span>
+                                <span className="text-[10px]">{customerSortField === 'created_at' ? (customerSortOrder === 'asc' ? '▲' : '▼') : '↕'}</span>
+                              </button>
+                            </th>
+                            <th className="pb-3.5 px-3 text-right">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {currentCustomers.map((cust, idx) => (
+                            <tr
+                              key={idx}
+                              style={{ animationDelay: `${idx * 50}ms` }}
+                              className="border-b border-[#111827]/40 hover:bg-[#131b2e]/20 text-slate-350 hover:text-white transition-all duration-200 animate-fade-in-up group"
+                            >
+                              
+                              {/* Avatar & Profile */}
+                              <td className="py-3.5 px-3">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-8.5 h-8.5 rounded-full bg-gradient-to-tr from-cyan-900/20 to-blue-900/20 border border-slate-800 text-cyan-405 text-cyan-400 font-extrabold flex items-center justify-center text-xs group-hover:scale-105 transition-transform duration-200">
+                                    {cust.name.slice(0, 2).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <span className="font-semibold text-white block group-hover:text-cyan-300 transition-colors leading-tight">{cust.name}</span>
+                                    <span className="text-[10px] font-mono text-slate-505 mt-1 block">{cust.customer_code}</span>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Contact */}
+                              <td className="py-3.5 px-3">
+                                <span className="block leading-snug">{cust.email}</span>
+                                <span className="text-[10px] text-slate-505 mt-0.5 block">{cust.phone}</span>
+                              </td>
+
+                              {/* Package Info */}
+                              <td className="py-3.5 px-3">
+                                {cust.package_name ? (
+                                  <div>
+                                    <span className="font-semibold text-white block">{cust.package_name}</span>
+                                    <span className="text-[10px] text-cyan-405 text-cyan-400 mt-0.5 block">{cust.speed_mbps} Mbps Link</span>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-600 italic text-[10px]">No Active Plan</span>
+                                )}
+                              </td>
+
+                              {/* Status Badge */}
+                              <td className="py-3.5 px-3">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border ${
+                                  cust.status === 'active' ? 'bg-emerald-950/60 border-emerald-800 text-emerald-450' :
+                                  cust.status === 'suspended' ? 'bg-amber-955/20 border-amber-800/40 text-amber-450' :
+                                  'bg-red-955/20 border-red-900/40 text-red-405'
+                                }`}>
+                                  <span className="w-1.5 h-1.5 rounded-full mr-1.5 bg-current animate-pulse" />
+                                  {cust.status}
+                                </span>
+                              </td>
+
+                              {/* Date */}
+                              <td className="py-3.5 px-3 text-slate-500 font-medium">
+                                {new Date(cust.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                              </td>
+
+                              {/* Actions */}
+                              <td className="py-3.5 px-3 text-right space-x-1">
+                                <button
+                                  onClick={() => handleOpenDrawer(cust)}
+                                  className="px-2.5 py-1 rounded bg-[#090d16] border border-slate-800 text-[10px] text-slate-300 font-bold hover:text-white transition-colors"
+                                  title="View operations ledger"
+                                >
+                                  View
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setEditCustomerForm({
+                                      id: cust.id,
+                                      name: cust.name,
+                                      email: cust.email,
+                                      phone: cust.phone,
+                                      cnic: cust.cnic || '',
+                                      address: cust.address || ''
+                                    });
+                                    setShowEditCustomerModal(true);
+                                  }}
+                                  className="px-2.5 py-1 rounded bg-[#090d16] border border-slate-800 text-[10px] text-slate-300 font-bold hover:text-white transition-colors"
+                                  title="Edit profile information"
+                                >
+                                  Edit
+                                </button>
+                                
+                                {/* Status quick toggle buttons */}
+                                {cust.status === 'active' ? (
+                                  <button
+                                    onClick={() => handleToggleCustomerStatus(cust.id, 'suspended')}
+                                    className="px-2.5 py-1 rounded bg-amber-600/10 border border-amber-800/40 hover:bg-amber-600/20 text-[10px] text-amber-400 font-bold transition-colors"
+                                    title="Suspend Service Link"
+                                  >
+                                    Suspend
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleToggleCustomerStatus(cust.id, 'active')}
+                                    className="px-2.5 py-1 rounded bg-emerald-600/10 border border-emerald-800/40 hover:bg-emerald-600/20 text-[10px] text-emerald-400 font-bold transition-colors"
+                                    title="Activate Link"
+                                  >
+                                    Activate
+                                  </button>
+                                )}
+                              </td>
+
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination control bar */}
+                    <div className="flex justify-between items-center p-4 rounded-xl bg-[#090d16]/30 border border-[#111827] text-xs">
+                      <span className="text-slate-500 font-medium">
+                        Showing <strong className="text-white">{indexOfFirstCustomer + 1}</strong> to{' '}
+                        <strong className="text-white">{Math.min(indexOfLastCustomer, totalCustomersCount)}</strong> of{' '}
+                        <strong className="text-white">{totalCustomersCount}</strong> subscribers
+                      </span>
+
+                      <div className="flex items-center space-x-2">
+                        <button
+                          disabled={customerCurrentPage === 1}
+                          onClick={() => setCustomerCurrentPage(prev => prev - 1)}
+                          className="px-3 py-1.5 rounded-lg bg-slate-955 border border-slate-850 text-slate-450 hover:text-white disabled:opacity-40 transition-opacity font-semibold disabled:pointer-events-none"
+                        >
+                          Previous
+                        </button>
+                        
+                        <div className="flex space-x-1.5">
+                          {[...Array(totalPages)].map((_, pageIdx) => {
+                            const pNo = pageIdx + 1;
+                            return (
+                              <button
+                                key={pNo}
+                                onClick={() => setCustomerCurrentPage(pNo)}
+                                className={`w-8 h-8 rounded-lg font-bold transition-colors ${
+                                  customerCurrentPage === pNo
+                                    ? 'bg-cyan-600 text-white shadow-md'
+                                    : 'bg-slate-955 hover:bg-slate-900 border border-slate-850 text-slate-450'
+                                }`}
+                              >
+                                {pNo}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <button
+                          disabled={customerCurrentPage === totalPages}
+                          onClick={() => setCustomerCurrentPage(prev => prev + 1)}
+                          className="px-3 py-1.5 rounded-lg bg-slate-955 border border-slate-850 text-slate-450 hover:text-white disabled:opacity-40 transition-opacity font-semibold disabled:pointer-events-none"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+                ) : (
+                  // Elegant Empty State
+                  <div className="py-20 text-center border border-dashed border-slate-800 rounded-2xl flex flex-col items-center justify-center space-y-4 animate-fade-in-up">
+                    <div className="w-16 h-16 rounded-2xl bg-slate-950/80 border border-slate-900 flex items-center justify-center shadow-lg relative overflow-hidden group">
+                      <svg className="w-8 h-8 text-cyan-405 text-cyan-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 009 11a13.916 13.916 0 00-1.5-6.624l-.09-.054m12.44 14.128A13.916 13.916 0 0015 11c0-2.48-.646-4.808-1.782-6.824l-.09-.054M9 11v.5M15 11v.5m-6 4h6" />
+                      </svg>
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="font-extrabold text-white text-base">No customers yet</h4>
+                      <p className="text-xs text-slate-500 max-w-xs mx-auto">Customer accounts will appear here once they are added to the ISP system.</p>
+                    </div>
+                    <div className="flex space-x-2.5 pt-2">
+                      <button
+                        onClick={() => {
+                          setNewCustomerForm({ name: '', email: '', phone: '', address: '', planId: packagesList[0]?.id.toString() || '' });
+                          setShowAddCustomerModal(true);
+                        }}
+                        className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-xl transition-all"
+                      >
+                        + Add New Customer
+                      </button>
+                      <button
+                        onClick={() => loadPortalData(true)}
+                        className="px-4 py-2 bg-slate-900 border border-slate-850 hover:bg-slate-800 text-slate-350 font-bold text-xs rounded-xl transition-all"
+                      >
+                        Refresh Directory
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            );
+          })()}
 
           {/* ==============================================
               TAB 3: SERVICE PLANS
@@ -2522,11 +2989,259 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                 </select>
               </div>
 
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 7. CUSTOMER DETAILS DRAWER */}
+      {showCustomerDrawer && selectedCustomerForDrawer && (
+        <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
+          {/* Backdrop blur overlay */}
+          <div
+            onClick={() => setShowCustomerDrawer(false)}
+            className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity duration-300"
+          />
+
+          {/* Slider panel content */}
+          <div className="w-[480px] max-w-full h-full bg-[#080d16]/98 border-l border-slate-800 shadow-2xl relative z-10 flex flex-col animate-fade-in-up">
+            
+            <div className="p-6 border-b border-slate-800/80 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500/20 to-blue-500/20 flex items-center justify-center font-bold text-cyan-400">
+                  {selectedCustomerForDrawer.full_name?.slice(0, 2).toUpperCase() || selectedCustomerForDrawer.name?.slice(0, 2).toUpperCase() || 'CU'}
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-white text-base leading-none">{selectedCustomerForDrawer.full_name || selectedCustomerForDrawer.name}</h3>
+                  <span className="text-[10px] text-slate-500 font-mono block mt-1">{selectedCustomerForDrawer.customer_code}</span>
+                </div>
+              </div>
+              <button onClick={() => setShowCustomerDrawer(false)} className="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+            </div>
+
+            {loadingDrawerDetails ? (
+              <div className="flex-1 p-6 space-y-4">
+                <div className="h-6 bg-slate-900 rounded animate-pulse" />
+                <div className="h-20 bg-slate-900 rounded animate-pulse" />
+                <div className="h-20 bg-slate-900 rounded animate-pulse" />
+              </div>
+            ) : (
+              <div className="flex-grow p-6 overflow-y-auto custom-scrollbar space-y-6 text-xs text-slate-350">
+                
+                {/* Contact details */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-bold text-slate-500 tracking-wider uppercase border-b border-slate-900 pb-1.5">Profile Information</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-slate-500 font-medium">Email Address:</span>
+                      <p className="text-white font-semibold mt-1 truncate">{selectedCustomerForDrawer.email}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-medium">Phone Number:</span>
+                      <p className="text-white font-semibold mt-1">{selectedCustomerForDrawer.phone}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-slate-500 font-medium">CNIC / Identity:</span>
+                      <p className="text-white font-semibold mt-1">{selectedCustomerForDrawer.cnic || 'Not recorded'}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-slate-500 font-medium">Billing Address:</span>
+                      <p className="text-white font-semibold mt-1 leading-normal">{selectedCustomerForDrawer.address || 'N/A'}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Connection state */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-bold text-slate-500 tracking-wider uppercase border-b border-slate-900 pb-1.5">Link Specifications</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-slate-500 font-medium">Service Plan:</span>
+                      <p className="text-cyan-405 font-bold mt-1 text-sm">{selectedCustomerForDrawer.package_name || 'No Active package'}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-medium">Connection Speed:</span>
+                      <p className="text-white font-bold mt-1 text-sm">{selectedCustomerForDrawer.speed_mbps ? `${selectedCustomerForDrawer.speed_mbps} Mbps` : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-medium">Monthly Price:</span>
+                      <p className="text-white font-bold mt-1">Rs. {selectedCustomerForDrawer.monthly_price?.toLocaleString() || selectedCustomerForDrawer.package_price?.toLocaleString() || '0'}/mo</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 font-medium">Registration Date:</span>
+                      <p className="text-white font-medium mt-1">{new Date(selectedCustomerForDrawer.created_at).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bills & balance */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-bold text-slate-500 tracking-wider uppercase border-b border-slate-900 pb-1.5">Financial Statement</h4>
+                  <div className="flex justify-between items-center p-3 rounded-xl bg-slate-950/40 border border-slate-850">
+                    <div>
+                      <span className="text-slate-505">Outstanding balance:</span>
+                      <strong className="text-white text-sm block mt-0.5">PKR {selectedCustomerForDrawer.outstanding_balance?.toLocaleString() || '0'}</strong>
+                    </div>
+                    <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
+                      selectedCustomerForDrawer.outstanding_balance > 0 ? 'bg-amber-955/20 text-amber-400' : 'bg-emerald-950 text-emerald-450 text-emerald-450 border border-emerald-900/30'
+                    }`}>
+                      {selectedCustomerForDrawer.outstanding_balance > 0 ? 'Unpaid dues' : 'Settled'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Recent Tasks */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-bold text-slate-500 tracking-wider uppercase border-b border-slate-900 pb-1.5">Service Requests Timeline</h4>
+                  {drawerDetails.tasks && drawerDetails.tasks.length > 0 ? (
+                    <div className="space-y-2.5 max-h-40 overflow-y-auto custom-scrollbar">
+                      {drawerDetails.tasks.slice(0, 3).map((t, idx) => (
+                        <div key={idx} className="p-2.5 rounded-lg bg-slate-950/20 border border-slate-900 flex justify-between items-center">
+                          <div>
+                            <strong className="text-white block">{t.task_type}</strong>
+                            <span className="text-[10px] text-slate-505">Target Date: {t.due_date ? new Date(t.due_date).toLocaleDateString() : 'N/A'}</span>
+                          </div>
+                          <span className="text-[10px] font-bold uppercase text-cyan-405">{t.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-slate-505 italic text-[11px] py-2">No past technical requests found.</p>
+                  )}
+                </div>
+
+                {/* Recent Complaints */}
+                <div className="space-y-3">
+                  <h4 className="text-[10px] font-bold text-slate-500 tracking-wider uppercase border-b border-slate-900 pb-1.5">Registered Complaints</h4>
+                  {drawerDetails.complaints && drawerDetails.complaints.length > 0 ? (
+                    <div className="space-y-2.5 max-h-40 overflow-y-auto custom-scrollbar">
+                      {drawerDetails.complaints.slice(0, 3).map((comp, idx) => (
+                        <div key={idx} className="p-2.5 rounded-lg bg-slate-955/20 border border-slate-900 flex justify-between items-center">
+                          <div>
+                            <strong className="text-white block truncate max-w-[200px]">{comp.subject}</strong>
+                            <span className="text-[10px] text-slate-505">Created: {new Date(comp.created_at).toLocaleDateString()}</span>
+                          </div>
+                          <span className="text-[10px] font-bold uppercase text-cyan-405">{comp.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-slate-505 italic text-[11px] py-2">No complaints logged.</p>
+                  )}
+                </div>
+
+              </div>
+            )}
+
+            {/* Drawer Actions Footer */}
+            <div className="p-4 border-t border-slate-800 bg-[#060b13] flex gap-3">
+              <button
+                onClick={() => {
+                  setEditCustomerForm({
+                    id: selectedCustomerForDrawer.id,
+                    name: selectedCustomerForDrawer.full_name || selectedCustomerForDrawer.name,
+                    email: selectedCustomerForDrawer.email,
+                    phone: selectedCustomerForDrawer.phone,
+                    cnic: selectedCustomerForDrawer.cnic || '',
+                    address: selectedCustomerForDrawer.address || ''
+                  });
+                  setShowEditCustomerModal(true);
+                }}
+                className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-850 border border-slate-800 text-slate-300 font-bold rounded-xl active:scale-[0.98] transition-all"
+              >
+                Edit Profile
+              </button>
+              <button
+                onClick={() => { setShowCustomerDrawer(false); setActiveTab('ServicePlans'); }}
+                className="flex-1 py-2.5 bg-[#070b14] hover:bg-slate-900 border border-slate-800 text-slate-400 font-semibold rounded-xl"
+              >
+                View Plan
+              </button>
+              <button
+                onClick={() => { setShowCustomerDrawer(false); setActiveTab('Billing'); }}
+                className="flex-1 py-2.5 bg-[#070b14] hover:bg-slate-900 border border-slate-800 text-slate-400 font-semibold rounded-xl"
+              >
+                View Billing
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* 8. EDIT CUSTOMER MODAL */}
+      {showEditCustomerModal && (
+        <div className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-[500px] max-w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-805 pb-3">
+              <div>
+                <h3 className="font-extrabold text-white text-base">Edit Customer Profile</h3>
+                <span className="text-[10px] text-slate-505 font-light">Update contact and residential details for this subscriber.</span>
+              </div>
+              <button onClick={() => setShowEditCustomerModal(false)} className="text-slate-400 hover:text-white text-lg font-bold">✕</button>
+            </div>
+
+            <form onSubmit={handleEditCustomerSubmit} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 block">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  value={editCustomerForm.name}
+                  onChange={(e) => setEditCustomerForm({ ...editCustomerForm, name: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-500 block">Email Address</label>
+                  <input
+                    type="email"
+                    required
+                    value={editCustomerForm.email}
+                    onChange={(e) => setEditCustomerForm({ ...editCustomerForm, email: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold text-slate-500 block">Phone Number</label>
+                  <input
+                    type="text"
+                    required
+                    value={editCustomerForm.phone}
+                    onChange={(e) => setEditCustomerForm({ ...editCustomerForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 block">CNIC / Identity Card</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 37405-xxxxxxx-x"
+                  value={editCustomerForm.cnic}
+                  onChange={(e) => setEditCustomerForm({ ...editCustomerForm, cnic: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 block">Service Address</label>
+                <input
+                  type="text"
+                  value={editCustomerForm.address}
+                  onChange={(e) => setEditCustomerForm({ ...editCustomerForm, address: e.target.value })}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white focus:outline-none"
+                />
+              </div>
+
               <div className="pt-2 flex justify-end space-x-2">
-                <button type="submit" className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl transition-colors">
-                  Assign Ticket
+                <button type="submit" className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl transition-all">
+                  Save Changes
                 </button>
-                <button type="button" onClick={() => setShowAssignTechModal(false)} className="px-4 py-2 bg-slate-900 text-slate-400 font-bold rounded-xl">
+                <button type="button" onClick={() => setShowEditCustomerModal(false)} className="px-4 py-2 bg-slate-900 text-slate-400 font-bold rounded-xl">
                   Cancel
                 </button>
               </div>

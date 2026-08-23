@@ -396,8 +396,11 @@ async function getOperationsDashboardData(req, res) {
     `);
 
     const customersQuery = db.query(`
-      SELECT c.id, c.customer_code, c.full_name as name, c.email, c.phone, c.address, c.status, c.created_at
+      SELECT c.id, c.customer_code, c.full_name as name, c.email, c.phone, c.address, c.status, c.created_at,
+             p.name as package_name, p.speed_mbps, p.monthly_price::float as package_price
       FROM customers c
+      LEFT JOIN subscriptions s ON s.customer_id = c.id AND (s.status = 'active' OR s.status = 'suspended')
+      LEFT JOIN packages p ON s.package_id = p.id
       ORDER BY c.created_at DESC;
     `);
 
@@ -616,6 +619,157 @@ async function assignTechnician(req, res) {
   }
 }
 
+/**
+ * Get detailed customer profile context for employee operations
+ */
+async function getCustomerDetails(req, res) {
+  const { id } = req.params;
+  try {
+    // 1. Fetch customer details
+    const customerQuery = `
+      SELECT 
+        c.*,
+        p.id as package_id, p.name as package_name, p.monthly_price::float as monthly_price, p.speed_mbps,
+        COALESCE((
+          SELECT SUM(b.amount) 
+          FROM bills b 
+          WHERE b.customer_id = c.id AND b.status IN ('unpaid', 'overdue')
+        ), 0)::float as outstanding_balance
+      FROM customers c
+      LEFT JOIN subscriptions s ON s.customer_id = c.id AND (s.status = 'active' OR s.status = 'suspended')
+      LEFT JOIN packages p ON s.package_id = p.id
+      WHERE c.id = $1;
+    `;
+    const customerRes = await db.query(customerQuery, [id]);
+    if (customerRes.rows.length === 0) {
+      return res.status(404).json({ error: 'Customer not found.' });
+    }
+    const customer = customerRes.rows[0];
+
+    // 2. Fetch bills history
+    const billsQuery = `
+      SELECT id, billing_month, amount::float as amount, due_date, status, paid_at
+      FROM bills
+      WHERE customer_id = $1
+      ORDER BY due_date DESC;
+    `;
+    const billsRes = await db.query(billsQuery, [id]);
+
+    // 3. Fetch recent payments (latest 5)
+    const paymentsQuery = `
+      SELECT id, amount::float as amount, payment_method, transaction_reference, payment_date, status
+      FROM payments
+      WHERE customer_id = $1
+      ORDER BY payment_date DESC
+      LIMIT 5;
+    `;
+    const paymentsRes = await db.query(paymentsQuery, [id]);
+
+    // 4. Fetch complaints
+    const complaintsQuery = `
+      SELECT id, subject, description, priority, status, created_at, resolved_at
+      FROM complaints
+      WHERE customer_id = $1
+      ORDER BY created_at DESC;
+    `;
+    const complaintsRes = await db.query(complaintsQuery, [id]);
+
+    // 5. Fetch technical tasks
+    const tasksQuery = `
+      SELECT id, task_type, description, priority, status, created_at, due_date, completed_at
+      FROM technical_tasks
+      WHERE customer_id = $1
+      ORDER BY created_at DESC;
+    `;
+    const tasksRes = await db.query(tasksQuery, [id]);
+
+    return res.json({
+      customer,
+      bills: billsRes.rows,
+      payments: paymentsRes.rows,
+      complaints: complaintsRes.rows,
+      tasks: tasksRes.rows
+    });
+  } catch (err) {
+    console.error('[EmployeePortalController] getCustomerDetails error:', err.message);
+    return res.status(500).json({ error: 'Failed to retrieve customer details.' });
+  }
+}
+
+/**
+ * Edit Customer details via employee operations
+ */
+async function updateCustomer(req, res) {
+  const { id } = req.params;
+  const { full_name, phone, email, cnic, address } = req.body;
+  if (!full_name || !phone || !email) {
+    return res.status(400).json({ error: 'Full name, phone, and email are required.' });
+  }
+  try {
+    const findCust = await db.query('SELECT user_id, email FROM customers WHERE id = $1', [id]);
+    if (findCust.rows.length === 0) {
+      return res.status(404).json({ error: 'Customer not found.' });
+    }
+    const { user_id, email: currentEmail } = findCust.rows[0];
+    if (email !== currentEmail) {
+      const checkEmail = await db.query('SELECT id FROM users WHERE email = $1 AND id != $2', [email, user_id]);
+      if (checkEmail.rows.length > 0) {
+        return res.status(400).json({ error: 'Email address is already in use.' });
+      }
+    }
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('UPDATE users SET name = $1, email = $2 WHERE id = $3', [full_name, email, user_id]);
+      await client.query('UPDATE customers SET full_name = $1, phone = $2, email = $3, cnic = $4, address = $5 WHERE id = $6', [full_name, phone, email, cnic || null, address || null, id]);
+      await client.query('COMMIT');
+      return res.json({ message: 'Customer updated successfully.' });
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('[EmployeePortalController] updateCustomer error:', err.message);
+    return res.status(500).json({ error: 'Failed to update customer.' });
+  }
+}
+
+/**
+ * Toggle customer active/inactive/suspended status via employee operations
+ */
+async function toggleCustomerStatus(req, res) {
+  const { id } = req.params;
+  const { status } = req.body;
+  if (!status || !['active', 'inactive', 'suspended'].includes(status)) {
+    return res.status(400).json({ error: 'Valid status ("active", "inactive", "suspended") is required.' });
+  }
+  try {
+    const findCust = await db.query('SELECT user_id FROM customers WHERE id = $1', [id]);
+    if (findCust.rows.length === 0) {
+      return res.status(404).json({ error: 'Customer not found.' });
+    }
+    const { user_id } = findCust.rows[0];
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('UPDATE users SET status = $1 WHERE id = $2', [status === 'inactive' ? 'inactive' : 'active', user_id]);
+      await client.query('UPDATE customers SET status = $1 WHERE id = $2', [status, id]);
+      await client.query('COMMIT');
+      return res.json({ message: `Customer status updated to ${status.toUpperCase()} successfully.` });
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('[EmployeePortalController] toggleCustomerStatus error:', err.message);
+    return res.status(500).json({ error: 'Failed to update customer status.' });
+  }
+}
+
 module.exports = {
   getAssignedComplaints,
   updateComplaintStatus,
@@ -632,5 +786,8 @@ module.exports = {
   createCustomer,
   createTask,
   createComplaint,
-  assignTechnician
+  assignTechnician,
+  getCustomerDetails,
+  updateCustomer,
+  toggleCustomerStatus
 };

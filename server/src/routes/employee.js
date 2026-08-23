@@ -16,7 +16,10 @@ const {
   createCustomer,
   createTask,
   createComplaint,
-  assignTechnician
+  assignTechnician,
+  getCustomerDetails,
+  updateCustomer,
+  toggleCustomerStatus
 } = require('../controllers/employeePortalController');
 const { requireAuth } = require('../middleware/authMiddleware');
 
@@ -53,6 +56,9 @@ router.post('/customers', createCustomer);
 router.post('/tasks', createTask);
 router.post('/complaints', createComplaint);
 router.post('/assign-technician', assignTechnician);
+router.get('/customers/:id', getCustomerDetails);
+router.put('/customers/:id', updateCustomer);
+router.patch('/customers/:id/status', toggleCustomerStatus);
 
 // Notifications endpoints
 router.get('/notifications', getNotifications);
