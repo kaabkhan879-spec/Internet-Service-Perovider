@@ -337,17 +337,25 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
   useEffect(() => {
     const evaluateTheme = () => {
+      const savedPref = localStorage.getItem('isp-employee-theme');
+      
       if (themePreference === 'light') {
         setActiveTheme('light');
       } else if (themePreference === 'dark') {
         setActiveTheme('dark');
       } else {
-        // Auto day/night mode: Light from 6 AM to 6 PM (18:00)
-        const hour = new Date().getHours();
-        if (hour >= 6 && hour < 18) {
-          setActiveTheme('light');
+        // Auto day/night mode, fallback to system prefers-color-scheme on first visit
+        const systemPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (!savedPref) {
+          setActiveTheme(systemPrefersDark ? 'dark' : 'light');
         } else {
-          setActiveTheme('dark');
+          // Time-based day/night mode: Light from 6 AM to 6 PM (18:00)
+          const hour = new Date().getHours();
+          if (hour >= 6 && hour < 18) {
+            setActiveTheme('light');
+          } else {
+            setActiveTheme('dark');
+          }
         }
       }
     };
@@ -1224,168 +1232,263 @@ function EmployeePortal({ user, onLogoutSuccess }) {
       <style dangerouslySetInnerHTML={{__html: `
         /* Smooth transitions for theme switching */
         .theme-transition, .theme-transition *, .theme-transition aside, .theme-transition main, .theme-transition header, .theme-transition div {
-          transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease !important;
+          transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease !important;
         }
 
-        /* Unified Light Mode overrides */
+        /* Unified Color variables */
+        :root {
+          --bg-main: #030712;
+          --bg-surface: #090d16;
+          --bg-card: #0e1726;
+          --border-color: #111827;
+          --text-main: #f3f4f6;
+          --text-muted: #94a3b8;
+          --text-title: #ffffff;
+        }
+
         .light-theme {
-          background-color: #f8fafc !important;
-          color: #1e293b !important;
+          --bg-main: #f8fafc;
+          --bg-surface: #ffffff;
+          --bg-card: #f1f5f9;
+          --border-color: #e2e8f0;
+          --text-main: #334155;
+          --text-muted: #64748b;
+          --text-title: #0f172a;
         }
-        .light-theme aside {
-          background-color: #ffffff !important;
-          border-right: 1px solid #e2e8f0 !important;
-        }
-        .light-theme aside span, 
-        .light-theme aside h3,
-        .light-theme aside p,
-        .light-theme aside svg {
-          color: #0f172a !important;
-        }
-        .light-theme aside nav a {
-          color: #475569 !important;
-        }
-        .light-theme aside nav a.bg-slate-900 {
-          background-color: #f1f5f9 !important;
-          color: #0ea5e9 !important;
-        }
-        .light-theme aside nav a:hover {
-          background-color: #f8fafc !important;
-          color: #0f172a !important;
-        }
-        .light-theme main {
-          background-color: #f8fafc !important;
-          color: #1e293b !important;
-        }
-        .light-theme header {
-          background-color: #ffffff !important;
-          border-bottom: 1px solid #e2e8f0 !important;
-        }
-        .light-theme header span,
-        .light-theme header h3,
-        .light-theme header h2,
-        .light-theme header h1,
-        .light-theme header p,
-        .light-theme header button {
-          color: #1e293b !important;
+
+        /* Light theme overrides */
+        .light-theme {
+          background-color: var(--bg-main) !important;
+          color: var(--text-main) !important;
         }
         
+        /* Sidebar overrides */
+        .light-theme aside {
+          background-color: var(--bg-surface) !important;
+          border-color: var(--border-color) !important;
+        }
+        .light-theme aside * {
+          color: var(--text-main) !important;
+        }
+        .light-theme aside nav button, 
+        .light-theme aside nav a {
+          color: var(--text-muted) !important;
+        }
+        .light-theme aside nav button:hover, 
+        .light-theme aside nav a:hover {
+          background-color: var(--bg-card) !important;
+          color: var(--text-title) !important;
+        }
+        .light-theme aside nav button.bg-slate-900,
+        .light-theme aside nav a.bg-slate-900 {
+          background-color: var(--bg-card) !important;
+          color: #0ea5e9 !important;
+        }
+
+        /* Top navigation header */
+        .light-theme header {
+          background-color: var(--bg-surface) !important;
+          border-color: var(--border-color) !important;
+        }
+        .light-theme header * {
+          color: var(--text-main) !important;
+        }
+        .light-theme header p, .light-theme header span {
+          color: var(--text-muted) !important;
+        }
+        .light-theme header h1, 
+        .light-theme header h2,
+        .light-theme header h3,
+        .light-theme header strong {
+          color: var(--text-title) !important;
+        }
+
+        /* Generic element background overrides in Light theme */
         .light-theme .bg-[#090d16]/30,
         .light-theme .bg-[#090d16]/20,
         .light-theme .bg-[#090d16]/10,
+        .light-theme .bg-[#090d16],
         .light-theme .bg-slate-900/20,
+        .light-theme .bg-slate-900/30,
         .light-theme .bg-slate-900/50,
         .light-theme .bg-slate-950/10,
-        .light-theme .bg-[#0a0f1b]/80,
-        .light-theme .bg-[#090d16],
         .light-theme .bg-slate-950/20,
-        .light-theme .bg-slate-900/30,
-        .light-theme .bg-[#090d16]/30,
-        .light-theme .bg-[#090d16]/20,
+        .light-theme .bg-slate-950/30,
         .light-theme .bg-slate-955/20,
+        .light-theme .bg-[#0a0f1b]/80,
         .light-theme .bg-[#070b14]/50,
-        .light-theme .bg-slate-950,
         .light-theme .bg-[#030712]/50,
-        .light-theme .bg-slate-955 {
-          background: #ffffff !important;
-          background-color: #ffffff !important;
-          border-color: #e2e8f0 !important;
-          color: #1e293b !important;
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+        .light-theme .bg-[#030712]/80,
+        .light-theme .bg-[#070b15]/90,
+        .light-theme .bg-slate-950,
+        .light-theme .bg-slate-955,
+        .light-theme .bg-slate-900,
+        .light-theme .bg-gradient-to-r,
+        .light-theme .bg-[#131b2e]/30 {
+          background: var(--bg-surface) !important;
+          background-color: var(--bg-surface) !important;
+          border-color: var(--border-color) !important;
+          color: var(--text-main) !important;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.02) !important;
         }
 
-        .light-theme .bg-gradient-to-r {
-          background: #ffffff !important;
-          background-color: #ffffff !important;
-          border-color: #e2e8f0 !important;
-          color: #1e293b !important;
+        .light-theme .bg-gradient-to-tr {
+          background: var(--bg-card) !important;
+          background-color: var(--bg-card) !important;
+          border-color: var(--border-color) !important;
         }
 
+        /* Typography colors and contrasts */
         .light-theme .text-white,
+        .light-theme h1,
         .light-theme h2,
         .light-theme h3,
         .light-theme h4,
+        .light-theme h5,
         .light-theme strong,
-        .light-theme button {
-          color: #0f172a !important;
+        .light-theme b,
+        .light-theme th,
+        .light-theme td.font-bold,
+        .light-theme .font-black {
+          color: var(--text-title) !important;
         }
+
         .light-theme .text-slate-400,
         .light-theme .text-slate-500,
         .light-theme .text-slate-405,
         .light-theme .text-slate-350,
-        .light-theme .text-slate-300 {
-          color: #64748b !important;
+        .light-theme .text-slate-300,
+        .light-theme .text-slate-200,
+        .light-theme p,
+        .light-theme .text-xs:not(.text-cyan-405):not(.text-cyan-400) {
+          color: var(--text-muted) !important;
         }
+
+        /* Specific borders */
         .light-theme .border-[#111827],
         .light-theme .border-slate-800,
         .light-theme .border-slate-850,
         .light-theme .border-slate-805,
-        .light-theme .border-slate-700/60 {
-          border-color: #e2e8f0 !important;
+        .light-theme .border-slate-700/60,
+        .light-theme .border-slate-900 {
+          border-color: var(--border-color) !important;
         }
+
+        /* Table styling */
         .light-theme table {
-          background-color: #ffffff !important;
+          background-color: var(--bg-surface) !important;
         }
         .light-theme tr {
-          border-color: #f1f5f9 !important;
+          border-color: var(--border-color) !important;
         }
         .light-theme tr:hover {
-          background-color: #f8fafc !important;
+          background-color: var(--bg-card) !important;
         }
         .light-theme th {
-          background-color: #f1f5f9 !important;
-          color: #475569 !important;
-          border-color: #e2e8f0 !important;
+          background-color: var(--bg-card) !important;
+          color: var(--text-title) !important;
+          border-color: var(--border-color) !important;
         }
         .light-theme td {
-          color: #334155 !important;
-          border-color: #f1f5f9 !important;
+          color: var(--text-main) !important;
+          border-color: var(--border-color) !important;
         }
         .light-theme td font-mono,
-        .light-theme td .font-mono {
-          color: #0f172a !important;
+        .light-theme td .font-mono,
+        .light-theme td.font-mono {
+          color: var(--text-title) !important;
         }
+
+        /* Form elements (Inputs, selects, textareas) */
         .light-theme input,
         .light-theme select,
         .light-theme textarea {
-          background-color: #ffffff !important;
-          border-color: #cbd5e1 !important;
-          color: #0f172a !important;
+          background-color: var(--bg-surface) !important;
+          border-color: var(--border-color) !important;
+          color: var(--text-main) !important;
         }
         .light-theme input::placeholder,
         .light-theme textarea::placeholder {
-          color: #94a3b8 !important;
+          color: var(--text-muted) !important;
+          opacity: 0.8;
         }
-        
+        .light-theme select option {
+          background-color: var(--bg-surface) !important;
+          color: var(--text-main) !important;
+        }
+
+        /* Buttons overrides */
         .light-theme button.bg-[#090d16],
         .light-theme button.bg-slate-900,
         .light-theme button.bg-slate-955,
-        .light-theme .bg-slate-955 {
-          background: #f1f5f9 !important;
-          background-color: #f1f5f9 !important;
-          border-color: #cbd5e1 !important;
-          color: #334155 !important;
+        .light-theme .bg-slate-955,
+        .light-theme .p-2.bg-slate-955 {
+          background: var(--bg-card) !important;
+          background-color: var(--bg-card) !important;
+          border-color: var(--border-color) !important;
+          color: var(--text-main) !important;
         }
         .light-theme button.bg-[#090d16]:hover,
         .light-theme button.bg-slate-900:hover,
-        .light-theme button.bg-slate-955:hover {
-          background-color: #e2e8f0 !important;
-          color: #0f172a !important;
+        .light-theme button.bg-slate-955:hover,
+        .light-theme button:hover {
+          background-color: var(--bg-card) !important;
+          color: var(--text-title) !important;
         }
 
+        /* High-contrast status badges in light mode */
+        .light-theme .bg-emerald-950,
+        .light-theme .bg-emerald-950\/60,
+        .light-theme .bg-emerald-950\/40 {
+          background-color: #d1fae5 !important;
+          color: #065f46 !important;
+          border-color: #a7f3d0 !important;
+        }
+        .light-theme .bg-blue-950,
+        .light-theme .bg-blue-950\/60,
+        .light-theme .bg-blue-950\/40 {
+          background-color: #dbeafe !important;
+          color: #1e40af !important;
+          border-color: #bfdbfe !important;
+        }
+        .light-theme .bg-amber-950,
+        .light-theme .bg-amber-955\/20,
+        .light-theme .bg-amber-955\/30,
+        .light-theme .bg-amber-950\/60,
+        .light-theme .bg-amber-950\/40 {
+          background-color: #fef3c7 !important;
+          color: #92400e !important;
+          border-color: #fde68a !important;
+        }
+        .light-theme .bg-red-955\/20,
+        .light-theme .bg-red-950\/30,
+        .light-theme .bg-red-905\/30,
+        .light-theme .bg-red-950 {
+          background-color: #fee2e2 !important;
+          color: #991b1b !important;
+          border-color: #fca5a5 !important;
+        }
+
+        /* Dynamic highlights & badges */
         .light-theme .text-cyan-405,
-        .light-theme .text-cyan-400 {
+        .light-theme .text-cyan-400,
+        .light-theme .text-cyan-300 {
           color: #0284c7 !important;
         }
         .light-theme .border-cyan-500/20,
         .light-theme .border-cyan-500/30 {
-          border-color: rgba(2, 132, 199, 0.2) !important;
+          border-color: rgba(2, 132, 199, 0.25) !important;
         }
         .light-theme .custom-scrollbar::-webkit-scrollbar-thumb {
           background: #cbd5e1;
         }
         .light-theme .custom-scrollbar::-webkit-scrollbar-thumb:hover {
           background: #94a3b8;
+        }
+
+        /* Modal specific layouts in light mode */
+        .light-theme .shadow-2xl {
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08) !important;
         }
 
         .custom-scrollbar::-webkit-scrollbar {
