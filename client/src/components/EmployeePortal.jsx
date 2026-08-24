@@ -1237,86 +1237,101 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
         /* Unified Color variables */
         :root {
-          --bg-main: #030712;
-          --bg-surface: #090d16;
-          --bg-card: #0e1726;
-          --border-color: #111827;
-          --text-main: #f3f4f6;
-          --text-muted: #94a3b8;
-          --text-title: #ffffff;
+          --background: #030712;
+          --foreground: #f3f4f6;
+          --card: #090d16;
+          --card-foreground: #f3f4f6;
+          --border: #111827;
+          --muted: #1f2937;
+          --muted-foreground: #94a3b8;
+          --primary: #22d3ee;
+          --primary-foreground: #030712;
+          --success: #10b981;
+          --warning: #f59e0b;
+          --danger: #ef4444;
         }
 
         .light-theme {
-          --bg-main: #f8fafc;
-          --bg-surface: #ffffff;
-          --bg-card: #f1f5f9;
-          --border-color: #e2e8f0;
-          --text-main: #334155;
-          --text-muted: #64748b;
-          --text-title: #0f172a;
+          --background: #f8fafc;
+          --foreground: #1e293b;
+          --card: #ffffff;
+          --card-foreground: #1e293b;
+          --border: #e2e8f0;
+          --muted: #f1f5f9;
+          --muted-foreground: #475569;
+          --primary: #0284c7;
+          --primary-foreground: #ffffff;
+          --success: #15803d;
+          --warning: #b45309;
+          --danger: #b91c1c;
         }
 
-        /* Light theme overrides */
+        /* Theme application overrides based on CSS variables */
         .light-theme {
-          background-color: var(--bg-main) !important;
-          color: var(--text-main) !important;
+          background-color: var(--background) !important;
+          color: var(--foreground) !important;
         }
         
         /* Sidebar overrides */
         .light-theme aside {
-          background-color: var(--bg-surface) !important;
-          border-color: var(--border-color) !important;
+          background-color: var(--card) !important;
+          border-color: var(--border) !important;
         }
         .light-theme aside * {
-          color: var(--text-main) !important;
+          color: var(--foreground) !important;
         }
         .light-theme aside nav button, 
         .light-theme aside nav a {
-          color: var(--text-muted) !important;
+          color: var(--muted-foreground) !important;
         }
         .light-theme aside nav button:hover, 
         .light-theme aside nav a:hover {
-          background-color: var(--bg-card) !important;
-          color: var(--text-title) !important;
+          background-color: var(--muted) !important;
+          color: var(--foreground) !important;
         }
         .light-theme aside nav button.bg-slate-900,
         .light-theme aside nav a.bg-slate-900 {
-          background-color: var(--bg-card) !important;
-          color: #0ea5e9 !important;
+          background-color: var(--muted) !important;
+          color: var(--primary) !important;
         }
 
-        /* Top navigation header */
+        /* Main area */
+        .light-theme main {
+          background-color: var(--background) !important;
+          color: var(--foreground) !important;
+        }
+
+        /* Top Header navigation */
         .light-theme header {
-          background-color: var(--bg-surface) !important;
-          border-color: var(--border-color) !important;
+          background-color: var(--card) !important;
+          border-color: var(--border) !important;
         }
         .light-theme header * {
-          color: var(--text-main) !important;
+          color: var(--foreground) !important;
         }
         .light-theme header p, .light-theme header span {
-          color: var(--text-muted) !important;
+          color: var(--muted-foreground) !important;
         }
         .light-theme header h1, 
         .light-theme header h2,
         .light-theme header h3,
         .light-theme header strong {
-          color: var(--text-title) !important;
+          color: var(--foreground) !important;
         }
 
-        /* Generic element background overrides in Light theme */
+        /* General layout components in Light Mode */
         .light-theme .bg-[#090d16]/30,
         .light-theme .bg-[#090d16]/20,
         .light-theme .bg-[#090d16]/10,
         .light-theme .bg-[#090d16],
+        .light-theme .bg-[#070b14]/50,
+        .light-theme .bg-[#070b14],
         .light-theme .bg-slate-900/20,
         .light-theme .bg-slate-900/30,
         .light-theme .bg-slate-900/50,
         .light-theme .bg-slate-950/10,
-        .light-theme .bg-slate-950/20,
-        .light-theme .bg-slate-950/30,
         .light-theme .bg-slate-955/20,
         .light-theme .bg-[#0a0f1b]/80,
-        .light-theme .bg-[#070b14]/50,
         .light-theme .bg-[#030712]/50,
         .light-theme .bg-[#030712]/80,
         .light-theme .bg-[#070b15]/90,
@@ -1325,20 +1340,20 @@ function EmployeePortal({ user, onLogoutSuccess }) {
         .light-theme .bg-slate-900,
         .light-theme .bg-gradient-to-r,
         .light-theme .bg-[#131b2e]/30 {
-          background: var(--bg-surface) !important;
-          background-color: var(--bg-surface) !important;
-          border-color: var(--border-color) !important;
-          color: var(--text-main) !important;
+          background: var(--card) !important;
+          background-color: var(--card) !important;
+          border-color: var(--border) !important;
+          color: var(--foreground) !important;
           box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.02) !important;
         }
 
         .light-theme .bg-gradient-to-tr {
-          background: var(--bg-card) !important;
-          background-color: var(--bg-card) !important;
-          border-color: var(--border-color) !important;
+          background: var(--muted) !important;
+          background-color: var(--muted) !important;
+          border-color: var(--border) !important;
         }
 
-        /* Typography colors and contrasts */
+        /* Typography overrides */
         .light-theme .text-white,
         .light-theme h1,
         .light-theme h2,
@@ -1350,7 +1365,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
         .light-theme th,
         .light-theme td.font-bold,
         .light-theme .font-black {
-          color: var(--text-title) !important;
+          color: var(--foreground) !important;
         }
 
         .light-theme .text-slate-400,
@@ -1361,60 +1376,60 @@ function EmployeePortal({ user, onLogoutSuccess }) {
         .light-theme .text-slate-200,
         .light-theme p,
         .light-theme .text-xs:not(.text-cyan-405):not(.text-cyan-400) {
-          color: var(--text-muted) !important;
+          color: var(--muted-foreground) !important;
         }
 
-        /* Specific borders */
+        /* Borders overrides */
         .light-theme .border-[#111827],
         .light-theme .border-slate-800,
         .light-theme .border-slate-850,
         .light-theme .border-slate-805,
         .light-theme .border-slate-700/60,
         .light-theme .border-slate-900 {
-          border-color: var(--border-color) !important;
+          border-color: var(--border) !important;
         }
 
-        /* Table styling */
+        /* Tables overrides */
         .light-theme table {
-          background-color: var(--bg-surface) !important;
+          background-color: var(--card) !important;
         }
         .light-theme tr {
-          border-color: var(--border-color) !important;
+          border-color: var(--border) !important;
         }
         .light-theme tr:hover {
-          background-color: var(--bg-card) !important;
+          background-color: var(--muted) !important;
         }
         .light-theme th {
-          background-color: var(--bg-card) !important;
-          color: var(--text-title) !important;
-          border-color: var(--border-color) !important;
+          background-color: var(--muted) !important;
+          color: var(--foreground) !important;
+          border-color: var(--border) !important;
         }
         .light-theme td {
-          color: var(--text-main) !important;
-          border-color: var(--border-color) !important;
+          color: var(--foreground) !important;
+          border-color: var(--border) !important;
         }
         .light-theme td font-mono,
         .light-theme td .font-mono,
         .light-theme td.font-mono {
-          color: var(--text-title) !important;
+          color: var(--foreground) !important;
         }
 
         /* Form elements (Inputs, selects, textareas) */
         .light-theme input,
         .light-theme select,
         .light-theme textarea {
-          background-color: var(--bg-surface) !important;
-          border-color: var(--border-color) !important;
-          color: var(--text-main) !important;
+          background-color: var(--card) !important;
+          border-color: var(--border) !important;
+          color: var(--foreground) !important;
         }
         .light-theme input::placeholder,
         .light-theme textarea::placeholder {
-          color: var(--text-muted) !important;
-          opacity: 0.8;
+          color: var(--muted-foreground) !important;
+          opacity: 0.85;
         }
         .light-theme select option {
-          background-color: var(--bg-surface) !important;
-          color: var(--text-main) !important;
+          background-color: var(--card) !important;
+          color: var(--foreground) !important;
         }
 
         /* Buttons overrides */
@@ -1423,32 +1438,32 @@ function EmployeePortal({ user, onLogoutSuccess }) {
         .light-theme button.bg-slate-955,
         .light-theme .bg-slate-955,
         .light-theme .p-2.bg-slate-955 {
-          background: var(--bg-card) !important;
-          background-color: var(--bg-card) !important;
-          border-color: var(--border-color) !important;
-          color: var(--text-main) !important;
+          background: var(--muted) !important;
+          background-color: var(--muted) !important;
+          border-color: var(--border) !important;
+          color: var(--foreground) !important;
         }
         .light-theme button.bg-[#090d16]:hover,
         .light-theme button.bg-slate-900:hover,
         .light-theme button.bg-slate-955:hover,
         .light-theme button:hover {
-          background-color: var(--bg-card) !important;
-          color: var(--text-title) !important;
+          background-color: var(--muted) !important;
+          color: var(--foreground) !important;
         }
 
-        /* High-contrast status badges in light mode */
+        /* High-contrast status badges in light mode using CSS variables */
         .light-theme .bg-emerald-950,
         .light-theme .bg-emerald-950\/60,
         .light-theme .bg-emerald-950\/40 {
           background-color: #d1fae5 !important;
-          color: #065f46 !important;
+          color: var(--success) !important;
           border-color: #a7f3d0 !important;
         }
         .light-theme .bg-blue-950,
         .light-theme .bg-blue-950\/60,
         .light-theme .bg-blue-950\/40 {
           background-color: #dbeafe !important;
-          color: #1e40af !important;
+          color: var(--primary) !important;
           border-color: #bfdbfe !important;
         }
         .light-theme .bg-amber-950,
@@ -1457,7 +1472,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
         .light-theme .bg-amber-950\/60,
         .light-theme .bg-amber-950\/40 {
           background-color: #fef3c7 !important;
-          color: #92400e !important;
+          color: var(--warning) !important;
           border-color: #fde68a !important;
         }
         .light-theme .bg-red-955\/20,
@@ -1465,15 +1480,15 @@ function EmployeePortal({ user, onLogoutSuccess }) {
         .light-theme .bg-red-905\/30,
         .light-theme .bg-red-950 {
           background-color: #fee2e2 !important;
-          color: #991b1b !important;
+          color: var(--danger) !important;
           border-color: #fca5a5 !important;
         }
 
-        /* Dynamic highlights & badges */
+        /* ISP Blue/Cyan accents in Light Mode */
         .light-theme .text-cyan-405,
         .light-theme .text-cyan-400,
         .light-theme .text-cyan-300 {
-          color: #0284c7 !important;
+          color: var(--primary) !important;
         }
         .light-theme .border-cyan-500/20,
         .light-theme .border-cyan-500/30 {
