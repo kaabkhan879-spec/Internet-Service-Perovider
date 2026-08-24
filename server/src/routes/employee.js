@@ -12,6 +12,8 @@ const {
   markNotificationsAsRead,
   changePassword,
   updateProfile,
+  getActivities,
+  employeeLogout,
   getOperationsDashboardData,
   createCustomer,
   createTask,
@@ -39,6 +41,8 @@ router.use(requireAuth);
 router.get('/profile', employeeProfile);
 router.put('/profile', updateProfile);
 router.post('/change-password', changePassword);
+router.get('/activities', getActivities);
+router.post('/logout', employeeLogout);
 
 // Complaints endpoints
 router.get('/complaints', getAssignedComplaints);

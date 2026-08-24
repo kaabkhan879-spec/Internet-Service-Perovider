@@ -312,6 +312,7 @@ async function changePassword(req, res) {
   }
 
   try {
+    const employeeId = await getEmployeeId(req.user.id);
     const userRes = await db.query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
     if (userRes.rows.length === 0) {
       return res.status(404).json({ error: 'User profile not found.' });
@@ -324,6 +325,7 @@ async function changePassword(req, res) {
 
     const hashed = await hashPassword(newPassword);
     await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hashed, req.user.id]);
+    await logActivity(employeeId, 'Password changed', 'success');
     return res.json({ message: 'Password updated successfully.' });
   } catch (err) {
     console.error('[EmployeePortalController] changePassword error:', err.message);
@@ -335,15 +337,28 @@ async function changePassword(req, res) {
  * Update profile phone or address
  */
 async function updateProfile(req, res) {
-  const { phone, address } = req.body;
+  const { fullName, phone, address } = req.body;
 
   try {
+    const employeeId = await getEmployeeId(req.user.id);
+    await db.query('BEGIN');
+    
+    // Update employees details
     await db.query(
-      'UPDATE employees SET phone = $1, address = $2 WHERE user_id = $3',
-      [phone, address, req.user.id]
+      'UPDATE employees SET full_name = COALESCE($1, full_name), phone = COALESCE($2, phone), address = COALESCE($3, address) WHERE user_id = $4',
+      [fullName, phone, address, req.user.id]
     );
+
+    // Sync full name to users table
+    if (fullName) {
+      await db.query('UPDATE users SET name = $1 WHERE id = $2', [fullName, req.user.id]);
+    }
+
+    await db.query('COMMIT');
+    await logActivity(employeeId, 'Profile updated', 'success');
     return res.json({ message: 'Profile details updated successfully.' });
   } catch (err) {
+    await db.query('ROLLBACK');
     console.error('[EmployeePortalController] updateProfile error:', err.message);
     return res.status(500).json({ error: 'Failed to update profile information.' });
   }
@@ -897,4 +912,82 @@ module.exports = {
   updatePackage,
   togglePackageStatus,
   deletePackage
+};
+
+/**
+ * Helper to log security and system events to employee_activities
+ */
+async function logActivity(employeeId, action, status = 'success') {
+  try {
+    await db.query(
+      'INSERT INTO employee_activities (employee_id, action, status) VALUES ($1, $2, $3)',
+      [employeeId, action, status]
+    );
+  } catch (err) {
+    console.error('[EmployeePortalController] logActivity error:', err.message);
+  }
+}
+
+/**
+ * Get recent activity logs for employee
+ */
+async function getActivities(req, res) {
+  try {
+    const employeeId = await getEmployeeId(req.user.id);
+    const result = await db.query(
+      'SELECT id, action, status, created_at FROM employee_activities WHERE employee_id = $1 ORDER BY created_at DESC LIMIT 30',
+      [employeeId]
+    );
+    return res.json(result.rows);
+  } catch (err) {
+    console.error('[EmployeePortalController] getActivities error:', err.message);
+    return res.status(500).json({ error: 'Failed to retrieve activities.' });
+  }
+}
+
+/**
+ * Log logout and clear cookie
+ */
+async function employeeLogout(req, res) {
+  try {
+    const employeeId = await getEmployeeId(req.user.id);
+    await logActivity(employeeId, 'Logout', 'success');
+  } catch (err) {
+    console.error('[EmployeePortalController] employeeLogout logging error:', err.message);
+  }
+  
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax'
+  });
+  return res.json({ success: true, message: 'Logged out successfully.' });
+}
+
+module.exports = {
+  getAssignedComplaints,
+  updateComplaintStatus,
+  getAssignedTasks,
+  updateTaskStatus,
+  submitWorkReport,
+  getWorkHistory,
+  getNotifications,
+  getUnreadNotificationsCount,
+  markNotificationsAsRead,
+  changePassword,
+  updateProfile,
+  getOperationsDashboardData,
+  createCustomer,
+  createTask,
+  createComplaint,
+  assignTechnician,
+  getCustomerDetails,
+  updateCustomer,
+  toggleCustomerStatus,
+  createPackage,
+  updatePackage,
+  togglePackageStatus,
+  deletePackage,
+  getActivities,
+  employeeLogout
 };

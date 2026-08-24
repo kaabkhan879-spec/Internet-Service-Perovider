@@ -95,10 +95,11 @@ function EmployeePortal({ user, onLogoutSuccess }) {
     additional_notes: ''
   });
 
-  const [editProfileForm, setEditProfileForm] = useState({ phone: '', address: '' });
+  const [editProfileForm, setEditProfileForm] = useState({ fullName: '', phone: '', address: '' });
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
   const [passwordError, setPasswordError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   // Search & filters for Customer list
   const [customerSearch, setCustomerSearch] = useState('');
@@ -137,6 +138,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
   const [billingPeriodFilter, setBillingPeriodFilter] = useState('all');
   const [billingSortFilter, setBillingSortFilter] = useState('newest');
   const [selectedBillingItem, setSelectedBillingItem] = useState(null);
+  const [activitiesList, setActivitiesList] = useState([]);
 
   // Refresh / Export states
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -240,7 +242,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
       }
       const profileData = await profileRes.json();
       setProfile(profileData);
-      setEditProfileForm({ phone: profileData.phone || '', address: profileData.address || '' });
+      setEditProfileForm({ fullName: profileData.full_name || '', phone: profileData.phone || '', address: profileData.address || '' });
 
       // Load DB Operations & Stats
       const statsRes = await fetch('http://localhost:5000/api/employee/dashboard-stats', reqOpts);
@@ -299,6 +301,13 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           setTimeout(() => setTriggerBellRing(false), 1000);
         }
         setUnreadCount(unreadVal);
+      }
+
+      // Load employee activities
+      const activitiesRes = await fetch('http://localhost:5000/api/employee/activities', reqOpts);
+      if (activitiesRes.ok) {
+        const fetchedActs = await activitiesRes.json();
+        setActivitiesList(fetchedActs || []);
       }
 
     } catch (err) {
@@ -5567,150 +5576,406 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           {/* ==============================================
               TAB 11: MY PROFILE & SETTINGS
               ============================================== */}
-          {activeTab === 'Profile' && (
-            <div className="space-y-6 animate-fade-in-up">
-              
-              <div className="pb-4 border-b border-[#111827]">
-                <h2 className="text-lg font-bold text-white">Employee Account Settings</h2>
-                <p className="text-xs text-slate-400">Configure notifications, edit personal profile data, and update password credentials.</p>
-              </div>
+          {activeTab === 'Profile' && (() => {
+            // Password strength analyzer rules
+            const newPass = passwordForm.newPassword || '';
+            const reqLength = newPass.length >= 8;
+            const reqUpper = /[A-Z]/.test(newPass);
+            const reqLower = /[a-z]/.test(newPass);
+            const reqNumber = /[0-9]/.test(newPass);
+            const reqSpecial = /[^A-Za-z0-9]/.test(newPass);
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            const satisfiedCount = [reqLength, reqUpper, reqLower, reqNumber, reqSpecial].filter(Boolean).length;
+            let strengthLabel = 'Weak';
+            let strengthColor = 'text-red-500';
+            if (satisfiedCount === 5) {
+              strengthLabel = 'Strong';
+              strengthColor = 'text-emerald-400';
+            } else if (satisfiedCount >= 3) {
+              strengthLabel = 'Good';
+              strengthColor = 'text-cyan-405';
+            } else if (satisfiedCount >= 2) {
+              strengthLabel = 'Fair';
+              strengthColor = 'text-amber-400';
+            }
+
+            return (
+              <div className="space-y-6 animate-fade-in-up">
                 
-                {/* 1. Account Details Card */}
-                <div className="lg:col-span-2 p-6 rounded-2xl bg-[#090d16]/30 border border-[#111827] space-y-6">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-500/20 to-blue-600/20 border border-slate-800 flex items-center justify-center text-cyan-400 font-extrabold text-lg">
+                {/* 1. Profile Header Box */}
+                <div className="p-6 rounded-2xl bg-gradient-to-r from-[#090d16]/40 to-[#0e1726]/40 border border-slate-850 flex flex-col md:flex-row items-center md:items-start gap-6 shadow-xl relative overflow-hidden">
+                  
+                  {/* Glowing initials avatar */}
+                  <div className="relative">
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 blur opacity-25" />
+                    <div className="relative w-20 h-20 rounded-2xl bg-[#090d16] border-2 border-cyan-500/30 flex items-center justify-center text-cyan-405 font-black text-2xl shadow-inner">
                       {(profile?.full_name || user?.name || 'AL').slice(0, 2).toUpperCase()}
-                    </div>
-                    <div>
-                      <h3 className="font-extrabold text-white text-base leading-none">{profile?.full_name || user?.name || 'Ali Raza'}</h3>
-                      <p className="text-xs text-slate-500 mt-1">ISP coordinator | Designation: {profile?.designation || 'EMPLOYEE'}</p>
                     </div>
                   </div>
 
-                  {!isEditingProfile ? (
-                    <div className="space-y-4 border-t border-slate-900 pt-4 text-xs">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <span className="text-slate-550 text-slate-500 block text-[9px] uppercase font-bold">Email Address:</span>
-                          <span className="text-white block font-semibold mt-1">{profile?.email || 'ali.raza@isp.com'}</span>
+                  <div className="flex-grow text-center md:text-left space-y-2">
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-2.5">
+                      <h3 className="text-xl font-bold text-white tracking-tight">
+                        {profile?.full_name || user?.name || 'Ali Raza'}
+                      </h3>
+                      <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-emerald-950/40 text-emerald-405 border border-emerald-900/40">
+                        {profile?.status || 'Active'}
+                      </span>
+                    </div>
+                    
+                    <p className="text-xs text-slate-400 font-light">
+                      {profile?.designation || 'ISP Operations Officer'} &mdash; <span className="font-mono text-cyan-405">{profile?.employee_code || 'EMP-N/A'}</span>
+                    </p>
+                    
+                    <div className="flex items-center justify-center md:justify-start space-x-2 text-[10px] text-slate-500">
+                      <span>📧 {profile?.email || 'N/A'}</span>
+                      <span>•</span>
+                      <span className="text-emerald-450 font-bold">🟢 Email Verified</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Compact Row of Information Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 animate-fade-in-up">
+                  {[
+                    { label: 'ACCOUNT STATUS', val: profile?.status ? 'Active' : 'Active', icon: '🔒' },
+                    { label: 'EMPLOYEE CODE', val: profile?.employee_code || 'N/A', icon: '🆔' },
+                    { label: 'DEPARTMENT', val: profile?.department || 'Operations', icon: '🏢' },
+                    { label: 'DESIGNATION', val: profile?.designation || 'N/A', icon: '👷' }
+                  ].map((c, idx) => (
+                    <div key={idx} className="p-4 rounded-xl bg-[#090d16]/30 border border-slate-850 flex items-center justify-between">
+                      <div className="space-y-1">
+                        <span className="text-[8px] font-bold tracking-wider text-slate-550 block uppercase">{c.label}</span>
+                        <strong className="text-white text-xs block truncate max-w-[130px]">{c.val}</strong>
+                      </div>
+                      <span className="text-sm opacity-55">{c.icon}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 3. Main Workspace Split Panel */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  
+                  {/* Left Column: Personal Information & Settings */}
+                  <div className="lg:col-span-2 space-y-6">
+                    
+                    {/* Personal Info Details Block */}
+                    <div className="p-5 rounded-2xl bg-[#090d16]/30 border border-slate-850 space-y-4">
+                      <div className="flex justify-between items-center border-b border-slate-900 pb-3">
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">Personal Information</h4>
+                        <button
+                          onClick={() => {
+                            setEditProfileForm({
+                              fullName: profile?.full_name || '',
+                              phone: profile?.phone || '',
+                              address: profile?.address || ''
+                            });
+                            setIsEditingProfile(true);
+                          }}
+                          className="px-3 py-1.5 bg-slate-955 hover:bg-slate-900 border border-slate-850 text-[10px] font-bold text-slate-350 hover:text-white rounded-lg transition-colors"
+                        >
+                          Edit Profile
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs pt-1.5">
+                        <div className="space-y-1">
+                          <span className="text-slate-500 text-[10px]">Full Name</span>
+                          <span className="text-white font-bold block">{profile?.full_name || 'N/A'}</span>
                         </div>
-                        <div>
-                          <span className="text-slate-505 text-slate-550 text-slate-500 block text-[9px] uppercase font-bold">Employee Code:</span>
-                          <span className="text-white block font-semibold mt-1">{profile?.employee_code || 'EMP-3042'}</span>
+                        <div className="space-y-1">
+                          <span className="text-slate-500 text-[10px]">Email Address</span>
+                          <span className="text-white font-bold block">{profile?.email || 'N/A'}</span>
                         </div>
-                        <div>
-                          <span className="text-slate-505 text-slate-550 text-slate-500 block text-[9px] uppercase font-bold">Contact Phone:</span>
-                          <span className="text-white block font-medium mt-1">{profile?.phone || 'N/A'}</span>
+                        <div className="space-y-1">
+                          <span className="text-slate-500 text-[10px]">Phone Number</span>
+                          <span className="text-white font-bold block">{profile?.phone || 'N/A'}</span>
                         </div>
-                        <div>
-                          <span className="text-slate-505 text-slate-550 text-slate-500 block text-[9px] uppercase font-bold">Office Address:</span>
-                          <span className="text-white block font-medium mt-1">{profile?.address || 'N/A'}</span>
+                        <div className="space-y-1">
+                          <span className="text-slate-500 text-[10px]">Office Address</span>
+                          <span className="text-white font-bold block truncate" title={profile?.address}>{profile?.address || 'N/A'}</span>
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-slate-500 text-[10px]">Department</span>
+                          <span className="text-white font-bold block">{profile?.department || 'Operations'}</span>
+                        </div>
+                        <div className="space-y-1">
+                          <span className="text-slate-505 text-slate-500 text-[10px]">Designation</span>
+                          <span className="text-white font-bold block">{profile?.designation || 'N/A'}</span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => setIsEditingProfile(true)}
-                        className="px-4 py-2 bg-slate-900 border border-slate-800 hover:bg-slate-800 text-xs font-bold rounded-xl text-slate-300 hover:text-white transition-colors active:scale-[0.98]"
-                      >
-                        Edit Contact Details
-                      </button>
                     </div>
-                  ) : (
-                    <form onSubmit={handleUpdateProfile} className="space-y-4 border-t border-slate-900 pt-4 text-xs">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                    {/* Notification Preferences */}
+                    <div className="p-5 rounded-2xl bg-[#090d16]/30 border border-slate-850 space-y-4 text-xs">
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">Notification Preferences</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1.5">
+                        {[
+                          { label: 'Complaint notifications', desc: 'Alerts when tickets are created or updated' },
+                          { label: 'Service request notifications', desc: 'Updates on installation tasks' },
+                          { label: 'Billing notifications', desc: 'Overdue invoices or payment logs' },
+                          { label: 'System notifications', desc: 'Daily logs and critical capacity alerts' }
+                        ].map((pref, idx) => (
+                          <div key={idx} className="flex items-start space-x-3">
+                            <input
+                              type="checkbox"
+                              defaultChecked
+                              className="mt-0.5 rounded border-slate-800 bg-slate-950 text-cyan-600 focus:ring-cyan-500/20"
+                            />
+                            <div className="space-y-0.5">
+                              <span className="font-bold text-white block leading-none">{pref.label}</span>
+                              <span className="text-[9px] text-slate-500 font-light">{pref.desc}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Recent Account Activity */}
+                    <div className="p-5 rounded-2xl bg-[#090d16]/30 border border-slate-850 space-y-4">
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">Recent Account Activity</h4>
+                      <div className="space-y-2.5">
+                        {activitiesList.length > 0 ? (
+                          activitiesList.map((act) => (
+                            <div key={act.id} className="p-3 bg-slate-955/20 border border-slate-850/40 rounded-xl flex justify-between items-center text-xs">
+                              <div className="space-y-1">
+                                <strong className="text-white block font-semibold">{act.action}</strong>
+                                <span className="text-[9px] text-slate-500 font-light">🕒 {new Date(act.created_at).toLocaleString()}</span>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
+                                act.status === 'success' ? 'bg-emerald-950 text-emerald-405 border border-emerald-900/40' : 'bg-red-950 text-red-400'
+                              }`}>
+                                {act.status}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-[10px] text-slate-550 italic text-center py-4">No recent security events recorded.</p>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+
+                  {/* Right Column: Security Center (Change Password) */}
+                  <div className="space-y-6">
+                    
+                    {/* Change Password Block */}
+                    <div className="p-5 rounded-2xl bg-[#090d16]/30 border border-slate-850 space-y-4 text-xs">
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">Security Center</h4>
+                      
+                      {passwordError && (
+                        <p className="p-2.5 rounded-xl bg-red-955/20 border border-red-900/40 text-red-400 font-bold">
+                          {passwordError}
+                        </p>
+                      )}
+
+                      <form onSubmit={handleChangePassword} className="space-y-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">Current Password</label>
+                          <input
+                            type="password"
+                            required
+                            placeholder="••••••••"
+                            value={passwordForm.oldPassword}
+                            onChange={(e) => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white placeholder-slate-600 focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between items-center">
+                            <label className="text-[9px] font-bold text-slate-550 uppercase">New Password</label>
+                            <button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              className="text-[9px] text-cyan-405 hover:underline"
+                            >
+                              {showPassword ? 'Hide' : 'Show'}
+                            </button>
+                          </div>
+                          <input
+                            type={showPassword ? 'text' : 'password'}
+                            required
+                            placeholder="Minimum 8 characters"
+                            value={passwordForm.newPassword}
+                            onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white placeholder-slate-655 focus:outline-none"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-bold text-slate-550 uppercase">Confirm New Password</label>
+                          <input
+                            type={showPassword ? 'text' : 'password'}
+                            required
+                            placeholder="Confirm password"
+                            value={passwordForm.confirmPassword}
+                            onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white placeholder-slate-655 focus:outline-none"
+                          />
+                        </div>
+
+                        {/* Password strength widget */}
+                        {newPass && (
+                          <div className="p-3.5 rounded-xl bg-slate-955 border border-slate-850 space-y-2 text-[10px]">
+                            <div className="flex justify-between items-center">
+                              <span className="text-slate-500">Password Strength:</span>
+                              <strong className={`${strengthColor} uppercase font-bold`}>{strengthLabel}</strong>
+                            </div>
+                            
+                            <div className="grid grid-cols-5 gap-1 h-1 bg-slate-950 rounded-full overflow-hidden">
+                              {[...Array(5)].map((_, i) => (
+                                <div
+                                  key={i}
+                                  className={`h-full ${
+                                    satisfiedCount > i
+                                      ? (satisfiedCount === 5 ? 'bg-emerald-500' : (satisfiedCount >= 3 ? 'bg-cyan-500' : 'bg-amber-500'))
+                                      : 'bg-slate-900'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+
+                            {/* Requirements checklist */}
+                            <div className="space-y-1 pt-1.5 text-[9px] text-slate-400 font-light">
+                              <div className="flex items-center space-x-1.5">
+                                <span>{reqLength ? '✓' : '○'}</span>
+                                <span className={reqLength ? 'text-emerald-400 font-semibold' : ''}>Minimum 8 characters</span>
+                              </div>
+                              <div className="flex items-center space-x-1.5">
+                                <span>{reqUpper ? '✓' : '○'}</span>
+                                <span className={reqUpper ? 'text-emerald-400 font-semibold' : ''}>Uppercase letter</span>
+                              </div>
+                              <div className="flex items-center space-x-1.5">
+                                <span>{reqLower ? '✓' : '○'}</span>
+                                <span className={reqLower ? 'text-emerald-400 font-semibold' : ''}>Lowercase letter</span>
+                              </div>
+                              <div className="flex items-center space-x-1.5">
+                                <span>{reqNumber ? '✓' : '○'}</span>
+                                <span className={reqNumber ? 'text-emerald-400 font-semibold' : ''}>Number digit</span>
+                              </div>
+                              <div className="flex items-center space-x-1.5">
+                                <span>{reqSpecial ? '✓' : '○'}</span>
+                                <span className={reqSpecial ? 'text-emerald-400 font-semibold' : ''}>Special character</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        <button
+                          type="submit"
+                          className="w-full py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:brightness-105 text-white font-bold rounded-xl active:scale-[0.98] transition-all shadow-md shadow-cyan-500/10"
+                        >
+                          Update Password
+                        </button>
+                      </form>
+                    </div>
+
+                    {/* Account Security Status */}
+                    <div className="p-5 rounded-2xl bg-[#090d16]/30 border border-slate-850 space-y-4 text-xs">
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider text-slate-500">ACCOUNT SECURITY</h4>
+                      <div className="space-y-2.5 pt-1.5 text-slate-350">
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Password</span>
+                          <span className="text-emerald-450 font-bold">● Protected</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Authentication</span>
+                          <span className="text-emerald-450 font-bold">● Active</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-500">Account</span>
+                          <span className="text-emerald-450 font-bold">● Active</span>
+                        </div>
+                        {activitiesList.find(a => a.action === 'Password changed') && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-550 text-slate-500">Last Password Update</span>
+                            <span className="text-white font-bold">
+                              {new Date(activitiesList.find(a => a.action === 'Password changed').created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+
+                </div>
+
+                {/* Edit Profile Modal Drawer */}
+                {isEditingProfile && (
+                  <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="w-[480px] max-w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4">
+                      
+                      <div className="flex justify-between items-center border-b border-slate-805 pb-3">
+                        <h3 className="font-extrabold text-white text-base">Edit Profile Information</h3>
+                        <button
+                          onClick={() => setIsEditingProfile(false)}
+                          className="text-slate-400 hover:text-white text-lg font-bold"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      <form onSubmit={handleUpdateProfile} className="space-y-4 text-xs">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Full Name</label>
+                          <input
+                            type="text"
+                            required
+                            value={editProfileForm.fullName}
+                            onChange={(e) => setEditProfileForm({ ...editProfileForm, fullName: e.target.value })}
+                            className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-805 text-white focus:outline-none focus:border-cyan-500"
+                          />
+                        </div>
+
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-bold text-slate-500 uppercase">Phone Number</label>
                           <input
                             type="text"
+                            required
                             value={editProfileForm.phone}
                             onChange={(e) => setEditProfileForm({ ...editProfileForm, phone: e.target.value })}
-                            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-cyan-500"
+                            className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-805 text-white focus:outline-none focus:border-cyan-500"
                           />
                         </div>
+
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-500 uppercase">Address Location</label>
+                          <label className="text-[10px] font-bold text-slate-500 uppercase">Office Address Location</label>
                           <input
                             type="text"
+                            required
                             value={editProfileForm.address}
                             onChange={(e) => setEditProfileForm({ ...editProfileForm, address: e.target.value })}
-                            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-cyan-500"
+                            className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-805 text-white focus:outline-none focus:border-cyan-500"
                           />
                         </div>
-                      </div>
-                      <div className="flex space-x-2.5">
-                        <button
-                          type="submit"
-                          className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-xl transition-colors active:scale-[0.98]"
-                        >
-                          Save Profile
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditProfileForm({ phone: profile?.phone || '', address: profile?.address || '' });
-                            setIsEditingProfile(false);
-                          }}
-                          className="px-4 py-2 bg-slate-900 hover:bg-slate-850 text-slate-400 font-semibold rounded-xl active:scale-[0.98]"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  )}
-                </div>
 
-                {/* 2. Change Password Forms */}
-                <div className="p-6 rounded-2xl bg-[#090d16]/30 border border-[#111827] space-y-4">
-                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">Update Security Credentials</h4>
-                  {passwordError && <p className="text-xs text-red-400 bg-red-950/30 p-2.5 rounded-xl border border-red-900/40">{passwordError}</p>}
-                  
-                  <form onSubmit={handleChangePassword} className="space-y-4 text-xs">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Current Password</label>
-                      <input
-                        type="password"
-                        placeholder="••••••••"
-                        value={passwordForm.oldPassword}
-                        onChange={(e) => setPasswordForm({ ...passwordForm, oldPassword: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-cyan-500"
-                      />
+                        <div className="pt-3 border-t border-slate-805 flex justify-end space-x-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingProfile(false)}
+                            className="px-4 py-2 bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 font-semibold rounded-xl"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            className="px-4.5 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:brightness-105 text-white font-bold rounded-xl shadow-lg transition-all"
+                          >
+                            Save Changes
+                          </button>
+                        </div>
+                      </form>
+
                     </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">New Password</label>
-                      <input
-                        type="password"
-                        placeholder="Minimum 6 characters"
-                        value={passwordForm.newPassword}
-                        onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-cyan-500"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Confirm New Password</label>
-                      <input
-                        type="password"
-                        placeholder="Confirm password"
-                        value={passwordForm.confirmPassword}
-                        onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-cyan-500"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="w-full py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:brightness-105 text-white font-bold rounded-xl active:scale-[0.98] transition-all"
-                    >
-                      Update Password
-                    </button>
-                  </form>
-                </div>
+                  </div>
+                )}
 
               </div>
-            </div>
-          )}
+            );
+          })()}
 
         </main>
       </div>

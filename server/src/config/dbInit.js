@@ -205,6 +205,14 @@ async function initializeDatabase() {
         is_read BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
+
+      CREATE TABLE IF NOT EXISTS employee_activities (
+        id SERIAL PRIMARY KEY,
+        employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+        action VARCHAR(200) NOT NULL,
+        status VARCHAR(50) DEFAULT 'success',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     // Sync complaints check constraints (if tables already exist)

@@ -70,6 +70,13 @@ async function employeeLogin(req, res) {
       maxAge: 24 * 60 * 60 * 1000 // 1 day
     });
 
+    // Log login activity
+    try {
+      await db.query('INSERT INTO employee_activities (employee_id, action) VALUES ($1, $2)', [user.employee_id, 'Login']);
+    } catch (e) {
+      console.error('[EmployeeAuthController] Activity logging failed:', e.message);
+    }
+
     // 6. Return sanitized user context
     return res.json({
       message: 'Login successful.',
