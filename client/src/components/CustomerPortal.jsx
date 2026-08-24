@@ -9,24 +9,24 @@ const formatPKR = (amount) => {
 const getStatusBadge = (status) => {
   switch (status?.toLowerCase()) {
     case 'assigned':
-      return 'bg-blue-100 text-blue-805 text-blue-800 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800';
+      return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase';
     case 'accepted':
-      return 'bg-cyan-100 text-cyan-805 text-cyan-800 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-400 dark:border-cyan-800';
+      return 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-450 border border-cyan-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase';
     case 'on_the_way':
     case 'on the way':
-      return 'bg-purple-105 bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400 dark:border-purple-800';
+      return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase';
     case 'in_progress':
     case 'in progress':
-      return 'bg-amber-105 bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800';
+      return 'bg-amber-500/10 text-amber-605 dark:text-amber-450 border border-amber-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase';
     case 'completed':
     case 'resolved':
-      return 'bg-emerald-105 bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900';
+      return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-450 border border-emerald-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase';
     case 'pending':
-      return 'bg-slate-105 bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-900/60 dark:text-slate-400 dark:border-slate-800';
+      return 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase';
     case 'rejected':
-      return 'bg-red-105 bg-red-105 bg-red-100 text-red-805 text-red-800 border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800';
+      return 'bg-rose-500/10 text-rose-600 dark:text-rose-450 border border-rose-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase';
     default:
-      return 'bg-slate-105 bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-900/60 dark:text-slate-400 dark:border-slate-800';
+      return 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border border-slate-500/20 px-2 py-0.5 rounded text-[10px] font-bold uppercase';
   }
 };
 
@@ -50,6 +50,7 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Dashboard & details states
   const [dashboardData, setDashboardData] = useState(null);
@@ -303,7 +304,7 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
           title: 'Outstanding Invoice Due',
           message: `Your current outstanding balance is ${formatPKR(dashboardData.currentBill)}. Please make a payment to avoid service interruption.`,
           date: new Date().toLocaleDateString(),
-          type: 'warning'
+          type: 'critical'
         });
       }
       if (dashboardData.accountStatus === 'suspended') {
@@ -328,6 +329,41 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
 
   const notificationsList = getDynamicNotifications();
 
+  // Unified Activity Feed compiler
+  const getActivityFeed = () => {
+    const feed = [];
+    complaints.slice(0, 3).forEach(c => {
+      feed.push({
+        type: 'Complaint Filed',
+        title: parseCleanSubject(c.subject),
+        date: c.created_at,
+        status: c.status,
+        color: c.status === 'resolved' ? 'emerald' : 'cyan'
+      });
+    });
+    requests.slice(0, 3).forEach(r => {
+      feed.push({
+        type: 'Service Request',
+        title: r.task_type,
+        date: r.created_at,
+        status: r.status,
+        color: r.status === 'completed' ? 'emerald' : 'amber'
+      });
+    });
+    billing.slice(0, 3).forEach(b => {
+      feed.push({
+        type: 'Billing Invoice',
+        title: `Issued for ${b.billing_month}`,
+        date: b.due_date,
+        status: b.status,
+        color: b.status === 'paid' ? 'emerald' : 'rose'
+      });
+    });
+    return feed.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 4);
+  };
+
+  const recentActivities = getActivityFeed();
+
   // Sidebar navigation mapping
   const menuItems = [
     { id: 'Dashboard', label: 'Dashboard', icon: '🏠' },
@@ -340,67 +376,187 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
     { id: 'Password', label: 'Change Password', icon: '🔐' }
   ];
 
-  return (
-    <div className={`flex min-h-screen font-sans w-full selection:bg-cyan-500 overflow-x-hidden relative theme-transition ${activeTheme === 'dark' ? 'dark bg-[#080d16] text-white' : 'bg-slate-50 text-slate-900'}`}>
+  // Render skeletons during initial loading state
+  const renderSkeletons = () => (
+    <div className="space-y-6 animate-pulse p-6">
+      {/* Hero skeleton */}
+      <div className="h-28 rounded-3xl bg-slate-200 dark:bg-slate-800 w-full" />
       
-      {/* Dynamic theme style overrides */}
+      {/* Metrics grid skeleton */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="h-24 rounded-2xl bg-slate-200 dark:bg-slate-800" />
+        ))}
+      </div>
+
+      {/* Sub-panels skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="h-48 rounded-2xl bg-slate-200 dark:bg-slate-800" />
+        <div className="h-48 rounded-2xl bg-slate-200 dark:bg-slate-800" />
+      </div>
+    </div>
+  );
+
+  return (
+    <div className={`flex min-h-screen font-sans w-full selection:bg-cyan-500 overflow-x-hidden relative theme-transition ${
+      activeTheme === 'dark' 
+        ? 'dark bg-[#050914] text-slate-100' 
+        : 'bg-[#F5F7FB] text-slate-900'
+    }`}>
+      
+      {/* Theme Transition Overrides */}
       <style dangerouslySetInnerHTML={{__html: `
         .theme-transition, .theme-transition *, .theme-transition aside, .theme-transition main, .theme-transition header, .theme-transition div {
-          transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease !important;
+          transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), color 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(148, 163, 184, 0.2);
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(148, 163, 184, 0.4);
         }
       `}} />
 
-      {/* Sidebar navigation */}
-      <aside className="w-[280px] border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b1220] hidden lg:flex flex-col h-screen sticky top-0 z-40 shrink-0">
-        <div className="p-6 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+      {/* 1. Desktop Sidebar */}
+      <aside className="w-[260px] border-r border-slate-200 dark:border-slate-900 bg-white dark:bg-[#080D18] hidden lg:flex flex-col h-screen sticky top-0 z-40 shrink-0">
+        <div className="p-5 border-b border-slate-100 dark:border-slate-900 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-650 flex items-center justify-center shadow-lg">
+            <div className="w-8.5 h-8.5 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-650 flex items-center justify-center shadow-md shadow-cyan-500/10">
               <span className="text-white text-xs">🌐</span>
             </div>
             <div>
-              <span className="font-extrabold text-sm tracking-wider uppercase text-slate-900 dark:text-white block">Customer Portal</span>
-              <span className="text-[9px] text-cyan-600 dark:text-cyan-400 font-mono tracking-widest block uppercase mt-0.5">Self Service</span>
+              <span className="font-black text-xs uppercase tracking-wider text-slate-900 dark:text-white block">CUSTOMER PORTAL</span>
+              <span className="text-[8px] text-cyan-600 dark:text-cyan-400 font-bold tracking-widest block uppercase mt-0.5">Self Service Hub</span>
             </div>
           </div>
         </div>
 
-        {/* Sidebar tabs */}
+        {/* Sidebar Nav menu links */}
         <nav className="flex-grow p-4 space-y-1.5 overflow-y-auto custom-scrollbar">
           {menuItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 relative group ${
+              onClick={() => { setActiveTab(item.id); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 relative group ${
                 activeTab === item.id 
-                  ? 'bg-cyan-50 text-cyan-800 border-l-2 border-cyan-500 dark:bg-slate-900 dark:text-cyan-400 dark:border-cyan-400' 
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 hover:text-slate-900 dark:hover:bg-slate-900/50 dark:hover:text-white'
+                  ? 'bg-cyan-50 dark:bg-slate-900 text-cyan-600 dark:text-cyan-450 border-l-[3px] border-cyan-500 dark:border-cyan-400 shadow-sm' 
+                  : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900/40 hover:text-slate-800 dark:hover:text-white'
               }`}
             >
-              <span className="text-base">{item.icon}</span>
+              <span className="text-base leading-none">{item.icon}</span>
               <span>{item.label}</span>
+              
+              {/* Highlight dot if notifications has count */}
+              {item.id === 'Notifications' && notificationsList.length > 0 && (
+                <span className="absolute right-4 w-2 h-2 rounded-full bg-cyan-500 dark:bg-cyan-400 animate-ping" />
+              )}
             </button>
           ))}
         </nav>
 
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800">
+        {/* Logout section */}
+        <div className="p-4 border-t border-slate-100 dark:border-slate-900">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium text-red-605 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/20 dark:hover:text-red-300 transition-all duration-150"
+            className="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 hover:text-rose-600 dark:hover:text-rose-300 transition-colors duration-150"
           >
-            <span className="text-base">🚪</span>
+            <span className="text-base leading-none">🚪</span>
             <span>Logout Session</span>
           </button>
         </div>
       </aside>
 
-      {/* Main Content Pane */}
-      <div className="flex-grow flex flex-col min-w-0 h-screen overflow-y-auto">
+      {/* 2. Mobile Drawer Navigation Overlay */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 flex lg:hidden bg-slate-950/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-[260px] bg-white dark:bg-[#080D18] border-r border-slate-200 dark:border-slate-900 flex flex-col h-full p-4 relative animate-slide-in-left">
+            <button 
+              onClick={() => setMobileMenuOpen(false)}
+              className="absolute top-4 right-4 text-slate-500 dark:text-slate-400 text-sm hover:text-slate-800 dark:hover:text-white"
+            >
+              ✕
+            </button>
+
+            <div className="py-4 border-b border-slate-100 dark:border-slate-900 flex items-center space-x-3 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-cyan-500 flex items-center justify-center text-white text-xs">🌐</div>
+              <span className="font-extrabold text-xs text-slate-909 text-slate-900 dark:text-white">CUSTOMER PORTAL</span>
+            </div>
+
+            <nav className="flex-grow space-y-1 overflow-y-auto custom-scrollbar">
+              {menuItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => { setActiveTab(item.id); setMobileMenuOpen(false); }}
+                  className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                    activeTab === item.id 
+                      ? 'bg-cyan-50 dark:bg-slate-900 text-cyan-600 dark:text-cyan-455 border-l-[3px] border-cyan-500' 
+                      : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900/40'
+                  }`}
+                >
+                  <span className="text-base">{item.icon}</span>
+                  <span>{item.label}</span>
+                </button>
+              ))}
+            </nav>
+
+            <div className="pt-4 border-t border-slate-100 dark:border-slate-900 mt-auto">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+              >
+                <span>🚪</span>
+                <span>Logout Session</span>
+              </button>
+            </div>
+          </div>
+          <div className="flex-grow" onClick={() => setMobileMenuOpen(false)} />
+        </div>
+      )}
+
+      {/* 3. Main Content Pane */}
+      <div className="flex-grow flex flex-col min-w-0 h-screen overflow-y-auto custom-scrollbar">
         
-        {/* Header toolbar */}
-        <header className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0b1220] py-4 px-6 md:px-8 flex items-center justify-between sticky top-0 z-30 shrink-0">
-          <div>
-            <h1 className="text-base md:text-lg font-bold text-slate-900 dark:text-white uppercase tracking-wider">Customer Dashboard</h1>
-            <p className="text-[10px] text-slate-500 dark:text-slate-500 font-light">Service plan summary, invoicing history, and technical complaints.</p>
+        {/* Top Header */}
+        <header className="border-b border-slate-200 dark:border-slate-900 bg-white dark:bg-[#080D18] py-4 px-6 md:px-8 flex items-center justify-between sticky top-0 z-30 shrink-0">
+          <div className="flex items-center space-x-3">
+            {/* Hamburger for mobile */}
+            <button 
+              onClick={() => setMobileMenuOpen(true)}
+              className="p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-600 dark:text-slate-400 lg:hidden focus:outline-none"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <div>
+              <h1 className="text-sm md:text-base font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                {activeTab === 'Dashboard' && 'Account Dashboard'}
+                {activeTab === 'Service' && 'My Internet Connection'}
+                {activeTab === 'Requests' && 'Technical Requests'}
+                {activeTab === 'Complaints' && 'Support Tickets'}
+                {activeTab === 'Billing' && 'Billing & Invoicing'}
+                {activeTab === 'Profile' && 'Account Settings'}
+                {activeTab === 'Notifications' && 'System Notifications'}
+                {activeTab === 'Password' && 'Security Configuration'}
+              </h1>
+              <p className="text-[9px] text-slate-500 dark:text-slate-400 font-light mt-0.5 hidden sm:block">
+                {activeTab === 'Dashboard' && 'ISP self-service profile status, billing, and action tiles.'}
+                {activeTab === 'Service' && 'Details of active bandwidth profiles, packages, and installation parameters.'}
+                {activeTab === 'Requests' && 'Manage your installation, package change, or speed upgrade logs.'}
+                {activeTab === 'Complaints' && 'Report issues or track active complaints workflow updates.'}
+                {activeTab === 'Billing' && 'Check invoices, past payment receipts, and balance statuses.'}
+                {activeTab === 'Profile' && 'Configure and save your account contact parameters.'}
+                {activeTab === 'Notifications' && 'Alert warnings, system upgrades, and service status notifications.'}
+                {activeTab === 'Password' && 'Change portal password credentials for active session lock.'}
+              </p>
+            </div>
           </div>
           
           <div className="flex items-center space-x-4">
@@ -408,13 +564,13 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
             <div className="relative">
               <button
                 onClick={() => setShowThemeDropdown(!showThemeDropdown)}
-                className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-[#111827] text-slate-600 dark:text-slate-400 transition-colors flex items-center"
+                className="p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-600 dark:text-slate-400 transition-colors flex items-center"
               >
-                <span className="text-lg">{activeTheme === 'light' ? '☀️' : '🌙'}</span>
+                <span className="text-base">{activeTheme === 'light' ? '☀️' : '🌙'}</span>
               </button>
               
               {showThemeDropdown && (
-                <div className="absolute right-0 mt-2.5 w-36 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 shadow-2xl py-2 z-50 text-xs">
+                <div className="absolute right-0 mt-2.5 w-36 rounded-2xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-800 shadow-2xl py-2 z-50 text-xs">
                   {[
                     { mode: 'auto', label: '⚙️ Automatic' },
                     { mode: 'light', label: '☀️ Light Mode' },
@@ -427,7 +583,7 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                         setThemePreference(t.mode);
                         setShowThemeDropdown(false);
                       }}
-                      className={`w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-[#0f172a] transition-colors flex items-center justify-between ${
+                      className={`w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-colors flex items-center justify-between ${
                         themePreference === t.mode ? 'text-cyan-600 dark:text-cyan-400 font-bold' : 'text-slate-700 dark:text-slate-400'
                       }`}
                     >
@@ -438,13 +594,25 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
               )}
             </div>
 
-            <div className="flex items-center space-x-2">
-              <div className="w-8.5 h-8.5 rounded-xl bg-cyan-50 dark:bg-cyan-500/20 border border-slate-200 dark:border-slate-800 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-extrabold text-xs">
+            {/* Quick notifications icon */}
+            <button 
+              onClick={() => setActiveTab('Notifications')}
+              className="p-2 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-600 dark:text-slate-400 relative"
+            >
+              <span className="text-base">🔔</span>
+              {notificationsList.length > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-cyan-500 animate-ping" />
+              )}
+            </button>
+
+            {/* Customer Avatar & Badge */}
+            <div className="flex items-center space-x-2 border-l border-slate-100 dark:border-slate-900 pl-4">
+              <div className="w-8 h-8 rounded-xl bg-cyan-50 dark:bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-600 dark:text-cyan-400 font-bold text-[11px]">
                 {(profile?.full_name || user?.name || 'ME').slice(0, 2).toUpperCase()}
               </div>
-              <div className="hidden sm:block text-left">
-                <span className="text-xs font-bold text-slate-900 dark:text-white block leading-none">{profile?.full_name || user?.name}</span>
-                <span className="text-[8px] text-slate-505 text-slate-500 dark:text-slate-500 uppercase tracking-widest font-extrabold block mt-0.5">SUBSCRIBER</span>
+              <div className="hidden md:block text-left leading-tight">
+                <span className="text-[11px] font-bold text-slate-900 dark:text-white block">{profile?.full_name || user?.name}</span>
+                <span className="text-[7.5px] tracking-wider uppercase font-black text-cyan-600 dark:text-cyan-400">SUBSCRIBER</span>
               </div>
             </div>
           </div>
@@ -453,227 +621,379 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
         <main className="flex-grow p-6 space-y-6">
           
           {loading ? (
-            <div className="py-20 text-center text-xs text-slate-500 dark:text-slate-500">Loading subscriber services...</div>
+            renderSkeletons()
           ) : error ? (
-            <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 text-xs">{error}</div>
+            <div className="p-5 rounded-2xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-400 text-xs flex justify-between items-center max-w-xl mx-auto shadow-sm">
+              <span>Unable to load your service information.</span>
+              <button 
+                onClick={loadPortalData}
+                className="px-3 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-bold uppercase text-[9px] transition-colors"
+              >
+                Try Again
+              </button>
+            </div>
           ) : (
             <>
-              {/* Dashboard Tab */}
+              {/* ==================== A. DASHBOARD TAB ==================== */}
               {activeTab === 'Dashboard' && (
                 <div className="space-y-6 animate-fade-in-up">
                   
-                  {/* Top Welcome Banner */}
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 gap-4 shadow-sm">
-                    <div className="space-y-1">
-                      <h2 className="text-xl font-bold text-slate-900 dark:text-white">{getGreeting()}, {profile?.full_name || user?.name} 👋</h2>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Here's your internet service overview.</p>
+                  {/* Dashboard Premium Hero Banner */}
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 gap-4 shadow-sm hover:shadow transition-shadow relative overflow-hidden">
+                    <div className="absolute -right-16 -top-16 w-48 h-48 bg-cyan-500/5 dark:bg-cyan-500/5 rounded-full blur-2xl pointer-events-none" />
+                    
+                    <div className="space-y-1.5 z-10">
+                      <h2 className="text-lg md:text-xl font-black text-slate-900 dark:text-white">
+                        {getGreeting()}, {profile?.full_name || user?.name} 👋
+                      </h2>
+                      <div className="flex items-center space-x-2">
+                        <span className={`w-2 h-2 rounded-full ${
+                          dashboardData?.accountStatus === 'suspended' ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500 animate-pulse'
+                        }`} />
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                          {dashboardData?.accountStatus === 'suspended' ? 'Service Suspended' : 'Service Active'}
+                        </span>
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500">•</span>
+                        <span className="text-[10px] text-slate-550 dark:text-slate-400 font-medium">Your connection details and actions look good.</span>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 dark:bg-[#0E1626] border border-slate-200/50 dark:border-slate-800 p-3.5 rounded-2xl flex items-center space-x-3 shrink-0 z-10 shadow-inner">
+                      <span className="text-xl">🌐</span>
+                      <div>
+                        <span className="text-[8px] uppercase tracking-wider text-slate-450 dark:text-slate-550 block font-bold">CURRENT PLAN</span>
+                        <span className="text-xs font-extrabold text-slate-905 text-slate-900 dark:text-white block mt-0.5">{dashboardData?.packageName || 'N/A'}</span>
+                        <span className="text-[9px] text-cyan-600 dark:text-cyan-400 font-semibold">{dashboardData?.speedMbps || 0} Mbps Bandwidth</span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Summary Metric Cards */}
+                  {/* 5-Column Metrics Grid */}
                   <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                     {[
                       { 
                         label: "Current Package", 
                         val: dashboardData?.packageName || 'No Active Package', 
                         sub: dashboardData?.speedMbps ? `${dashboardData.speedMbps} Mbps` : 'N/A', 
-                        icon: '🌐' 
+                        icon: '🌐',
+                        status: 'green'
                       },
                       { 
                         label: "Service Status", 
                         val: dashboardData?.accountStatus ? (dashboardData.accountStatus.charAt(0).toUpperCase() + dashboardData.accountStatus.slice(1)) : 'Active', 
-                        color: dashboardData?.accountStatus === 'suspended' ? 'text-amber-500 font-bold' : (dashboardData?.accountStatus === 'inactive' ? 'text-rose-500 font-bold' : 'text-emerald-500 font-bold'), 
-                        sub: 'Status',
-                        icon: '⚡' 
+                        color: dashboardData?.accountStatus === 'suspended' ? 'text-amber-500' : 'text-emerald-500', 
+                        sub: dashboardData?.accountStatus === 'suspended' ? 'Suspension Alert' : 'Connected successfully',
+                        icon: '⚡',
+                        status: dashboardData?.accountStatus === 'suspended' ? 'amber' : 'green'
                       },
                       { 
                         label: "Current Bill", 
                         val: formatPKR(dashboardData?.currentBill), 
                         sub: billing.length > 0 && dashboardData?.currentBill > 0 ? `Due: ${new Date(billing[0].due_date).toLocaleDateString()}` : 'No dues pending',
-                        color: dashboardData?.currentBill > 0 ? 'text-rose-550 text-rose-600 font-black dark:text-rose-400' : 'text-slate-900 dark:text-white',
-                        icon: '💳' 
+                        color: dashboardData?.currentBill > 0 ? 'text-rose-500 font-extrabold' : 'text-slate-900 dark:text-white',
+                        icon: '💳',
+                        status: dashboardData?.currentBill > 0 ? 'red' : 'green'
                       },
                       { 
                         label: "Open Complaints", 
                         val: dashboardData?.openComplaintsCount || 0, 
                         sub: 'Active tickets',
-                        icon: '🚨' 
+                        icon: '🚨',
+                        status: dashboardData?.openComplaintsCount > 0 ? 'amber' : 'green'
                       },
                       { 
                         label: "Service Requests", 
                         val: dashboardData?.pendingRequestsCount || 0, 
                         sub: 'Pending requests',
-                        icon: '🛠️' 
+                        icon: '🛠️',
+                        status: dashboardData?.pendingRequestsCount > 0 ? 'blue' : 'green'
                       }
                     ].map((card, i) => (
-                      <div key={i} className="p-4 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 transition-all duration-200 flex flex-col justify-between h-28 shadow-sm">
-                        <div className="flex justify-between items-center text-[10px] text-slate-500 dark:text-slate-400 tracking-wider uppercase font-bold">
+                      <div 
+                        key={i} 
+                        className="p-4 rounded-2xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md flex flex-col justify-between h-28 shadow-sm group"
+                      >
+                        <div className="flex justify-between items-center text-[9px] text-slate-500 dark:text-slate-400 tracking-wider uppercase font-bold">
                           <span>{card.label}</span>
-                          <span>{card.icon}</span>
+                          <span className="group-hover:scale-110 transition-transform">{card.icon}</span>
                         </div>
                         <div className="space-y-1">
                           <div className={`font-black text-xs md:text-sm ${card.color || 'text-slate-900 dark:text-white'} truncate`}>{card.val}</div>
-                          <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate font-semibold">{card.sub}</div>
+                          <div className="flex items-center space-x-1.5">
+                            <span className={`w-1.5 h-1.5 rounded-full ${
+                              card.status === 'green' ? 'bg-emerald-500' :
+                              card.status === 'amber' ? 'bg-amber-500' :
+                              card.status === 'red' ? 'bg-rose-500' : 'bg-blue-500'
+                            }`} />
+                            <span className="text-[9px] text-slate-400 dark:text-slate-500 truncate font-semibold">{card.sub}</span>
+                          </div>
                         </div>
                       </div>
                     ))}
                   </div>
 
-                  {/* Quick Shortcuts */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Active Plan Detail */}
-                    <div className="p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
-                      <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">My Subscribed Plan</h3>
-                      <div className="space-y-2 text-xs text-slate-600 dark:text-slate-400">
-                        <div>🌐 <strong className="text-slate-800 dark:text-slate-300">Plan Name:</strong> {service?.package_name || 'No Active Package'}</div>
-                        <div>⚡ <strong className="text-slate-800 dark:text-slate-300">Connection Speed:</strong> {service?.speed_mbps || 0} Mbps</div>
-                        <div>💳 <strong className="text-slate-800 dark:text-slate-300">Monthly Billing:</strong> {service?.monthly_price ? formatPKR(service.monthly_price) : 'Rs. 0'}</div>
-                        <div>📅 <strong className="text-slate-800 dark:text-slate-300">Installation Date:</strong> {service?.installation_date ? new Date(service.installation_date).toLocaleDateString() : 'N/A'}</div>
-                        <button
-                          onClick={() => setActiveTab('Service')}
-                          className="mt-3 px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-[10px] uppercase transition-colors"
-                        >
-                          View Plan Details
-                        </button>
+                  {/* Main Hero & Quick Actions Content */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    {/* Visual Plan Card */}
+                    <div className="lg:col-span-2 p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 space-y-4 shadow-sm relative overflow-hidden flex flex-col justify-between">
+                      <div className="absolute right-0 bottom-0 opacity-[0.02] dark:opacity-[0.02] pointer-events-none scale-150">🌐</div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-[9px] uppercase tracking-wider text-cyan-600 dark:text-cyan-400 font-extrabold block">MY INTERNET SERVICE</span>
+                            <h3 className="font-black text-slate-900 dark:text-white text-base md:text-lg mt-1">{service?.package_name || 'No Active Package'}</h3>
+                          </div>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase border ${
+                            service?.service_status === 'active' 
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' 
+                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                          }`}>
+                            ● {service?.service_status || 'inactive'}
+                          </span>
+                        </div>
+                        
+                        {/* Speed Progress Bar */}
+                        <div className="pt-2 space-y-1">
+                          <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                            <span>Connection Bandwidth Limit</span>
+                            <span className="text-slate-900 dark:text-white">{service?.speed_mbps || 0} Mbps / 100 Mbps max</span>
+                          </div>
+                          <div className="w-full bg-slate-100 dark:bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-200 dark:border-slate-800">
+                            <div 
+                              className="bg-gradient-to-r from-cyan-500 to-indigo-500 h-full rounded-full transition-all duration-500" 
+                              style={{ width: `${Math.min(100, Math.max(10, service?.speed_mbps || dashboardData?.speedMbps || 10))}%` }} 
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4 text-xs pt-4 border-t border-slate-105 dark:border-slate-900 mt-4">
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-500 block text-[9px] font-bold uppercase tracking-wider">Monthly price</span>
+                          <span className="font-bold text-slate-900 dark:text-white mt-0.5 block">{service?.monthly_price ? formatPKR(service.monthly_price) : 'Rs. 0'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-500 dark:text-slate-505 block text-[9px] font-bold uppercase tracking-wider">Installation Date</span>
+                          <span className="font-bold text-slate-900 dark:text-white mt-0.5 block">{service?.installation_date ? new Date(service.installation_date).toLocaleDateString() : 'N/A'}</span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => setActiveTab('Service')}
+                        className="mt-4 w-full py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-[#0E1626] dark:hover:bg-slate-900 text-slate-900 dark:text-white font-bold text-xs uppercase tracking-wide transition-all border border-slate-200 dark:border-slate-800"
+                      >
+                        View Plan Details →
+                      </button>
+                    </div>
+
+                    {/* Quick Action Tiles */}
+                    <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 space-y-4 shadow-sm flex flex-col justify-between">
+                      <div>
+                        <span className="text-[9px] uppercase tracking-wider text-cyan-600 dark:text-cyan-400 font-extrabold block">QUICK ACTIONS</span>
+                        <h3 className="font-black text-slate-900 dark:text-white text-sm mt-1">Portal Shortcuts</h3>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 flex-grow my-3">
+                        {[
+                          { title: "Report Issue", icon: "🚨", color: "text-rose-500 bg-rose-500/5 border-rose-500/10", tab: "Complaints" },
+                          { title: "Change Plan", icon: "🛠️", color: "text-cyan-500 bg-cyan-500/5 border-cyan-500/10", tab: "Requests" },
+                          { title: "View Bills", icon: "💳", color: "text-blue-500 bg-blue-500/5 border-blue-500/10", tab: "Billing" },
+                          { title: "My Internet", icon: "🌐", color: "text-indigo-500 bg-indigo-500/5 border-indigo-500/10", tab: "Service" }
+                        ].map((act, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setActiveTab(act.tab)}
+                            className="p-3.5 rounded-2xl bg-white dark:bg-[#0E1626]/60 border border-slate-200 dark:border-slate-800 flex flex-col items-center justify-center text-center hover:-translate-y-0.5 hover:shadow-sm transition-all"
+                          >
+                            <span className="text-xl mb-1.5">{act.icon}</span>
+                            <span className="font-bold text-[10px] text-slate-800 dark:text-slate-200">{act.title}</span>
+                          </button>
+                        ))}
                       </div>
                     </div>
 
-                    {/* Quick Ticket Action */}
-                    <div className="p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
-                      <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">Submit Quick Complaint</h3>
-                      <form onSubmit={handleComplaintSubmit} className="space-y-3">
+                  </div>
+
+                  {/* Complaints filing & Unified Activity Feed */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    
+                    {/* Fast complaint form */}
+                    <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 space-y-4 shadow-sm">
+                      <div>
+                        <h3 className="font-black text-slate-900 dark:text-white text-sm">Need Help?</h3>
+                        <p className="text-[10px] text-slate-500 mt-1">Report an internet issue and our support team will handle it.</p>
+                      </div>
+
+                      <form onSubmit={handleComplaintSubmit} className="space-y-3.5 text-xs">
                         <div className="grid grid-cols-2 gap-3">
-                          <select
-                            value={complaintForm.complaint_type}
-                            onChange={(e) => setComplaintForm({ ...complaintForm, complaint_type: e.target.value })}
-                            className="px-3 py-2 rounded-lg bg-white dark:bg-[#080d16] border border-slate-300 dark:border-[#1e293b] text-xs text-slate-900 dark:text-white focus:outline-none"
-                          >
-                            <option value="Speed Issue">Speed Issue</option>
-                            <option value="Cabling/Physical Issue">Cabling/Physical Issue</option>
-                            <option value="Billing/Invoicing">Billing/Invoicing</option>
-                            <option value="Routing/Config">Routing/Config</option>
-                            <option value="Frequent Disconnection">Disconnection</option>
-                            <option value="Other">Other</option>
-                          </select>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase">Issue Type</label>
+                            <select
+                              value={complaintForm.complaint_type}
+                              onChange={(e) => setComplaintForm({ ...complaintForm, complaint_type: e.target.value })}
+                              className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500/80"
+                            >
+                              <option value="Speed Issue">Speed Issue</option>
+                              <option value="Cabling/Physical Issue">Cable Issue</option>
+                              <option value="Billing/Invoicing">Billing Issue</option>
+                              <option value="Routing/Config">Config Issue</option>
+                              <option value="Frequent Disconnection">Disconnection</option>
+                              <option value="Other">Other</option>
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-400 uppercase">Priority</label>
+                            <select
+                              value={complaintForm.priority}
+                              onChange={(e) => setComplaintForm({ ...complaintForm, priority: e.target.value })}
+                              className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500/80"
+                            >
+                              <option value="low">Low</option>
+                              <option value="medium">Medium</option>
+                              <option value="high">High</option>
+                              <option value="urgent">Urgent</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase">Subject</label>
                           <input
                             type="text"
                             required
-                            placeholder="Subject summary..."
+                            placeholder="e.g. Connection dropping every few minutes"
                             value={complaintForm.subject}
                             onChange={(e) => setComplaintForm({ ...complaintForm, subject: e.target.value })}
-                            className="px-3 py-2 rounded-lg bg-white dark:bg-[#080d16] border border-slate-300 dark:border-[#1e293b] text-xs text-slate-900 dark:text-white focus:outline-none"
+                            className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500/80"
                           />
                         </div>
-                        <textarea
-                          required
-                          placeholder="Describe the technical issue in detail..."
-                          value={complaintForm.description}
-                          onChange={(e) => setComplaintForm({ ...complaintForm, description: e.target.value })}
-                          className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#080d16] border border-slate-300 dark:border-[#1e293b] text-xs text-slate-900 dark:text-white h-16 resize-none focus:outline-none"
-                        />
+
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-400 uppercase">Description</label>
+                          <textarea
+                            required
+                            placeholder="Provide details of the problem..."
+                            value={complaintForm.description}
+                            onChange={(e) => setComplaintForm({ ...complaintForm, description: e.target.value })}
+                            className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white h-16 resize-none focus:outline-none focus:border-cyan-500/80"
+                          />
+                        </div>
+
                         <button
                           type="submit"
                           disabled={submitting}
-                          className="w-full py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-[10px] uppercase transition-colors"
+                          className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold uppercase transition-colors text-[10px] tracking-wider"
                         >
-                          {submitting ? 'Filing Ticket...' : 'File Support Ticket'}
+                          {submitting ? 'Submitting Complaint...' : 'Submit Complaint →'}
                         </button>
                       </form>
                     </div>
+
+                    {/* Unified Activity Feed */}
+                    <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 space-y-4 shadow-sm flex flex-col justify-between">
+                      <div>
+                        <h3 className="font-black text-slate-900 dark:text-white text-sm">Recent Activity</h3>
+                        <p className="text-[10px] text-slate-500 mt-1">Real-time status updates of billing cycles, requests, and tickets.</p>
+                      </div>
+
+                      {recentActivities.length > 0 ? (
+                        <div className="space-y-3.5 my-2 flex-grow overflow-y-auto max-h-[220px] pr-1 custom-scrollbar">
+                          {recentActivities.map((act, idx) => (
+                            <div key={idx} className="flex justify-between items-center text-xs p-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-[#0E1626]/40 transition-colors border border-transparent hover:border-slate-100 dark:hover:border-slate-900/50">
+                              <div className="space-y-1 max-w-[75%]">
+                                <span className="text-[8px] font-bold uppercase text-slate-400 dark:text-slate-500 block">{act.type}</span>
+                                <span className="font-bold text-slate-905 text-slate-900 dark:text-white block text-[11px] truncate">{act.title}</span>
+                                <span className="text-[8px] text-slate-500 block mt-0.5">{new Date(act.date).toLocaleDateString()}</span>
+                              </div>
+                              <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase border ${
+                                act.status === 'resolved' || act.status === 'completed' || act.status === 'paid'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                  : (act.status === 'unpaid' || act.status === 'overdue' || act.status === 'rejected'
+                                      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-455 border-rose-500/20'
+                                      : 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20')
+                              }`}>{act.status}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-12 text-center flex-grow flex flex-col items-center justify-center space-y-3">
+                          <span className="text-slate-500 dark:text-slate-500 italic text-[11px]">No recent activity. Everything looks good right now.</span>
+                          <button 
+                            onClick={() => setActiveTab('Complaints')}
+                            className="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 text-[10px] text-slate-705 dark:text-slate-350 border border-slate-200 dark:border-slate-800 uppercase font-bold"
+                          >
+                            Report an Issue
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
                   </div>
 
                 </div>
               )}
 
-              {/* Profile Tab */}
+              {/* ==================== B. PROFILE TAB ==================== */}
               {activeTab === 'Profile' && (
-                <div className="p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 max-w-xl mx-auto space-y-6 animate-fade-in-up shadow-sm">
+                <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 max-w-xl mx-auto space-y-6 animate-fade-in-up shadow-sm">
                   <div>
-                    <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">My Profile Details</h3>
+                    <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider">My Profile Details</h3>
                     <p className="text-[10px] text-slate-500 mt-1">Review and update details of your customer billing account.</p>
                   </div>
 
                   {/* Profile info details block */}
-                  <div className="flex items-center space-x-4 pb-4 border-b border-slate-200 dark:border-slate-800/50">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg">
+                  <div className="flex items-center space-x-4 pb-4 border-b border-slate-100 dark:border-slate-900">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black text-sm">
                       {profile?.full_name?.slice(0, 2).toUpperCase()}
                     </div>
                     <div>
-                      <span className="text-sm font-bold text-slate-900 dark:text-white block">{profile?.full_name}</span>
-                      <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-mono block mt-1 uppercase">{profile?.customer_code}</span>
+                      <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">{profile?.full_name || 'N/A'}</h4>
+                      <span className="text-[10px] text-slate-500 dark:text-slate-500 block">System Account: {profile?.customer_code || 'N/A'}</span>
                     </div>
                   </div>
 
+                  {/* Profile update form */}
                   <form onSubmit={handleProfileSubmit} className="space-y-4 text-xs">
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 block">Customer ID (Read Only)</label>
-                        <input
-                          type="text"
-                          disabled
-                          value={profile?.id || ''}
-                          className="w-full px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-800 cursor-not-allowed"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 dark:text-slate-500 block">CNIC Number (Read Only)</label>
-                        <input
-                          type="text"
-                          disabled
-                          value={profile?.cnic || ''}
-                          className="w-full px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-800 cursor-not-allowed"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-650 text-slate-600 dark:text-slate-400 block">Subscriber Full Name *</label>
-                      <input
-                        type="text"
-                        required
-                        value={profileForm.full_name}
-                        onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
-                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#080d16] text-slate-900 dark:text-white border border-slate-300 dark:border-[#1e293b] focus:outline-none"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-655 text-slate-600 dark:text-slate-400 block">Phone Number *</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">Contact Phone</label>
                         <input
                           type="text"
                           required
                           value={profileForm.phone}
                           onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                          className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#080d16] text-slate-900 dark:text-white border border-slate-300 dark:border-[#1e293b] focus:outline-none"
+                          className="w-full px-3 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-955 dark:bg-slate-950 text-slate-905 text-slate-900 dark:text-white border border-slate-250 dark:border-slate-800 focus:outline-none focus:border-cyan-500"
                         />
                       </div>
+
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-655 text-slate-600 dark:text-slate-400 block">Registered Email *</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">Email Address</label>
                         <input
                           type="email"
                           required
                           value={profileForm.email}
                           onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-                          className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#080d16] text-slate-900 dark:text-white border border-slate-300 dark:border-[#1e293b] focus:outline-none"
+                          className="w-full px-3 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-955 dark:bg-slate-950 text-slate-905 text-slate-900 dark:text-white border border-slate-250 dark:border-slate-800 focus:outline-none focus:border-cyan-500"
                         />
                       </div>
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-655 text-slate-600 dark:text-slate-400 block">Service Delivery Address *</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">Physical Address</label>
                       <textarea
                         required
                         value={profileForm.address}
                         onChange={(e) => setProfileForm({ ...profileForm, address: e.target.value })}
-                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#080d16] text-slate-900 dark:text-white border border-slate-300 dark:border-[#1e293b] h-16 resize-none focus:outline-none"
+                        className="w-full px-3 py-2 rounded-lg bg-slate-50 dark:bg-slate-955 dark:bg-slate-955 dark:bg-slate-950 text-slate-905 text-slate-900 dark:text-white border border-slate-250 dark:border-slate-800 h-16 resize-none focus:outline-none focus:border-cyan-500"
                       />
                     </div>
 
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="w-full py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-bold uppercase transition-colors"
+                      className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold uppercase transition-colors"
                     >
                       {submitting ? 'Updating settings...' : 'Save Profile Settings'}
                     </button>
@@ -681,15 +1001,15 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                 </div>
               )}
 
-              {/* Service Details Tab */}
+              {/* ==================== C. SERVICE DETAILS TAB ==================== */}
               {activeTab === 'Service' && (
-                <div className="p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 max-w-xl mx-auto space-y-6 animate-fade-in-up shadow-sm">
+                <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 max-w-xl mx-auto space-y-6 animate-fade-in-up shadow-sm">
                   <div>
-                    <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">My Internet Connection</h3>
+                    <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider">My Internet Connection</h3>
                     <p className="text-[10px] text-slate-500 mt-1">Details of your active bandwidth plans, installation and billing parameters.</p>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 text-xs bg-slate-50 dark:bg-[#0f172a] p-5 rounded-2xl border border-slate-200 dark:border-[#1e293b]">
+                  <div className="grid grid-cols-1 gap-4 text-xs bg-slate-50 dark:bg-[#0E1626]/80 p-5 rounded-2xl border border-slate-250 dark:border-slate-800">
                     <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800/80">
                       <span className="text-slate-500 dark:text-slate-400 font-semibold">Customer Name:</span>
                       <span className="font-bold text-slate-900 dark:text-white">{profile?.full_name || 'N/A'}</span>
@@ -714,8 +1034,8 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                       <span className="text-slate-500 dark:text-slate-400 font-semibold">Service Status:</span>
                       <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase border ${
                         service?.service_status === 'active' 
-                          ? 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-450 dark:border-emerald-900' 
-                          : 'bg-amber-105 bg-amber-100 text-amber-800 border-amber-250 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-900'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' 
+                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
                       }`}>
                         {service?.service_status || 'inactive'}
                       </span>
@@ -744,20 +1064,20 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                 </div>
               )}
 
-              {/* Service Requests Tab */}
+              {/* ==================== D. SERVICE REQUESTS TAB ==================== */}
               {activeTab === 'Requests' && (
                 <div className="space-y-6 animate-fade-in-up">
                   
-                  {/* Submission Form Card */}
-                  <div className="p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm max-w-xl mx-auto">
-                    <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">File Technical / Service Request</h3>
+                  {/* Request Form */}
+                  <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 space-y-4 shadow-sm max-w-xl mx-auto">
+                    <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider">File Technical / Service Request</h3>
                     <form onSubmit={handleRequestSubmit} className="space-y-4 text-xs">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-655 text-slate-600 dark:text-slate-400 uppercase">Request Category</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase block">Request Category</label>
                         <select
                           value={requestForm.request_type}
                           onChange={(e) => setRequestForm({ ...requestForm, request_type: e.target.value })}
-                          className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-[#080d16] border border-slate-350 border-slate-300 dark:border-[#1e293b] text-slate-900 dark:text-white focus:outline-none"
+                          className="w-full px-3 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
                         >
                           <option value="New Service Request">New Service Request</option>
                           <option value="Package Upgrade">Package Upgrade</option>
@@ -768,19 +1088,19 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                         </select>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-655 text-slate-600 dark:text-slate-400 uppercase">Brief Description</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase block">Description</label>
                         <textarea
                           required
                           value={requestForm.description}
                           onChange={(e) => setRequestForm({ ...requestForm, description: e.target.value })}
-                          placeholder="Provide details about speed requirements, installation parameters..."
-                          className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-[#080d16] border border-slate-350 border-slate-300 dark:border-[#1e293b] text-slate-900 dark:text-white h-24 focus:outline-none resize-none"
+                          placeholder="Provide details about package speed requirements or relocation details..."
+                          className="w-full px-3 py-2.5 rounded-lg bg-slate-555 bg-slate-50 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 text-slate-905 text-slate-900 dark:text-white h-24 focus:outline-none focus:border-cyan-500 resize-none"
                         />
                       </div>
                       <button
                         type="submit"
                         disabled={submitting}
-                        className="w-full py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-bold uppercase transition-colors"
+                        className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold uppercase transition-colors"
                       >
                         {submitting ? 'Submitting request...' : 'File Service Request'}
                       </button>
@@ -788,27 +1108,27 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                   </div>
 
                   {/* Requests History List */}
-                  <div className="p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
-                    <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">My Service Request Logs</h3>
+                  <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 space-y-4 shadow-sm">
+                    <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider">My Service Request Logs</h3>
                     {requests.length > 0 ? (
                       <div className="grid grid-cols-1 gap-3">
                         {requests.map((req) => (
-                          <div key={req.id} className="p-4 rounded-xl bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-[#1e293b] flex justify-between items-center shadow-sm">
+                          <div key={req.id} className="p-4 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-[#0E1626] dark:hover:bg-[#111827]/40 border border-slate-200 dark:border-slate-850 flex justify-between items-center transition-colors shadow-inner">
                             <div className="space-y-1.5">
                               <div className="flex items-center space-x-2">
-                                <span className="px-2 py-0.5 rounded bg-slate-105 bg-slate-100 dark:bg-slate-900 text-[10px] font-mono font-bold text-slate-800 dark:text-slate-300">REQ-{req.id}</span>
+                                <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-950 text-[10px] font-mono font-bold text-slate-805 text-slate-800 dark:text-slate-400">REQ-{req.id}</span>
                                 <span className="text-xs font-bold text-slate-900 dark:text-white">{req.task_type}</span>
                               </div>
                               <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-tight">{req.description}</p>
-                              <div className="text-[9px] text-slate-500 dark:text-slate-500">
+                              <div className="text-[9px] text-slate-505 text-slate-500">
                                 Filed on: {new Date(req.created_at).toLocaleString()}
                               </div>
                             </div>
                             <div>
                               <span className={`px-2.5 py-0.5 rounded text-[9px] uppercase font-bold border ${
-                                req.status === 'completed' ? 'bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950 dark:text-emerald-450 dark:border-emerald-900' :
-                                req.status === 'rejected' ? 'bg-red-100 text-red-800 border-red-250 dark:bg-red-950 dark:text-red-405 dark:border-red-900' :
-                                'bg-blue-100 text-blue-800 border-blue-250 dark:bg-blue-950 dark:text-blue-400 dark:border-blue-900'
+                                req.status === 'completed' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-450 border-emerald-500/20' :
+                                req.status === 'rejected' ? 'bg-rose-500/15 text-rose-600 dark:text-rose-450 border-rose-500/20' :
+                                'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/20'
                               }`}>
                                 {req.status}
                               </span>
@@ -817,28 +1137,30 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                         ))}
                       </div>
                     ) : (
-                      <div className="py-12 text-center text-slate-500 dark:text-slate-500 italic text-xs">No service requests filed yet.</div>
+                      <div className="py-12 text-center text-slate-500 dark:text-slate-550 italic text-xs">
+                        No active service requests
+                      </div>
                     )}
                   </div>
 
                 </div>
               )}
 
-              {/* Complaints Tab */}
+              {/* ==================== E. COMPLAINTS TAB ==================== */}
               {activeTab === 'Complaints' && (
                 <div className="space-y-6 animate-fade-in-up">
                   
-                  {/* Submission Form Card */}
-                  <div className="p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm max-w-xl mx-auto">
-                    <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">File Support / Complaint Ticket</h3>
+                  {/* Support Form */}
+                  <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 space-y-4 shadow-sm max-w-xl mx-auto">
+                    <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider">File Support / Complaint Ticket</h3>
                     <form onSubmit={handleComplaintSubmit} className="space-y-4 text-xs">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-655 text-slate-600 dark:text-slate-400 uppercase">Complaint Category</label>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase block">Category</label>
                           <select
                             value={complaintForm.complaint_type}
                             onChange={(e) => setComplaintForm({ ...complaintForm, complaint_type: e.target.value })}
-                            className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-[#080d16] border border-slate-350 border-slate-300 dark:border-[#1e293b] text-slate-900 dark:text-white focus:outline-none"
+                            className="w-full px-3 py-2.5 rounded-lg bg-slate-555 bg-slate-50 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 text-slate-905 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
                           >
                             <option value="Speed Issue">Speed Issue</option>
                             <option value="Cabling/Physical Issue">Cabling/Physical Issue</option>
@@ -849,11 +1171,11 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                           </select>
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-655 text-slate-600 dark:text-slate-400 uppercase">Priority level</label>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase block">Priority</label>
                           <select
                             value={complaintForm.priority}
                             onChange={(e) => setComplaintForm({ ...complaintForm, priority: e.target.value })}
-                            className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-[#080d16] border border-slate-350 border-slate-300 dark:border-[#1e293b] text-slate-900 dark:text-white focus:outline-none"
+                            className="w-full px-3 py-2.5 rounded-lg bg-slate-555 bg-slate-50 dark:bg-slate-955 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 text-slate-905 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
                           >
                             <option value="low">Low Priority</option>
                             <option value="medium">Medium Priority</option>
@@ -864,32 +1186,32 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-655 text-slate-600 dark:text-slate-400 uppercase">Subject</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase block">Subject</label>
                         <input
                           type="text"
                           required
-                          placeholder="e.g. Fiber link red indicator light flashing"
+                          placeholder="e.g. Red light flashing on optical network terminal"
                           value={complaintForm.subject}
                           onChange={(e) => setComplaintForm({ ...complaintForm, subject: e.target.value })}
-                          className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-[#080d16] border border-slate-350 border-slate-300 dark:border-[#1e293b] text-slate-900 dark:text-white focus:outline-none"
+                          className="w-full px-3 py-2.5 rounded-lg bg-slate-555 bg-slate-50 dark:bg-slate-955 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 text-slate-905 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
                         />
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-655 text-slate-600 dark:text-slate-400 uppercase">Problem Description</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase block">Problem Description</label>
                         <textarea
                           required
                           value={complaintForm.description}
                           onChange={(e) => setComplaintForm({ ...complaintForm, description: e.target.value })}
-                          placeholder="Describe the disconnection frequency, power fluctuations, error messages, etc."
-                          className="w-full px-3 py-2.5 rounded-lg bg-white dark:bg-[#080d16] border border-slate-350 border-slate-300 dark:border-[#1e293b] text-slate-900 dark:text-white h-24 focus:outline-none resize-none"
+                          placeholder="Describe the problem, errors or disconnection intervals in detail..."
+                          className="w-full px-3 py-2.5 rounded-lg bg-slate-555 bg-slate-50 dark:bg-slate-955 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 text-slate-905 text-slate-900 dark:text-white h-24 focus:outline-none focus:border-cyan-500 resize-none"
                         />
                       </div>
 
                       <button
                         type="submit"
                         disabled={submitting}
-                        className="w-full py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-bold uppercase transition-colors"
+                        className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold uppercase transition-colors"
                       >
                         {submitting ? 'Filing Complaint...' : 'File Support Ticket'}
                       </button>
@@ -897,23 +1219,23 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                   </div>
 
                   {/* Complaints Log List */}
-                  <div className="p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm">
-                    <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">My Support Tickets Log</h3>
+                  <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 space-y-4 shadow-sm">
+                    <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider">My Support Tickets Log</h3>
                     {complaints.length > 0 ? (
                       <div className="grid grid-cols-1 gap-3">
                         {complaints.map((comp) => (
                           <div 
                             key={comp.id} 
                             onClick={() => viewComplaintDetails(comp.id)}
-                            className="p-4 rounded-xl bg-white hover:bg-slate-50 dark:bg-[#0f172a] dark:hover:bg-[#111827]/40 border border-slate-200 dark:border-[#1e293b] flex justify-between items-center cursor-pointer shadow-sm transition-all"
+                            className="p-4 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-[#0E1626] dark:hover:bg-[#111827]/40 border border-slate-200 dark:border-slate-850 flex justify-between items-center cursor-pointer transition-colors shadow-inner"
                           >
                             <div className="space-y-1.5 max-w-[70%]">
                               <div className="flex items-center space-x-2">
-                                <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-900 text-[10px] font-mono font-bold text-slate-800 dark:text-slate-300">CMP-{comp.id}</span>
+                                <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-950 text-[10px] font-mono font-bold text-slate-805 text-slate-800 dark:text-slate-400">CMP-{comp.id}</span>
                                 <span className="text-xs font-bold text-slate-900 dark:text-white truncate">{parseCleanSubject(comp.subject)}</span>
                               </div>
                               <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-1">{comp.description}</p>
-                              <div className="text-[9px] text-slate-500 dark:text-slate-400 flex flex-wrap gap-x-2 gap-y-1 font-medium">
+                              <div className="text-[9px] text-slate-505 text-slate-500 flex flex-wrap gap-x-2 gap-y-1 font-medium">
                                 <span>Category: <span className="font-semibold text-cyan-600 dark:text-cyan-400">{parseComplaintType(comp.subject)}</span></span>
                                 <span>•</span>
                                 <span>Filed: {new Date(comp.created_at).toLocaleDateString()}</span>
@@ -925,8 +1247,9 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                             </div>
                             <div className="flex flex-col items-end space-y-2">
                               <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold border ${
-                                comp.status === 'resolved' || comp.status === 'closed' ? 'bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950 dark:text-emerald-450 dark:border-emerald-900' :
-                                'bg-purple-100 text-purple-800 border-purple-250 dark:bg-purple-950 dark:text-purple-400 dark:border-purple-900'
+                                comp.status === 'resolved' || comp.status === 'closed' 
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-450 border-emerald-500/20' 
+                                  : 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20'
                               }`}>
                                 {comp.status}
                               </span>
@@ -936,24 +1259,32 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                         ))}
                       </div>
                     ) : (
-                      <div className="py-12 text-center text-slate-505 text-slate-500 italic text-xs">No active support tickets found.</div>
+                      <div className="py-12 text-center flex flex-col items-center justify-center space-y-3">
+                        <span className="text-slate-500 dark:text-slate-500 italic text-[11px]">No active complaints</span>
+                        <button 
+                          onClick={() => setActiveTab('Dashboard')}
+                          className="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-bold uppercase text-[9px]"
+                        >
+                          Report an Issue
+                        </button>
+                      </div>
                     )}
                   </div>
 
                 </div>
               )}
 
-              {/* Billing Tab */}
-              {activeTab === 'History' || activeTab === 'Billing' ? (
-                <div className="p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm animate-fade-in-up">
+              {/* ==================== F. BILLING TAB ==================== */}
+              {(activeTab === 'History' || activeTab === 'Billing') && (
+                <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 space-y-4 shadow-sm animate-fade-in-up">
                   <div>
-                    <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">My Billing Invoices</h3>
+                    <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider">My Billing Invoices</h3>
                     <p className="text-[10px] text-slate-500 mt-1">Review historical billing cycles and payment validation status.</p>
                   </div>
 
-                  {/* Balance details */}
+                  {/* Overdue Payment notice alert box */}
                   {dashboardData?.currentBill > 0 && (
-                    <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-250 dark:border-amber-900/50 text-amber-800 dark:text-amber-400 text-xs flex items-center justify-between shadow-inner">
+                    <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-955/20 border border-amber-200 dark:border-amber-900/50 text-amber-800 dark:text-amber-400 text-xs flex items-center justify-between shadow-inner">
                       <div>
                         <strong className="block text-sm">Overdue Payment Notice</strong>
                         <p className="mt-0.5">Please settle your outstanding amount of {formatPKR(dashboardData.currentBill)} to ensure active high-speed connection.</p>
@@ -963,10 +1294,10 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                   )}
 
                   {billing.length > 0 ? (
-                    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-xs shadow-sm">
+                    <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-900 bg-white dark:bg-[#0B1220] text-xs shadow-sm">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#111827] text-slate-600 dark:text-slate-400 font-bold uppercase text-[9px]">
+                          <tr className="border-b border-slate-200 dark:border-slate-900 bg-slate-50 dark:bg-[#0E1626] text-slate-600 dark:text-slate-400 font-bold uppercase text-[9px]">
                             <th className="p-3">Invoice/Bill ID</th>
                             <th className="p-3">Billing Period</th>
                             <th className="p-3">Amount</th>
@@ -977,14 +1308,16 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                         </thead>
                         <tbody>
                           {billing.map((inv) => (
-                            <tr key={inv.id} className="border-b border-slate-100 dark:border-slate-800/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#111827]/40 transition-colors">
+                            <tr key={inv.id} className="border-b border-slate-100 dark:border-slate-900/80 text-slate-750 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#0E1626]/40 transition-colors">
                               <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">INV-{inv.id}</td>
-                              <td className="p-3 font-medium">{inv.billing_month}</td>
-                              <td className="p-3 font-semibold">{formatPKR(inv.amount)}</td>
+                              <td className="p-3 font-semibold">{inv.billing_month}</td>
+                              <td className="p-3 font-extrabold">{formatPKR(inv.amount)}</td>
                               <td className="p-3 text-slate-500 dark:text-slate-450">{new Date(inv.due_date).toLocaleDateString()}</td>
                               <td className="p-3">
                                 <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border ${
-                                  inv.status === 'paid' ? 'bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900' : 'bg-rose-105 bg-rose-100 text-rose-800 border-rose-250 dark:bg-rose-950/40 dark:text-rose-450 dark:border-rose-900'
+                                  inv.status === 'paid' 
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-450 border-emerald-500/20' 
+                                    : 'bg-rose-500/10 text-rose-600 dark:text-rose-450 border-rose-500/20'
                                 }`}>
                                   {inv.status}
                                 </span>
@@ -998,90 +1331,94 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                       </table>
                     </div>
                   ) : (
-                    <div className="py-12 text-center text-slate-505 text-slate-500 italic text-xs">No billing history found.</div>
+                    <div className="py-12 text-center text-slate-500 dark:text-slate-505 italic text-xs">
+                      No billing history
+                    </div>
                   )}
                 </div>
-              ) : null}
+              )}
 
-              {/* Notifications Tab */}
+              {/* ==================== G. NOTIFICATIONS TAB ==================== */}
               {activeTab === 'Notifications' && (
-                <div className="p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 space-y-4 shadow-sm animate-fade-in-up">
-                  <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">My Portal Notifications</h3>
+                <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 space-y-4 shadow-sm animate-fade-in-up max-w-xl mx-auto">
+                  <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider">My Portal Notifications</h3>
                   {notificationsList.length > 0 ? (
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       {notificationsList.map((notif) => (
                         <div 
                           key={notif.id} 
-                          className={`p-3.5 rounded-xl border flex items-start space-x-3 transition-colors ${
-                            notif.type === 'critical' ? 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-900/50' :
-                            notif.type === 'warning' ? 'bg-amber-50 border-amber-250 dark:bg-amber-950/20 dark:border-amber-900/50' :
-                            'bg-cyan-50 border-cyan-200 dark:bg-cyan-950/10 dark:border-cyan-900/30'
+                          className={`p-3.5 rounded-2xl border flex items-start space-x-3 transition-colors ${
+                            notif.type === 'critical' ? 'bg-rose-500/5 border-rose-500/10 text-rose-400' :
+                            notif.type === 'warning' ? 'bg-amber-500/5 border-amber-500/10 text-amber-400' :
+                            'bg-cyan-500/5 border-cyan-500/10 text-cyan-400'
                           }`}
                         >
-                          <span className="text-lg">🔔</span>
+                          <span className="text-base">🔔</span>
                           <div>
                             <span className="font-bold text-slate-900 dark:text-white block text-xs">{notif.title}</span>
-                            <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">{notif.message}</p>
-                            <span className="text-[8px] text-slate-500 dark:text-slate-500 mt-1 block">{notif.date}</span>
+                            <p className="text-[11px] text-slate-600 dark:text-slate-350 mt-0.5 leading-relaxed">{notif.message}</p>
+                            <span className="text-[8px] text-slate-400 mt-1 block">{notif.date}</span>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="py-12 text-center text-slate-500 dark:text-slate-500 italic text-xs">No notifications.</div>
+                    <div className="py-12 text-center text-slate-505 text-slate-500 italic text-xs">
+                      No notifications
+                    </div>
                   )}
                 </div>
               )}
 
-              {/* Change Password Tab */}
+              {/* ==================== H. CHANGE PASSWORD TAB ==================== */}
               {activeTab === 'Password' && (
-                <div className="p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 max-w-md mx-auto space-y-6 animate-fade-in-up shadow-sm">
+                <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 max-w-md mx-auto space-y-6 animate-fade-in-up shadow-sm">
                   <div>
-                    <h3 className="font-bold text-slate-900 dark:text-white text-xs uppercase tracking-wider">Change Portal Password</h3>
+                    <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider">Change Portal Password</h3>
                     <p className="text-[10px] text-slate-500 mt-1">Configure a strong password to protect your customer portal dashboard.</p>
                   </div>
 
                   <form onSubmit={handlePasswordSubmit} className="space-y-4 text-xs">
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-655 text-slate-600 dark:text-slate-400 block">Current Password</label>
+                      <label className="text-[10px] font-bold text-slate-400 block uppercase">Current Password</label>
                       <input
                         type="password"
                         required
                         placeholder="••••••••••••"
                         value={passwordForm.currentPassword}
                         onChange={(e) => setPasswordForm({ ...passwordForm, currentPassword: e.target.value })}
-                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#080d16] text-slate-900 dark:text-white border border-slate-300 dark:border-[#1e293b] focus:outline-none"
+                        className="w-full px-3 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white border border-slate-250 dark:border-slate-800 focus:outline-none focus:border-cyan-500"
                       />
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-655 text-slate-600 dark:text-slate-400 block">New Password</label>
+                      <label className="text-[10px] font-bold text-slate-400 block uppercase">New Password</label>
                       <input
                         type="password"
                         required
                         placeholder="••••••••••••"
                         value={passwordForm.newPassword}
                         onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#080d16] text-slate-900 dark:text-white border border-slate-300 dark:border-[#1e293b] focus:outline-none"
+                        className="w-full px-3 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white border border-slate-250 dark:border-slate-800 focus:outline-none focus:border-cyan-500"
                       />
                     </div>
 
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-655 text-slate-600 dark:text-slate-400 block">Confirm New Password</label>
+                      <label className="text-[10px] font-bold text-slate-400 block uppercase">Confirm New Password</label>
                       <input
                         type="password"
                         required
                         placeholder="••••••••••••"
                         value={passwordForm.confirmPassword}
                         onChange={(e) => setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })}
-                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-[#080d16] text-slate-900 dark:text-white border border-slate-300 dark:border-[#1e293b] focus:outline-none"
+                        className="w-full px-3 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white border border-slate-250 dark:border-slate-800 focus:outline-none focus:border-cyan-500"
                       />
                     </div>
 
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="w-full py-2.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-bold uppercase transition-colors"
+                      className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold uppercase transition-colors"
                     >
                       {submitting ? 'Updating password...' : 'Update Portal Password'}
                     </button>
@@ -1095,71 +1432,71 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
         </main>
       </div>
 
-      {/* Complaint Detail Timeline Modal */}
+      {/* Workflow Tracking Detail Modal (No white card leak, fits light/dark perfectly) */}
       {showComplaintModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-[500px] max-w-full rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 shadow-2xl space-y-4 text-xs text-slate-900 dark:text-white">
-            <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800">
+          <div className="w-[500px] max-w-full rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-250 dark:border-slate-850 p-6 shadow-2xl space-y-4 text-xs text-slate-900 dark:text-white relative animate-fade-in-up">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-900">
               <div>
-                <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">Track Ticket Updates</h4>
+                <h4 className="font-extrabold text-sm text-slate-905 text-slate-900 dark:text-white uppercase tracking-wider">Track Ticket Updates</h4>
                 {selectedComplaint && (
-                  <p className="text-[10px] text-slate-500 mt-0.5">Ticket ID: CMP-{selectedComplaint.id}</p>
+                  <p className="text-[9px] font-mono text-slate-500 mt-0.5">Ticket ID: CMP-{selectedComplaint.id}</p>
                 )}
               </div>
               <button 
                 onClick={() => { setShowComplaintModal(false); setSelectedComplaint(null); setComplaintHistory([]); }}
-                className="text-slate-500 hover:text-slate-700 dark:hover:text-white transition-colors"
+                className="text-slate-500 hover:text-slate-700 dark:hover:text-white transition-colors text-sm"
               >
                 ✕
               </button>
             </div>
 
             {detailsLoading || !selectedComplaint ? (
-              <div className="py-10 text-center text-slate-500">Loading timeline...</div>
+              <div className="py-10 text-center text-slate-505 text-slate-500 animate-pulse">Loading timeline...</div>
             ) : (
-              <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+              <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1 custom-scrollbar">
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-950 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px]">
+                  <div className="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-950 p-3.5 rounded-2xl border border-slate-250 dark:border-slate-800 text-[10px]">
                     <div>
-                      <span className="text-slate-500 dark:text-slate-400 block">Complaint ID:</span>
+                      <span className="text-slate-500 dark:text-slate-400 block font-bold">Complaint ID:</span>
                       <strong className="text-slate-900 dark:text-white font-mono">CMP-{selectedComplaint.id}</strong>
                     </div>
                     <div>
-                      <span className="text-slate-500 dark:text-slate-400 block">Category (Type):</span>
+                      <span className="text-slate-500 dark:text-slate-400 block font-bold">Category (Type):</span>
                       <strong className="text-slate-900 dark:text-white">{parseComplaintType(selectedComplaint.subject)}</strong>
                     </div>
                     <div>
-                      <span className="text-slate-500 dark:text-slate-400 block">Priority:</span>
-                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                      <span className="text-slate-500 dark:text-slate-400 block font-bold">Priority:</span>
+                      <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
                         selectedComplaint.priority === 'high' || selectedComplaint.priority === 'urgent'
-                          ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-400'
-                          : 'bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-400'
+                          ? 'bg-rose-500/10 text-rose-600 dark:text-rose-455'
+                          : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'
                       }`}>{selectedComplaint.priority}</span>
                     </div>
                     <div>
-                      <span className="text-slate-500 dark:text-slate-400 block">Status:</span>
-                      <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold border ${getStatusBadge(selectedComplaint.status)}`}>
+                      <span className="text-slate-500 dark:text-slate-400 block font-bold">Status:</span>
+                      <span className={`px-2 py-0.5 rounded text-[8px] uppercase font-bold border ${getStatusBadge(selectedComplaint.status)}`}>
                         {selectedComplaint.status}
                       </span>
                     </div>
                     <div>
-                      <span className="text-slate-500 dark:text-slate-400 block">Created Date:</span>
-                      <span className="text-slate-750 text-slate-700 dark:text-slate-300 font-medium">{new Date(selectedComplaint.created_at).toLocaleString()}</span>
+                      <span className="text-slate-500 dark:text-slate-400 block font-bold">Created Date:</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">{new Date(selectedComplaint.created_at).toLocaleString()}</span>
                     </div>
                     <div>
-                      <span className="text-slate-500 dark:text-slate-400 block">Last Updated:</span>
-                      <span className="text-slate-750 text-slate-700 dark:text-slate-300 font-medium">{new Date(selectedComplaint.updated_at || selectedComplaint.created_at).toLocaleString()}</span>
+                      <span className="text-slate-500 dark:text-slate-400 block font-bold">Last Updated:</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">{new Date(selectedComplaint.updated_at || selectedComplaint.created_at).toLocaleString()}</span>
                     </div>
                   </div>
                   
                   <div className="space-y-1">
-                    <span className="text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold tracking-wider">Subject:</span>
-                    <strong className="text-slate-905 text-slate-900 dark:text-white block text-sm font-bold">{parseCleanSubject(selectedComplaint.subject)}</strong>
+                    <span className="text-slate-500 dark:text-slate-400 text-[9px] uppercase font-bold tracking-wider">Subject:</span>
+                    <strong className="text-slate-900 dark:text-white block text-xs font-bold leading-snug">{parseCleanSubject(selectedComplaint.subject)}</strong>
                   </div>
 
                   <div className="space-y-1">
-                    <span className="text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold tracking-wider">Description:</span>
-                    <p className="bg-slate-50 dark:bg-slate-950 p-3 rounded-lg border border-slate-200 dark:border-slate-850 leading-relaxed text-slate-750 text-slate-700 dark:text-slate-300">
+                    <span className="text-slate-500 dark:text-slate-400 text-[9px] uppercase font-bold tracking-wider">Description:</span>
+                    <p className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200 dark:border-slate-850 leading-relaxed text-slate-700 dark:text-slate-300">
                       {selectedComplaint.description}
                     </p>
                   </div>
@@ -1167,27 +1504,27 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
 
                 {/* Timeline display */}
                 <div className="space-y-3.5 pt-2">
-                  <h5 className="font-bold text-[10px] tracking-wider uppercase text-slate-500 border-b border-slate-100 dark:border-slate-850 pb-1.5">Action History & Updates</h5>
+                  <h5 className="font-bold text-[9px] tracking-wider uppercase text-slate-500 border-b border-slate-100 dark:border-slate-850 pb-1.5">Action History & Updates</h5>
                   {complaintHistory.length > 0 ? (
-                    <div className="space-y-3 pl-3.5 border-l-2 border-slate-200 dark:border-slate-800 relative">
+                    <div className="space-y-3.5 pl-3.5 border-l-2 border-slate-200 dark:border-slate-800 relative ml-2">
                       {complaintHistory.map((step, idx) => (
                         <div key={idx} className="relative space-y-1">
-                          <span className="absolute -left-[20px] top-1 w-2.5 h-2.5 rounded-full bg-cyan-505 bg-cyan-500 border border-white dark:border-slate-900" />
+                          <span className="absolute -left-[20.5px] top-1 w-2.5 h-2.5 rounded-full bg-cyan-500 border border-white dark:border-[#0B1220]" />
                           <div className="flex justify-between items-center text-[10px]">
                             <span className="font-bold uppercase text-cyan-600 dark:text-cyan-400">{step.status}</span>
-                            <span className="text-slate-500">{new Date(step.created_at).toLocaleString()}</span>
+                            <span className="text-slate-500 text-[9px]">{new Date(step.created_at).toLocaleString()}</span>
                           </div>
-                          <p className="text-[11px] text-slate-705 text-slate-700 dark:text-slate-300 bg-slate-50/50 dark:bg-slate-950/20 p-2.5 rounded border border-slate-150 dark:border-slate-850">
+                          <p className="text-[10px] text-slate-700 dark:text-slate-300 bg-slate-50/50 dark:bg-slate-955/20 p-2.5 rounded-lg border border-slate-150 dark:border-slate-850">
                             {step.comment}
                           </p>
                           {step.employee_name && (
-                            <span className="text-[9px] text-slate-500 block">Representative: {step.employee_name}</span>
+                            <span className="text-[8px] text-slate-500 block">Representative: {step.employee_name}</span>
                           )}
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-4 text-slate-500 italic text-[11px]">No workflow action history logged yet. Ticket is pending review.</div>
+                    <div className="text-center py-4 text-slate-500 italic text-[10px]">No workflow action history logged yet. Ticket is pending review.</div>
                   )}
                 </div>
               </div>
