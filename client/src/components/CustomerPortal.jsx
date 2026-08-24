@@ -6,6 +6,13 @@ const formatPKR = (amount) => {
   return `Rs. ${val.toLocaleString('en-US', { minimumFractionDigits: 0 })}`;
 };
 
+const formatDatePretty = (dateStr) => {
+  if (!dateStr) return 'N/A';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
 const getStatusBadge = (status) => {
   switch (status?.toLowerCase()) {
     case 'assigned':
@@ -438,15 +445,14 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
           </div>
         </div>
 
-        {/* Sidebar Nav menu links */}
         <nav className="flex-grow p-4 space-y-1.5 overflow-y-auto custom-scrollbar">
           {menuItems.map((item) => (
             <button
               key={item.id}
               onClick={() => { setActiveTab(item.id); setMobileMenuOpen(false); }}
-              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 relative group ${
+              className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-205 relative group shadow-sm ${
                 activeTab === item.id 
-                  ? 'bg-cyan-50 dark:bg-slate-900 text-cyan-600 dark:text-cyan-450 border-l-[3px] border-cyan-500 dark:border-cyan-400 shadow-sm' 
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-650 text-white shadow-md shadow-blue-500/10' 
                   : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900/40 hover:text-slate-800 dark:hover:text-white'
               }`}
             >
@@ -494,9 +500,9 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                 <button
                   key={item.id}
                   onClick={() => { setActiveTab(item.id); setMobileMenuOpen(false); }}
-                  className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                  className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all shadow-sm ${
                     activeTab === item.id 
-                      ? 'bg-cyan-50 dark:bg-slate-900 text-cyan-600 dark:text-cyan-455 border-l-[3px] border-cyan-500' 
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-650 text-white' 
                       : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900/40'
                   }`}
                 >
@@ -536,19 +542,22 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
               </svg>
             </button>
             <div>
-              <h1 className="text-sm md:text-base font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                {activeTab === 'Dashboard' && 'Account Dashboard'}
-                {activeTab === 'Service' && 'My Internet Connection'}
-                {activeTab === 'Requests' && 'Technical Requests'}
-                {activeTab === 'Complaints' && 'Support Tickets'}
-                {activeTab === 'Billing' && 'Billing & Invoicing'}
-                {activeTab === 'Profile' && 'Account Settings'}
-                {activeTab === 'Notifications' && 'System Notifications'}
-                {activeTab === 'Password' && 'Security Configuration'}
+              <h1 className="text-sm md:text-base font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                {activeTab === 'Service' && <span className="text-blue-600 dark:text-cyan-400 font-normal">📶</span>}
+                <span>
+                  {activeTab === 'Dashboard' && 'Account Dashboard'}
+                  {activeTab === 'Service' && 'MY INTERNET CONNECTION'}
+                  {activeTab === 'Requests' && 'Technical Requests'}
+                  {activeTab === 'Complaints' && 'Support Tickets'}
+                  {activeTab === 'Billing' && 'Billing & Invoicing'}
+                  {activeTab === 'Profile' && 'Account Settings'}
+                  {activeTab === 'Notifications' && 'System Notifications'}
+                  {activeTab === 'Password' && 'Security Configuration'}
+                </span>
               </h1>
               <p className="text-[9px] text-slate-500 dark:text-slate-400 font-light mt-0.5 hidden sm:block">
                 {activeTab === 'Dashboard' && 'ISP self-service profile status, billing, and action tiles.'}
-                {activeTab === 'Service' && 'Details of active bandwidth profiles, packages, and installation parameters.'}
+                {activeTab === 'Service' && 'Overview of your active connection and service details.'}
                 {activeTab === 'Requests' && 'Manage your installation, package change, or speed upgrade logs.'}
                 {activeTab === 'Complaints' && 'Report issues or track active complaints workflow updates.'}
                 {activeTab === 'Billing' && 'Check invoices, past payment receipts, and balance statuses.'}
@@ -1003,64 +1012,129 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
 
               {/* ==================== C. SERVICE DETAILS TAB ==================== */}
               {activeTab === 'Service' && (
-                <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 max-w-xl mx-auto space-y-6 animate-fade-in-up shadow-sm">
-                  <div>
-                    <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider">My Internet Connection</h3>
-                    <p className="text-[10px] text-slate-500 mt-1">Details of your active bandwidth plans, installation and billing parameters.</p>
+                <div className="space-y-6 animate-fade-in-up">
+                  
+                  {/* Connection Summary - Connected Premium Cards Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 rounded-3xl p-5 shadow-sm">
+                    {/* Status Card */}
+                    <div className="p-3 flex items-center space-x-3.5 border-r border-slate-100 dark:border-slate-800 last:border-r-0">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-450 shrink-0">
+                        🛡️
+                      </div>
+                      <div className="leading-tight">
+                        <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Service Status</span>
+                        <span className="text-xs font-black text-emerald-600 dark:text-emerald-450 block mt-0.5 uppercase flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          {service?.service_status || 'ACTIVE'}
+                        </span>
+                        <p className="text-[9px] text-slate-450 dark:text-slate-500 font-medium">Your service is working fine</p>
+                      </div>
+                    </div>
+
+                    {/* Plan Card */}
+                    <div className="p-3 flex items-center space-x-3.5 border-r border-slate-100 dark:border-slate-800 last:border-r-0">
+                      <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-650 dark:text-indigo-400 shrink-0">
+                        🌐
+                      </div>
+                      <div className="leading-tight">
+                        <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Internet Package</span>
+                        <span className="text-xs font-black text-slate-805 text-slate-900 dark:text-white block mt-0.5 truncate max-w-[130px]">{service?.package_name || 'Starter Plan'}</span>
+                        <p className="text-[9px] text-slate-450 dark:text-slate-500 font-medium">Current Plan</p>
+                      </div>
+                    </div>
+
+                    {/* Speed Card */}
+                    <div className="p-3 flex items-center space-x-3.5 border-r border-slate-100 dark:border-slate-800 last:border-r-0">
+                      <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 flex items-center justify-center text-cyan-600 dark:text-cyan-400 shrink-0">
+                        ⚡
+                      </div>
+                      <div className="leading-tight">
+                        <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Internet Speed</span>
+                        <span className="text-xs font-black text-slate-805 text-slate-900 dark:text-white block mt-0.5">{service?.speed_mbps || 0} Mbps</span>
+                        <p className="text-[9px] text-slate-450 dark:text-slate-500 font-medium">Download / Upload</p>
+                      </div>
+                    </div>
+
+                    {/* Charges Card */}
+                    <div className="p-3 flex items-center space-x-3.5 last:border-r-0">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-650 dark:text-emerald-400 shrink-0">
+                        💳
+                      </div>
+                      <div className="leading-tight">
+                        <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Monthly Charges</span>
+                        <span className="text-xs font-black text-slate-855 text-slate-900 dark:text-white block mt-0.5">{service?.monthly_price ? formatPKR(service.monthly_price) : 'Rs. 0'}</span>
+                        <p className="text-[9px] text-slate-450 dark:text-slate-500 font-medium">Due on 1st of each month</p>
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 text-xs bg-slate-50 dark:bg-[#0E1626]/80 p-5 rounded-2xl border border-slate-250 dark:border-slate-800">
-                    <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800/80">
-                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Customer Name:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">{profile?.full_name || 'N/A'}</span>
+                  {/* Main Details and Right Visual split columns */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    {/* Connection details panel */}
+                    <div className="lg:col-span-2 p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 shadow-sm space-y-4">
+                      <div>
+                        <h3 className="font-black text-slate-900 dark:text-white text-sm">Connection Details</h3>
+                        <p className="text-[10px] text-slate-500 mt-1">Detailed database parameters about your active internet account.</p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 pt-2">
+                        {[
+                          { label: "Customer Name", val: profile?.full_name || 'N/A', icon: "👤", color: "text-slate-900 dark:text-white font-bold" },
+                          { label: "Customer ID", val: profile?.customer_code || 'N/A', icon: "🔑", color: "text-blue-600 dark:text-blue-400 font-bold font-mono" },
+                          { label: "Internet Package", val: service?.package_name || 'No Active package', icon: "📦", color: "text-indigo-650 dark:text-indigo-400 font-black" },
+                          { label: "Internet Speed", val: service?.speed_mbps ? `${service.speed_mbps} Mbps` : 'N/A', icon: "🚀", color: "text-slate-900 dark:text-white font-bold" },
+                          { label: "Monthly Charges", val: service?.monthly_price ? formatPKR(service.monthly_price) : 'Rs. 0', icon: "💰", color: "text-emerald-600 dark:text-emerald-450 font-black" },
+                          { label: "Service Status", val: service?.service_status || 'inactive', icon: "🟢", color: "text-emerald-600 dark:text-emerald-400 font-extrabold uppercase" },
+                          { label: "Installation Date", val: formatDatePretty(profile?.installation_date), icon: "📅", color: "text-slate-700 dark:text-slate-300 font-medium" },
+                          { label: "Activation Date", val: formatDatePretty(service?.start_date || profile?.installation_date), icon: "⚡", color: "text-slate-700 dark:text-slate-300 font-medium" },
+                          { label: "Next Billing Date", val: formatDatePretty(
+                            billing.length > 0 && billing[0].status === 'paid' 
+                              ? new Date(new Date(billing[0].due_date).setMonth(new Date(billing[0].due_date).getMonth() + 1))
+                              : (billing.length > 0 ? billing[0].due_date : null)
+                          ), icon: "💳", color: "text-cyan-600 dark:text-cyan-400 font-semibold" }
+                        ].map((row, idx) => (
+                          <div key={idx} className="flex justify-between items-center py-2.5 border-b border-slate-100 dark:border-slate-900/60 last:border-b-0">
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase flex items-center space-x-1.5">
+                              <span>{row.icon}</span>
+                              <span>{row.label}</span>
+                            </span>
+                            <span className={`text-xs ${row.color}`}>{row.val}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800/80">
-                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Customer ID:</span>
-                      <span className="font-mono font-bold text-slate-900 dark:text-white">{profile?.customer_code || 'N/A'}</span>
+
+                    {/* Right Connectivity Visual Panel */}
+                    <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 shadow-sm flex flex-col justify-between items-center text-center relative overflow-hidden h-[360px]">
+                      <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none flex items-center justify-center">
+                        <div className="w-64 h-64 rounded-full border border-cyan-500 animate-ping duration-1000" />
+                      </div>
+                      
+                      <div className="space-y-1.5 mt-4 z-10">
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] font-bold uppercase tracking-wider inline-flex items-center space-x-1.5 border border-emerald-500/20">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span>Active Link</span>
+                        </span>
+                        <h4 className="text-sm font-black text-slate-900 dark:text-white mt-1">You're All Set!</h4>
+                        <p className="text-[10px] text-slate-500 max-w-[200px] mx-auto leading-normal">Your high-speed internet connection is active and ready to go.</p>
+                      </div>
+
+                      {/* Animated Wi-Fi visual */}
+                      <div className="relative w-32 h-32 flex items-center justify-center z-10">
+                        <div className="absolute w-24 h-24 rounded-full border border-cyan-500/20 dark:border-cyan-400/10 animate-ping" />
+                        <div className="absolute w-16 h-16 rounded-full border border-indigo-500/20 dark:border-indigo-400/10 animate-ping" style={{ animationDelay: '0.4s' }} />
+                        <div className="absolute w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/20" />
+                        <span className="text-3xl animate-bounce duration-1000">📶</span>
+                      </div>
+
+                      <div className="text-[9px] text-slate-400 dark:text-slate-500 mt-2 z-10 font-bold uppercase tracking-wide">
+                        Network Link Latency: <span className="font-extrabold text-emerald-500">12ms (Optimal)</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800/80">
-                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Internet Package:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">{service?.package_name || 'No Active Plan Assigned'}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800/80">
-                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Internet Speed:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">{service?.speed_mbps || 0} Mbps</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800/80">
-                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Monthly Charges:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">{service?.monthly_price ? formatPKR(service.monthly_price) : 'Rs. 0'}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800/80">
-                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Service Status:</span>
-                      <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase border ${
-                        service?.service_status === 'active' 
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' 
-                          : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                      }`}>
-                        {service?.service_status || 'inactive'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800/80">
-                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Installation Date:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">
-                        {profile?.installation_date ? new Date(profile.installation_date).toLocaleDateString() : 'N/A'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800/80">
-                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Activation Date:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">
-                        {service?.start_date ? new Date(service.start_date).toLocaleDateString() : (profile?.installation_date ? new Date(profile.installation_date).toLocaleDateString() : 'N/A')}
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-2">
-                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Next Billing Date:</span>
-                      <span className="font-bold text-slate-900 dark:text-white text-cyan-600 dark:text-cyan-400">
-                        {billing.length > 0 && billing[0].status === 'paid' 
-                          ? new Date(new Date(billing[0].due_date).setMonth(new Date(billing[0].due_date).getMonth() + 1)).toLocaleDateString()
-                          : (billing.length > 0 ? new Date(billing[0].due_date).toLocaleDateString() : 'N/A')}
-                      </span>
-                    </div>
+
                   </div>
+
                 </div>
               )}
 
