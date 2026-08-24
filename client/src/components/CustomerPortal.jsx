@@ -1139,86 +1139,179 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
               )}
 
               {/* ==================== D. SERVICE REQUESTS TAB ==================== */}
-              {activeTab === 'Requests' && (
-                <div className="space-y-6 animate-fade-in-up">
-                  
-                  {/* Request Form */}
-                  <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 space-y-4 shadow-sm max-w-xl mx-auto">
-                    <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider">File Technical / Service Request</h3>
-                    <form onSubmit={handleRequestSubmit} className="space-y-4 text-xs">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase block">Request Category</label>
-                        <select
-                          value={requestForm.request_type}
-                          onChange={(e) => setRequestForm({ ...requestForm, request_type: e.target.value })}
-                          className="w-full px-3 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
-                        >
-                          <option value="New Service Request">New Service Request</option>
-                          <option value="Package Upgrade">Package Upgrade</option>
-                          <option value="Package Change">Package Change</option>
-                          <option value="Technical Support">Technical Support</option>
-                          <option value="Installation Request">Installation Request</option>
-                          <option value="Other Service Request">Other Service Request</option>
-                        </select>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase block">Description</label>
-                        <textarea
-                          required
-                          value={requestForm.description}
-                          onChange={(e) => setRequestForm({ ...requestForm, description: e.target.value })}
-                          placeholder="Provide details about package speed requirements or relocation details..."
-                          className="w-full px-3 py-2.5 rounded-lg bg-slate-555 bg-slate-50 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 text-slate-905 text-slate-900 dark:text-white h-24 focus:outline-none focus:border-cyan-500 resize-none"
-                        />
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={submitting}
-                        className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold uppercase transition-colors"
-                      >
-                        {submitting ? 'Submitting request...' : 'File Service Request'}
-                      </button>
-                    </form>
-                  </div>
+              {activeTab === 'Requests' && (() => {
+                const totalReqs = requests.length;
+                const pendingReqs = requests.filter(r => r.status?.toLowerCase() === 'pending').length;
+                const inProgressReqs = requests.filter(r => r.status?.toLowerCase() === 'in_progress' || r.status?.toLowerCase() === 'in progress' || r.status?.toLowerCase() === 'assigned' || r.status?.toLowerCase() === 'accepted').length;
+                const resolvedReqs = requests.filter(r => r.status?.toLowerCase() === 'completed' || r.status?.toLowerCase() === 'resolved').length;
 
-                  {/* Requests History List */}
-                  <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 space-y-4 shadow-sm">
-                    <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider">My Service Request Logs</h3>
-                    {requests.length > 0 ? (
-                      <div className="grid grid-cols-1 gap-3">
-                        {requests.map((req) => (
-                          <div key={req.id} className="p-4 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-[#0E1626] dark:hover:bg-[#111827]/40 border border-slate-200 dark:border-slate-850 flex justify-between items-center transition-colors shadow-inner">
-                            <div className="space-y-1.5">
-                              <div className="flex items-center space-x-2">
-                                <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-950 text-[10px] font-mono font-bold text-slate-805 text-slate-800 dark:text-slate-400">REQ-{req.id}</span>
-                                <span className="text-xs font-bold text-slate-900 dark:text-white">{req.task_type}</span>
-                              </div>
-                              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-tight">{req.description}</p>
-                              <div className="text-[9px] text-slate-505 text-slate-500">
-                                Filed on: {new Date(req.created_at).toLocaleString()}
-                              </div>
-                            </div>
-                            <div>
-                              <span className={`px-2.5 py-0.5 rounded text-[9px] uppercase font-bold border ${
-                                req.status === 'completed' ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-450 border-emerald-500/20' :
-                                req.status === 'rejected' ? 'bg-rose-500/15 text-rose-600 dark:text-rose-450 border-rose-500/20' :
-                                'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/20'
-                              }`}>
-                                {req.status}
-                              </span>
-                            </div>
+                return (
+                  <div className="space-y-6 animate-fade-in-up">
+                    
+                    {/* Status Summary Grid */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      {[
+                        { label: "Total Requests", val: totalReqs, icon: "📊", color: "text-blue-600 dark:text-blue-400 bg-blue-500/5 border-blue-500/10" },
+                        { label: "Pending", val: pendingReqs, icon: "⏳", color: "text-amber-600 dark:text-amber-400 bg-amber-500/5 border-amber-500/10" },
+                        { label: "In Progress", val: inProgressReqs, icon: "⚙️", color: "text-indigo-650 dark:text-indigo-400 bg-indigo-500/5 border-indigo-500/10" },
+                        { label: "Resolved", val: resolvedReqs, icon: "✅", color: "text-emerald-600 dark:text-emerald-450 bg-emerald-500/5 border-emerald-500/10" }
+                      ].map((stat, i) => (
+                        <div key={i} className="p-4 rounded-2xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 flex items-center justify-between shadow-sm">
+                          <div className="space-y-0.5">
+                            <span className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider block">{stat.label}</span>
+                            <span className="text-base md:text-lg font-black text-slate-900 dark:text-white block leading-none">{stat.val}</span>
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="py-12 text-center text-slate-500 dark:text-slate-550 italic text-xs">
-                        No active service requests
-                      </div>
-                    )}
-                  </div>
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm border ${stat.color}`}>
+                            {stat.icon}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
 
-                </div>
-              )}
+                    {/* Creation Panel split view */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      
+                      {/* Left Side Form */}
+                      <div className="lg:col-span-2 p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 shadow-sm space-y-4">
+                        <div>
+                          <h3 className="font-black text-slate-900 dark:text-white text-sm">Create a Service Request</h3>
+                          <p className="text-[10px] text-slate-500 mt-1">Tell us what you need and our support team will take care of the rest.</p>
+                        </div>
+
+                        <form onSubmit={handleRequestSubmit} className="space-y-4 text-xs">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center space-x-1.5">
+                              <span>📂</span> <span>Request Category</span>
+                            </label>
+                            <select
+                              value={requestForm.request_type}
+                              onChange={(e) => setRequestForm({ ...requestForm, request_type: e.target.value })}
+                              className="w-full px-3 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 font-medium"
+                            >
+                              <option value="New Service Request">New Service Request</option>
+                              <option value="Package Upgrade">Package Upgrade</option>
+                              <option value="Package Change">Package Change</option>
+                              <option value="Technical Support">Technical Support</option>
+                              <option value="Installation Request">Installation Request</option>
+                              <option value="Other Service Request">Other Service Request</option>
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center space-x-1.5">
+                              <span>📝</span> <span>Description</span>
+                            </label>
+                            <textarea
+                              required
+                              value={requestForm.description}
+                              onChange={(e) => setRequestForm({ ...requestForm, description: e.target.value })}
+                              placeholder="Tell us about your request, issue, preferred package, speed requirement, relocation details, or any additional information..."
+                              className="w-full px-3 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 text-slate-900 dark:text-white h-24 focus:outline-none focus:border-cyan-500 resize-none font-medium leading-relaxed"
+                            />
+                          </div>
+
+                          <button
+                            type="submit"
+                            disabled={submitting}
+                            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold uppercase transition-all shadow-md shadow-blue-500/10 hover:shadow-blue-500/20 text-[10px] tracking-wider"
+                          >
+                            {submitting ? 'Submitting Request...' : 'Submit Request →'}
+                          </button>
+                        </form>
+                      </div>
+
+                      {/* Right Side Visual Help Panel */}
+                      <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 shadow-sm flex flex-col justify-between space-y-4 relative overflow-hidden">
+                        <div className="absolute -right-16 -top-16 w-36 h-36 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
+                        
+                        <div>
+                          <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider">How can we help?</h3>
+                          <p className="text-[9px] text-slate-500 mt-1">We provide professional assistance on various request layers.</p>
+                        </div>
+
+                        <div className="space-y-3 flex-grow my-2">
+                          {[
+                            { title: "Technical Support", icon: "🔧", desc: "Report connection or technical issues." },
+                            { title: "Package Upgrade", icon: "⚡", desc: "Upgrade your internet speed or package." },
+                            { title: "Installation & Relocation", icon: "📍", desc: "Request installation or relocation assistance." }
+                          ].map((item, idx) => (
+                            <div key={idx} className="p-2.5 rounded-2xl bg-slate-550 bg-slate-50 dark:bg-[#0E1626]/50 border border-slate-105 dark:border-slate-900 flex items-start space-x-2.5">
+                              <span className="text-base mt-0.5">{item.icon}</span>
+                              <div className="leading-tight">
+                                <span className="font-bold text-[10px] text-slate-900 dark:text-white block">{item.title}</span>
+                                <span className="text-[9px] text-slate-500 block mt-0.5 leading-tight">{item.desc}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="text-[8px] text-slate-400 text-center font-bold tracking-widest uppercase">
+                          ⚡ Guaranteed Support Response
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* History logs block */}
+                    <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 shadow-sm space-y-4">
+                      <div>
+                        <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider">My Service Requests</h3>
+                        <p className="text-[10px] text-slate-500 mt-1">Track the status of your submitted requests.</p>
+                      </div>
+
+                      {requests.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {requests.map((req) => (
+                            <div 
+                              key={req.id} 
+                              className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100/60 dark:bg-[#0E1626]/50 dark:hover:bg-[#111827]/40 border border-slate-200 dark:border-slate-900 flex flex-col justify-between space-y-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div className="space-y-0.5">
+                                  <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-950 text-[9px] font-mono font-bold text-slate-700 dark:text-slate-400">SR-{req.id}</span>
+                                  <h4 className="font-black text-xs text-slate-900 dark:text-white mt-1.5">{req.task_type}</h4>
+                                </div>
+                                <span className={`px-2 py-0.5 rounded text-[8px] uppercase font-bold border ${
+                                  req.status === 'completed' || req.status === 'resolved' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-450 border-emerald-500/20' :
+                                  req.status === 'rejected' ? 'bg-rose-500/10 text-rose-655 dark:text-rose-455 border-rose-500/20' :
+                                  'bg-amber-500/10 text-amber-600 dark:text-amber-450 border-amber-500/20'
+                                }`}>
+                                  ● {req.status}
+                                </span>
+                              </div>
+
+                              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-2">{req.description}</p>
+                              
+                              <div className="flex justify-between items-center text-[9px] text-slate-500 pt-2 border-t border-slate-100 dark:border-slate-900/60">
+                                <span>Submitted: {formatDatePretty(req.created_at)}</span>
+                                {req.updated_at && (
+                                  <span>Updated: {formatDatePretty(req.updated_at)}</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-16 text-center flex flex-col items-center justify-center space-y-4 max-w-md mx-auto">
+                          <div className="relative w-16 h-16 flex items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-full border border-slate-200 dark:border-slate-800">
+                            {/* Decorative concentric ping lines */}
+                            <div className="absolute inset-0 border border-cyan-500/10 rounded-full animate-ping" />
+                            <div className="absolute -inset-2 border border-indigo-500/5 rounded-full animate-pulse" />
+                            <span className="text-2xl animate-pulse">🛠️</span>
+                          </div>
+                          <div className="space-y-1">
+                            <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">No Service Requests Yet</h4>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                              You haven't submitted any service requests. When you need technical help, a package change, installation, or another service, your requests will appear here.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+                );
+              })()}
 
               {/* ==================== E. COMPLAINTS TAB ==================== */}
               {activeTab === 'Complaints' && (
