@@ -31,7 +31,8 @@ function CustomerManagement({ user, onLogoutSuccess }) {
   const [detailsLoading, setDetailsLoading] = useState(false);
 
   // Forms state controls
-  const [addForm, setAddForm] = useState({ full_name: '', phone: '', email: '', cnic: '', address: '', installation_date: '', status: 'active', package_id: '' });
+  const [addForm, setAddForm] = useState({ full_name: '', phone: '', email: '', cnic: '', address: '', installation_date: '', status: 'active', package_id: '', password: '', confirmPassword: '' });
+  const [showPassword, setShowPassword] = useState(false);
   const [editForm, setEditForm] = useState({ id: '', full_name: '', phone: '', email: '', cnic: '', address: '', installation_date: '' });
   const [assignPackageId, setAssignPackageId] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -179,6 +180,10 @@ function CustomerManagement({ user, onLogoutSuccess }) {
   // Add Customer Submit
   const handleAddSubmit = async (e) => {
     e.preventDefault();
+    if (addForm.password && addForm.password !== addForm.confirmPassword) {
+      alert("Passwords do not match. Please verify.");
+      return;
+    }
     setActionLoading(true);
     try {
       const response = await fetch('http://localhost:5000/api/customers', {
@@ -190,8 +195,9 @@ function CustomerManagement({ user, onLogoutSuccess }) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Failed to add customer.');
 
+      alert(data.message || 'Customer account created successfully.');
       setShowAddModal(false);
-      setAddForm({ full_name: '', phone: '', email: '', cnic: '', address: '', installation_date: '', status: 'active', package_id: '' });
+      setAddForm({ full_name: '', phone: '', email: '', cnic: '', address: '', installation_date: '', status: 'active', package_id: '', password: '', confirmPassword: '' });
       fetchCustomers(search);
     } catch (err) {
       alert(err.message);
@@ -822,6 +828,54 @@ function CustomerManagement({ user, onLogoutSuccess }) {
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
                     </select>
+                  </div>
+                </div>
+
+                {/* Full-width Section: Customer Portal Access */}
+                <div className="md:col-span-2 space-y-4 border-t border-slate-805 pt-4">
+                  <h4 className="text-xs font-bold text-cyan-400 uppercase tracking-wider border-b border-slate-800 pb-2">Customer Portal Access</h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Login ID (CNIC)</label>
+                      <input
+                        type="text"
+                        disabled
+                        value={addForm.cnic || 'CNIC will be used as Login ID'}
+                        className="w-full px-3 py-2.5 rounded-lg bg-slate-950 border border-slate-805 text-xs text-slate-500 cursor-not-allowed"
+                      />
+                    </div>
+
+                    <div className="space-y-1 relative">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Password *</label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          required
+                          value={addForm.password}
+                          onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
+                          className="w-full px-3 py-2.5 rounded-lg bg-slate-950 border border-slate-805 text-xs focus:outline-none focus:border-cyan-500 text-white pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-white"
+                        >
+                          <span className="text-sm">{showPassword ? "🙈" : "👁️"}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Confirm Password *</label>
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        required
+                        value={addForm.confirmPassword}
+                        onChange={(e) => setAddForm({ ...addForm, confirmPassword: e.target.value })}
+                        className="w-full px-3 py-2.5 rounded-lg bg-slate-950 border border-slate-805 text-xs focus:outline-none focus:border-cyan-500 text-white"
+                      />
+                    </div>
                   </div>
                 </div>
 

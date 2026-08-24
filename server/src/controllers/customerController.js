@@ -123,7 +123,7 @@ async function getCustomerDetails(req, res) {
  * POST /api/customers
  */
 async function createCustomer(req, res) {
-  const { full_name, phone, email, cnic, address, installation_date, status, package_id } = req.body;
+  const { full_name, phone, email, cnic, address, installation_date, status, package_id, password } = req.body;
 
   if (!full_name || !phone || !email) {
     return res.status(400).json({ error: 'Full name, phone, and email are required fields.' });
@@ -140,9 +140,9 @@ async function createCustomer(req, res) {
     const randomDigits = Math.floor(100000 + Math.random() * 900000);
     const customerCode = `CUST-${randomDigits}`;
 
-    // Hash default customer password (defaulting to the customer's phone number or '12345678')
-    const defaultPassword = 'customer123';
-    const passwordHash = await hashPassword(defaultPassword);
+    // Hash customer password (using the provided password or default 'customer123')
+    const finalPassword = password || 'customer123';
+    const passwordHash = await hashPassword(finalPassword);
 
     // SQL Transaction wrapper using single connection client
     const client = await db.pool.connect();
@@ -189,7 +189,7 @@ async function createCustomer(req, res) {
 
       await client.query('COMMIT');
       return res.status(201).json({
-        message: 'Customer profile provisioned successfully.',
+        message: 'Customer account created successfully.',
         customer: { id: customerId, customer_code: customerCode, full_name, email }
       });
     } catch (txErr) {

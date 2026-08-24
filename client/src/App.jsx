@@ -12,11 +12,13 @@ import TechnicianPortal from './components/TechnicianPortal';
 import ComplaintsManagement from './components/ComplaintsManagement';
 import UsageMonitoring from './components/UsageMonitoring';
 import PaymentsManagement from './components/PaymentsManagement';
+import CustomerLogin from './components/CustomerLogin';
+import CustomerPortal from './components/CustomerPortal';
 
 // Layout wrapper for consistent look and feel
 function Layout({ children, user }) {
   const location = useLocation();
-  const isNoLayoutPage = location.pathname.startsWith('/admin') || location.pathname.startsWith('/employee') || location.pathname.startsWith('/technician');
+  const isNoLayoutPage = location.pathname.startsWith('/admin') || location.pathname.startsWith('/employee') || location.pathname.startsWith('/technician') || location.pathname.startsWith('/customer');
 
   if (isNoLayoutPage) {
     return <>{children}</>;
@@ -171,6 +173,7 @@ function App() {
     if (!u) return "/employee/login";
     if (u.role === 'admin') return "/admin";
     if (u.role === 'technician') return "/technician";
+    if (u.role === 'customer') return "/customer";
     return "/employee";
   };
 
@@ -226,6 +229,14 @@ function App() {
           <Route 
             path="/technician" 
             element={user ? (user.role === 'technician' ? <TechnicianPortal user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to={getDashboardRedirect(user)} replace />) : <Navigate to="/employee/login" replace />} 
+          />
+          <Route 
+            path="/customer/login" 
+            element={user ? <Navigate to={getDashboardRedirect(user)} replace /> : <CustomerLogin onLoginSuccess={(u) => setUser(u)} />} 
+          />
+          <Route 
+            path="/customer" 
+            element={user ? (user.role === 'customer' ? <CustomerPortal user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to={getDashboardRedirect(user)} replace />) : <Navigate to="/customer/login" replace />} 
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

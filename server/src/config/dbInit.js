@@ -249,7 +249,7 @@ async function initializeDatabase() {
     // Sync technical_tasks status check constraint to support 'accepted' and 'pending'
     await db.query(`
       ALTER TABLE technical_tasks DROP CONSTRAINT IF EXISTS technical_tasks_status_check;
-      ALTER TABLE technical_tasks ADD CONSTRAINT technical_tasks_status_check CHECK (status IN ('assigned', 'accepted', 'on_the_way', 'in_progress', 'completed', 'pending'));
+      ALTER TABLE technical_tasks ADD CONSTRAINT technical_tasks_status_check CHECK (status IN ('assigned', 'accepted', 'on_the_way', 'in_progress', 'completed', 'pending', 'rejected'));
     `);
 
     // Create settings table if not exists

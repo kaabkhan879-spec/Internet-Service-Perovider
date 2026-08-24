@@ -6,6 +6,7 @@ const customerRouter = require('./customer');
 const packageRouter = require('./package');
 const adminRouter = require('./admin');
 const employeeRouter = require('./employee');
+const customerSelfServiceRouter = require('./customerSelfService');
 
 const router = express.Router();
 
@@ -17,5 +18,6 @@ router.use('/customers', customerRouter);
 router.use('/packages', packageRouter);
 router.use('/admin', adminRouter);
 router.use('/employee', employeeRouter);
+router.use('/customer', customerSelfServiceRouter);
 
 module.exports = router;

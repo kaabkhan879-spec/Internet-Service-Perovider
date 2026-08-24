@@ -96,9 +96,26 @@ function requireTechnician(req, res, next) {
   next();
 }
 
+/**
+ * Middleware to enforce Customer-only access.
+ * Must be executed AFTER requireAuth.
+ */
+function requireCustomer(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized. User context missing.' });
+  }
+
+  if (req.user.role !== 'customer') {
+    return res.status(403).json({ error: 'Forbidden. Customer access required.' });
+  }
+
+  next();
+}
+
 module.exports = {
   requireAuth,
   requireAdmin,
   requireEmployee,
-  requireTechnician
+  requireTechnician,
+  requireCustomer
 };
