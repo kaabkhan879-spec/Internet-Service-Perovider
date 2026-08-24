@@ -1407,135 +1407,219 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                 );
               })()}
 
-              {/* ==================== E. COMPLAINTS TAB ==================== */}
-              {activeTab === 'Complaints' && (
-                <div className="space-y-6 animate-fade-in-up">
-                  
-                  {/* Support Form */}
-                  <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 space-y-4 shadow-sm max-w-xl mx-auto">
-                    <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider">File Support / Complaint Ticket</h3>
-                    <form onSubmit={handleComplaintSubmit} className="space-y-4 text-xs">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase block">Category</label>
-                          <select
-                            value={complaintForm.complaint_type}
-                            onChange={(e) => setComplaintForm({ ...complaintForm, complaint_type: e.target.value })}
-                            className="w-full px-3 py-2.5 rounded-lg bg-slate-555 bg-slate-50 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 text-slate-905 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
-                          >
-                            <option value="Speed Issue">Speed Issue</option>
-                            <option value="Cabling/Physical Issue">Cabling/Physical Issue</option>
-                            <option value="Billing/Invoicing">Billing/Invoicing</option>
-                            <option value="Routing/Config">Routing/Config</option>
-                            <option value="Frequent Disconnection">Frequent Disconnection</option>
-                            <option value="Other">Other Support</option>
-                          </select>
+                            {activeTab === 'Complaints' && (() => {
+                const openCount = complaints.filter(c => ['open', 'pending'].includes(c.status?.toLowerCase())).length;
+                const inProgressCount = complaints.filter(c => ['in_progress', 'in progress'].includes(c.status?.toLowerCase())).length;
+                const resolvedCount = complaints.filter(c => ['resolved', 'completed', 'closed'].includes(c.status?.toLowerCase())).length;
+                const highPriorityCount = complaints.filter(c => ['high', 'urgent'].includes(c.priority?.toLowerCase()) && !['resolved', 'completed', 'closed'].includes(c.status?.toLowerCase())).length;
+
+                return (
+                  <div className="space-y-6 animate-fade-in-up">
+                    
+                    {/* Support Overview Grid */}
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                      {[
+                        { label: "Open Tickets", val: openCount, icon: "🎫", color: "text-blue-600 dark:text-blue-400 bg-blue-500/5 border-blue-500/10" },
+                        { label: "In Progress", val: inProgressCount, icon: "⚙️", color: "text-indigo-650 dark:text-indigo-400 bg-indigo-500/5 border-indigo-500/10" },
+                        { label: "Resolved", val: resolvedCount, icon: "✅", color: "text-emerald-600 dark:text-emerald-450 bg-emerald-500/5 border-emerald-500/10" },
+                        { label: "High Priority", val: highPriorityCount, icon: "🔥", color: "text-rose-600 dark:text-rose-455 bg-rose-500/5 border-rose-500/10" }
+                      ].map((stat, i) => (
+                        <div key={i} className="p-4 rounded-2xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 flex items-center justify-between shadow-sm">
+                          <div className="space-y-0.5">
+                            <span className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider block">{stat.label}</span>
+                            <span className="text-base md:text-lg font-black text-slate-900 dark:text-white block leading-none">{stat.val}</span>
+                          </div>
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm border ${stat.color}`}>
+                            {stat.icon}
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase block">Priority</label>
-                          <select
-                            value={complaintForm.priority}
-                            onChange={(e) => setComplaintForm({ ...complaintForm, priority: e.target.value })}
-                            className="w-full px-3 py-2.5 rounded-lg bg-slate-555 bg-slate-50 dark:bg-slate-955 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 text-slate-905 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
-                          >
-                            <option value="low">Low Priority</option>
-                            <option value="medium">Medium Priority</option>
-                            <option value="high">High Priority</option>
-                            <option value="urgent">Urgent Priority</option>
-                          </select>
+                      ))}
+                    </div>
+
+                    {/* Creation Panel split view */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      
+                      {/* Left Side Form */}
+                      <div className="lg:col-span-2 p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 shadow-sm space-y-4">
+                        <div>
+                          <h3 className="font-black text-slate-900 dark:text-white text-sm">Create a Support Ticket</h3>
+                          <p className="text-[10px] text-slate-500 mt-1">Tell us about your problem and our support team will help you.</p>
                         </div>
-                      </div>
 
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase block">Subject</label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. Red light flashing on optical network terminal"
-                          value={complaintForm.subject}
-                          onChange={(e) => setComplaintForm({ ...complaintForm, subject: e.target.value })}
-                          className="w-full px-3 py-2.5 rounded-lg bg-slate-555 bg-slate-50 dark:bg-slate-955 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 text-slate-905 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500"
-                        />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase block">Problem Description</label>
-                        <textarea
-                          required
-                          value={complaintForm.description}
-                          onChange={(e) => setComplaintForm({ ...complaintForm, description: e.target.value })}
-                          placeholder="Describe the problem, errors or disconnection intervals in detail..."
-                          className="w-full px-3 py-2.5 rounded-lg bg-slate-555 bg-slate-50 dark:bg-slate-955 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 text-slate-905 text-slate-900 dark:text-white h-24 focus:outline-none focus:border-cyan-500 resize-none"
-                        />
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={submitting}
-                        className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold uppercase transition-colors"
-                      >
-                        {submitting ? 'Filing Complaint...' : 'File Support Ticket'}
-                      </button>
-                    </form>
-                  </div>
-
-                  {/* Complaints Log List */}
-                  <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 space-y-4 shadow-sm">
-                    <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider">My Support Tickets Log</h3>
-                    {complaints.length > 0 ? (
-                      <div className="grid grid-cols-1 gap-3">
-                        {complaints.map((comp) => (
-                          <div 
-                            key={comp.id} 
-                            onClick={() => viewComplaintDetails(comp.id)}
-                            className="p-4 rounded-xl bg-slate-50 hover:bg-slate-100 dark:bg-[#0E1626] dark:hover:bg-[#111827]/40 border border-slate-200 dark:border-slate-850 flex justify-between items-center cursor-pointer transition-colors shadow-inner"
-                          >
-                            <div className="space-y-1.5 max-w-[70%]">
-                              <div className="flex items-center space-x-2">
-                                <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-950 text-[10px] font-mono font-bold text-slate-805 text-slate-800 dark:text-slate-400">CMP-{comp.id}</span>
-                                <span className="text-xs font-bold text-slate-900 dark:text-white truncate">{parseCleanSubject(comp.subject)}</span>
-                              </div>
-                              <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-1">{comp.description}</p>
-                              <div className="text-[9px] text-slate-505 text-slate-500 flex flex-wrap gap-x-2 gap-y-1 font-medium">
-                                <span>Category: <span className="font-semibold text-cyan-600 dark:text-cyan-400">{parseComplaintType(comp.subject)}</span></span>
-                                <span>•</span>
-                                <span>Filed: {new Date(comp.created_at).toLocaleDateString()}</span>
-                                <span>•</span>
-                                <span>Updated: {new Date(comp.updated_at || comp.created_at).toLocaleDateString()}</span>
-                                <span>•</span>
-                                <span>Priority: <span className="font-bold uppercase">{comp.priority}</span></span>
-                              </div>
+                        <form onSubmit={handleComplaintSubmit} className="space-y-4 text-xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center space-x-1.5">
+                                <span>📂</span> <span>Category</span>
+                              </label>
+                              <select
+                                value={complaintForm.complaint_type}
+                                onChange={(e) => setComplaintForm({ ...complaintForm, complaint_type: e.target.value })}
+                                className="w-full px-3 py-2.5 rounded-lg bg-slate-50 dark:bg-slate-955 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 text-slate-905 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 font-medium"
+                              >
+                                <option value="Speed Issue">Speed Issue</option>
+                                <option value="Cabling/Physical Issue">Cabling/Physical Issue</option>
+                                <option value="Billing/Invoicing">Billing/Invoicing</option>
+                                <option value="Routing/Config">Routing/Config</option>
+                                <option value="Frequent Disconnection">Frequent Disconnection</option>
+                                <option value="Other">Other Support</option>
+                              </select>
                             </div>
-                            <div className="flex flex-col items-end space-y-2">
-                              <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold border ${
-                                comp.status === 'resolved' || comp.status === 'closed' 
-                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-450 border-emerald-500/20' 
-                                  : 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20'
-                              }`}>
-                                {comp.status}
-                              </span>
-                              <span className="text-[9px] text-cyan-600 dark:text-cyan-400 font-semibold hover:underline">Track Updates &rarr;</span>
+
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center space-x-1.5">
+                                <span>⚠️</span> <span>Priority</span>
+                              </label>
+                              <select
+                                value={complaintForm.priority}
+                                onChange={(e) => setComplaintForm({ ...complaintForm, priority: e.target.value })}
+                                className="w-full px-3 py-2.5 rounded-lg bg-slate-555 bg-slate-50 dark:bg-slate-955 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 text-slate-905 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 font-medium"
+                              >
+                                <option value="low">Low Priority</option>
+                                <option value="medium">Medium Priority</option>
+                                <option value="high">High Priority</option>
+                                <option value="urgent">Urgent Priority</option>
+                              </select>
                             </div>
                           </div>
-                        ))}
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block">Ticket Subject</label>
+                            <input
+                              type="text"
+                              required
+                              placeholder="Briefly describe your issue..."
+                              value={complaintForm.subject}
+                              onChange={(e) => setComplaintForm({ ...complaintForm, subject: e.target.value })}
+                              className="w-full px-3 py-2.5 rounded-lg bg-slate-555 bg-slate-50 dark:bg-slate-955 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 text-slate-905 text-slate-900 dark:text-white focus:outline-none focus:border-cyan-500 font-medium"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block">Describe the Problem</label>
+                            <textarea
+                              required
+                              value={complaintForm.description}
+                              onChange={(e) => setComplaintForm({ ...complaintForm, description: e.target.value })}
+                              placeholder="Explain the issue, error messages, connection interruptions, or other details that can help our support team..."
+                              className="w-full px-3 py-2.5 rounded-lg bg-slate-555 bg-slate-50 dark:bg-slate-955 dark:bg-slate-950 border border-slate-250 dark:border-slate-800 text-slate-905 text-slate-900 dark:text-white h-24 focus:outline-none focus:border-cyan-500 resize-none font-medium leading-relaxed"
+                            />
+                          </div>
+
+                          <button
+                            type="submit"
+                            disabled={submitting}
+                            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-650 hover:from-blue-700 hover:to-indigo-700 text-white font-bold uppercase transition-all shadow-md shadow-blue-500/10 hover:shadow-blue-500/20 text-[10px] tracking-wider font-sans"
+                          >
+                            {submitting ? 'Submitting Ticket...' : 'Submit Support Ticket →'}
+                          </button>
+                        </form>
                       </div>
-                    ) : (
-                      <div className="py-12 text-center flex flex-col items-center justify-center space-y-3">
-                        <span className="text-slate-500 dark:text-slate-500 italic text-[11px]">No active complaints</span>
-                        <button 
-                          onClick={() => setActiveTab('Dashboard')}
-                          className="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-bold uppercase text-[9px]"
-                        >
-                          Report an Issue
-                        </button>
+
+                      {/* Right Side Support Help Panel */}
+                      <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 shadow-sm flex flex-col justify-between space-y-4 relative overflow-hidden">
+                        <div className="absolute -right-16 -top-16 w-36 h-36 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
+                        
+                        <div>
+                          <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider">Need Help?</h3>
+                          <p className="text-[9px] text-slate-500 mt-1">Our support team is here to help.</p>
+                        </div>
+
+                        <div className="space-y-3 flex-grow my-2">
+                          {[
+                            { title: "Connection Problem", icon: "🌐", desc: "Having slow speeds or frequent disconnections?" },
+                            { title: "Billing Problem", icon: "💳", desc: "Need help with a payment or billing issue?" },
+                            { title: "Technical Assistance", icon: "🔧", desc: "Need technical support for your connection?" }
+                          ].map((item, idx) => (
+                            <div key={idx} className="p-2.5 rounded-2xl bg-slate-50 dark:bg-[#0E1626]/50 border border-slate-105 dark:border-slate-900 flex items-start space-x-2.5">
+                              <span className="text-base mt-0.5">{item.icon}</span>
+                              <div className="leading-tight">
+                                <span className="font-bold text-[10px] text-slate-900 dark:text-white block">{item.title}</span>
+                                <span className="text-[9px] text-slate-500 block mt-0.5 leading-tight">{item.desc}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="text-[8px] text-slate-400 text-center font-bold tracking-widest uppercase">
+                          📞 24/7 Helpline Active
+                        </div>
                       </div>
-                    )}
+
+                    </div>
+
+                    {/* Ticket history block */}
+                    <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 shadow-sm space-y-4">
+                      <div>
+                        <h3 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider">My Support Tickets</h3>
+                        <p className="text-[10px] text-slate-500 mt-1">Track your submitted complaints and support requests.</p>
+                      </div>
+
+                      {complaints.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {complaints.map((comp) => (
+                            <div 
+                              key={comp.id} 
+                              onClick={() => viewComplaintDetails(comp.id)}
+                              className="p-4 rounded-2xl bg-slate-50 hover:bg-slate-100/60 dark:bg-[#0E1626]/50 dark:hover:bg-[#111827]/40 border border-slate-200 dark:border-slate-900 flex flex-col justify-between space-y-3.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-sm cursor-pointer animate-fade-in"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div className="space-y-0.5 max-w-[70%]">
+                                  <span className="px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-950 text-[9px] font-mono font-bold text-slate-700 dark:text-slate-400">TKT-{comp.id}</span>
+                                  <h4 className="font-black text-xs text-slate-900 dark:text-white mt-1.5 truncate">{parseCleanSubject(comp.subject)}</h4>
+                                </div>
+                                <span className={`px-2 py-0.5 rounded text-[8px] uppercase font-bold border ${
+                                  comp.status === 'resolved' || comp.status === 'closed' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-450 border-emerald-500/20' :
+                                  comp.status === 'rejected' ? 'bg-rose-500/10 text-rose-655 dark:text-rose-455 border-rose-500/20' :
+                                  'bg-cyan-500/10 text-cyan-600 dark:text-cyan-455 border-cyan-500/20'
+                                }`}>
+                                  ● {comp.status}
+                                </span>
+                              </div>
+
+                              <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-2">{comp.description}</p>
+                              
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-[9px] text-slate-500 pt-2 border-t border-slate-100 dark:border-slate-900/60">
+                                <div className="flex items-center space-x-2">
+                                  <span>Priority:</span>
+                                  <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${
+                                    comp.priority?.toLowerCase() === 'low' ? 'bg-emerald-500/10 text-emerald-600' :
+                                    comp.priority?.toLowerCase() === 'medium' ? 'bg-amber-500/10 text-amber-600' :
+                                    'bg-rose-500/10 text-rose-600 animate-pulse'
+                                  }`}>
+                                    {comp.priority}
+                                  </span>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <span>Filed: {formatDatePretty(comp.created_at)}</span>
+                                  <span className="text-[9px] text-cyan-600 dark:text-cyan-400 font-semibold hover:underline">Track Updates &rarr;</span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-16 text-center flex flex-col items-center justify-center space-y-4 max-w-md mx-auto">
+                          <div className="relative w-16 h-16 flex items-center justify-center bg-slate-50 dark:bg-slate-900 rounded-full border border-slate-200 dark:border-slate-800">
+                            {/* Decorative concentric ping lines */}
+                            <div className="absolute inset-0 border border-cyan-500/10 rounded-full animate-ping" />
+                            <div className="absolute -inset-2 border border-indigo-500/5 rounded-full animate-pulse" />
+                            <span className="text-2xl animate-pulse">🎧</span>
+                          </div>
+                          <div className="space-y-1">
+                            <h4 className="font-extrabold text-sm text-slate-900 dark:text-white">No Support Tickets Yet</h4>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                              You haven't submitted any support tickets. If you're experiencing a problem with your internet service, create a ticket and our support team will assist you.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                   </div>
-
-                </div>
-              )}
-
-              {/* ==================== F. BILLING TAB ==================== */}
+                );
+              })()}
+{/* ==================== F. BILLING TAB ==================== */}
               {(activeTab === 'History' || activeTab === 'Billing') && (
                 <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 space-y-4 shadow-sm animate-fade-in-up">
                   <div>
