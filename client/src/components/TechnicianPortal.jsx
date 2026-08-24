@@ -5,20 +5,25 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [tasks, setTasks] = useState([]);
   const [complaints, setComplaints] = useState([]);
+  const [workHistory, setWorkHistory] = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const navigate = useNavigate();
 
-  // Dialog and update states
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [showNotesModal, setShowNotesModal] = useState(false);
-  const [showProblemModal, setShowProblemModal] = useState(false);
-  const [newNote, setNewNote] = useState('');
-  const [problemDescription, setProblemDescription] = useState('');
-  const [submittingNote, setSubmittingNote] = useState(false);
-  const [submittingProblem, setSubmittingProblem] = useState(false);
+  // Work Report form states
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null); // holds task or complaint to complete
+  const [reportForm, setReportForm] = useState({
+    problem_found: '',
+    work_performed: '',
+    solution: '',
+    equipment_used: '',
+    additional_notes: ''
+  });
+  const [submittingReport, setSubmittingReport] = useState(false);
 
   // Theme states
   const [showThemeDropdown, setShowThemeDropdown] = useState(false);
@@ -27,13 +32,13 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
   });
   const [activeTheme, setActiveTheme] = useState('dark');
 
-  // Load profile data and tasks on mount
+  // Load all required data
   const loadPortalData = async () => {
     try {
       setLoading(true);
       setError('');
-      
-      // Load Profile
+
+      // 1. Fetch Profile
       const profRes = await fetch('http://localhost:5000/api/employee/profile', {
         method: 'GET',
         credentials: 'include'
@@ -43,7 +48,7 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
         setProfile(profData);
       }
 
-      // Load Assigned Tasks (Jobs)
+      // 2. Fetch Tasks (Jobs)
       const tasksRes = await fetch('http://localhost:5000/api/employee/tasks', {
         method: 'GET',
         credentials: 'include'
@@ -53,7 +58,7 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
         setTasks(tasksData);
       }
 
-      // Load Assigned Complaints
+      // 3. Fetch Complaints
       const compRes = await fetch('http://localhost:5000/api/employee/complaints', {
         method: 'GET',
         credentials: 'include'
@@ -62,6 +67,27 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
         const compData = await compRes.json();
         setComplaints(compData);
       }
+
+      // 4. Fetch Work History
+      const historyRes = await fetch('http://localhost:5000/api/employee/work-history', {
+        method: 'GET',
+        credentials: 'include'
+      });
+      if (historyRes.ok) {
+        const historyData = await historyRes.json();
+        setWorkHistory(historyData);
+      }
+
+      // 5. Fetch Notifications
+      const notifRes = await fetch('http://localhost:5000/api/employee/notifications', {
+        method: 'GET',
+        credentials: 'include'
+      });
+      if (notifRes.ok) {
+        const notifData = await notifRes.json();
+        setNotifications(notifData);
+      }
+
     } catch (err) {
       setError('Connection to server failed. Please check backend connection.');
     } finally {
@@ -74,7 +100,7 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
     loadPortalData();
   }, []);
 
-  // Theme checks
+  // Evaluate Theme settings dynamically
   useEffect(() => {
     const evaluateTheme = () => {
       const savedPref = localStorage.getItem('isp-employee-theme');
@@ -97,15 +123,9 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
       }
     };
     evaluateTheme();
-    const interval = setInterval(evaluateTheme, 15000);
-    return () => clearInterval(interval);
   }, [themePreference]);
 
-  useEffect(() => {
-    localStorage.setItem('isp-employee-theme', themePreference);
-  }, [themePreference]);
-
-  // Logouts
+  // Logout routine
   const handleLogout = async () => {
     try {
       await fetch('http://localhost:5000/api/employee/logout', {
@@ -119,110 +139,153 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
     navigate('/employee/login');
   };
 
-  // Status transition cycles: Assigned -> Accepted -> On The Way -> In Progress -> Completed
-  const getNextStatus = (currentStatus) => {
-    switch (currentStatus) {
-      case 'assigned': return 'accepted';
-      case 'accepted': return 'on_the_way';
-      case 'on_the_way': return 'in_progress';
-      case 'in_progress': return 'completed';
-      default: return null;
-    }
-  };
+  // Status transitions transitions
+  const handleUpdateStatus = async (job, nextStatus) => {
+    const endpoint = job.task_type
+      ? `http://localhost:5000/api/employee/tasks/${job.id}/status`
+      : `http://localhost:5000/api/employee/complaints/${job.id}/status`;
 
-  const handleUpdateTaskStatus = async (taskId, nextStatus) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/employee/tasks/${taskId}/status`, {
+      const response = await fetch(endpoint, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: nextStatus }),
         credentials: 'include'
       });
+
       if (response.ok) {
-        // Reload tasks data dynamically
         loadPortalData();
       } else {
-        alert('Failed to update status.');
+        alert('Failed to update status on the server.');
       }
     } catch (err) {
-      alert('Network error updating task status.');
+      alert('Network error updating job status.');
     }
   };
 
-  // Notes submission
-  const handleAddNote = async (e) => {
+  // Complete Work Report submit
+  const handleCompleteWorkReport = async (e) => {
     e.preventDefault();
-    if (!newNote.trim()) return;
-    setSubmittingNote(true);
+    if (!reportForm.problem_found.trim() || !reportForm.work_performed.trim() || !reportForm.solution.trim()) {
+      alert('Problem Found, Work Performed and Solution fields are required.');
+      return;
+    }
+
+    setSubmittingReport(true);
     try {
-      const response = await fetch(`http://localhost:5000/api/employee/tasks/${selectedTask.id}/status`, {
-        method: 'PUT',
+      // 1. Submit work report
+      const payload = {
+        problem_found: reportForm.problem_found,
+        work_performed: reportForm.work_performed,
+        solution: reportForm.solution,
+        equipment_used: reportForm.equipment_used,
+        additional_notes: reportForm.additional_notes
+      };
+
+      if (selectedJob.task_type) {
+        payload.task_id = selectedJob.id;
+      } else {
+        payload.complaint_id = selectedJob.id;
+      }
+
+      const reportResponse = await fetch('http://localhost:5000/api/employee/work-reports', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: selectedTask.status, admin_notes: newNote }),
+        body: JSON.stringify(payload),
         credentials: 'include'
       });
-      if (response.ok) {
-        setShowNotesModal(false);
-        setNewNote('');
-        loadPortalData();
-      } else {
-        alert('Failed to add note.');
-      }
-    } catch (err) {
-      alert('Network error writing note.');
-    } finally {
-      setSubmittingNote(false);
-    }
-  };
 
-  // Report Problem
-  const handleReportProblem = async (e) => {
-    e.preventDefault();
-    if (!problemDescription.trim()) return;
-    setSubmittingProblem(true);
-    try {
-      const response = await fetch(`http://localhost:5000/api/employee/tasks/${selectedTask.id}/status`, {
+      if (!reportResponse.ok) {
+        const errorData = await reportResponse.json();
+        throw new Error(errorData.error || 'Failed to submit work report.');
+      }
+
+      // 2. Mark the status as completed / resolved
+      const nextStatus = selectedJob.task_type ? 'completed' : 'resolved';
+      const statusEndpoint = selectedJob.task_type
+        ? `http://localhost:5000/api/employee/tasks/${selectedJob.id}/status`
+        : `http://localhost:5000/api/employee/complaints/${selectedJob.id}/status`;
+
+      const statusResponse = await fetch(statusEndpoint, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'pending', admin_notes: `PROBLEM REPORT: ${problemDescription}` }),
+        body: JSON.stringify({ status: nextStatus, comment: `Work report filed: ${reportForm.solution}` }),
         credentials: 'include'
       });
-      if (response.ok) {
-        setShowProblemModal(false);
-        setProblemDescription('');
+
+      if (statusResponse.ok) {
+        setShowReportModal(false);
+        setReportForm({ problem_found: '', work_performed: '', solution: '', equipment_used: '', additional_notes: '' });
         loadPortalData();
       } else {
-        alert('Failed to report problem.');
+        alert('Work report saved, but failed to update status to completed.');
       }
+
     } catch (err) {
-      alert('Network error reporting problem.');
+      alert(err.message || 'Error processing completion report.');
     } finally {
-      setSubmittingProblem(false);
+      setSubmittingReport(false);
     }
   };
 
-  // Task Statistics counts
+  // Merge tasks and complaints for pipeline display
+  const allAssignedJobs = [
+    ...tasks.map(t => ({ ...t, job_id: `TSK-${t.id}`, display_type: t.task_type, is_task: true })),
+    ...complaints.map(c => ({ ...c, job_id: `CMP-${c.id}`, display_type: 'Customer Complaint', is_task: false }))
+  ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  // Roster counters
+  const activeJobsList = allAssignedJobs.filter(j => j.status !== 'completed' && j.status !== 'resolved');
   const statCounts = {
-    assigned: tasks.filter(t => t.status === 'assigned').length,
-    accepted: tasks.filter(t => t.status === 'accepted').length,
-    inProgress: tasks.filter(t => t.status === 'in_progress').length,
-    completed: tasks.filter(t => t.status === 'completed').length,
-    pending: tasks.filter(t => t.status === 'pending').length
+    todayJobs: activeJobsList.length,
+    pending: allAssignedJobs.filter(j => j.status === 'assigned' || j.status === 'pending').length,
+    inProgress: allAssignedJobs.filter(j => j.status === 'in_progress').length,
+    completed: allAssignedJobs.filter(j => j.status === 'completed' || j.status === 'resolved').length
   };
+
+  // Schedule grouping
+  const getGroupedSchedule = () => {
+    const todayStr = new Date().toDateString();
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toDateString();
+
+    const todayList = [];
+    const tomorrowList = [];
+    const upcomingList = [];
+
+    activeJobsList.forEach(job => {
+      const jobDate = new Date(job.due_date || job.created_at);
+      const jobDateStr = jobDate.toDateString();
+
+      if (jobDateStr === todayStr) {
+        todayList.push(job);
+      } else if (jobDateStr === tomorrowStr) {
+        tomorrowList.push(job);
+      } else {
+        upcomingList.push(job);
+      }
+    });
+
+    return { todayList, tomorrowList, upcomingList };
+  };
+
+  const { todayList, tomorrowList, upcomingList } = getGroupedSchedule();
 
   const menuItems = [
-    { id: 'Dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'Jobs', label: 'My Assigned Jobs', icon: '🔧' },
+    { id: 'Dashboard', label: 'Dashboard', icon: '🏠' },
+    { id: 'Jobs', label: 'My Jobs', icon: '🔧' },
     { id: 'Schedule', label: 'My Schedule', icon: '📅' },
-    { id: 'Customers', label: 'Customer Details', icon: '👥' },
-    { id: 'Inventory', label: 'Equipment / Inventory', icon: '📦' },
+    { id: 'Customers', label: 'Customers', icon: '👤' },
+    { id: 'History', label: 'Work History', icon: '🛠️' },
+    { id: 'Notifications', label: 'Notifications', icon: '🔔' },
     { id: 'Profile', label: 'My Profile', icon: '👤' }
   ];
 
   return (
     <div className={`flex min-h-screen font-sans w-full selection:bg-cyan-500 overflow-x-hidden relative theme-transition ${activeTheme === 'light' ? 'bg-[#f8fafc] text-[#1e293b] light-theme' : 'bg-[#030712] text-[#f3f4f6] selection:text-[#030712]'}`}>
       
-      {/* Dynamic theme style overrides */}
+      {/* Dynamic theme style sheet overrides */}
       <style dangerouslySetInnerHTML={{__html: `
         .theme-transition, .theme-transition *, .theme-transition aside, .theme-transition main, .theme-transition header, .theme-transition div {
           transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease !important;
@@ -270,7 +333,6 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
         .light-theme .bg-[#070b14]/50,
         .light-theme .bg-slate-900,
         .light-theme .bg-[#030712]/50,
-        .light-theme .bg-slate-955/20,
         .light-theme .bg-slate-950/20 {
           background-color: var(--card) !important;
           border-color: var(--border) !important;
@@ -285,7 +347,7 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
         .light-theme .border-[#111827], .light-theme .border-slate-800 {
           border-color: var(--border) !important;
         }
-        .light-theme input, .light-theme textarea {
+        .light-theme input, .light-theme textarea, .light-theme select {
           background-color: var(--card) !important;
           border-color: var(--border) !important;
           color: var(--foreground) !important;
@@ -309,7 +371,7 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
         }
       `}} />
 
-      {/* Sidebar Navigation */}
+      {/* Sidebar navigation */}
       <aside className="w-[280px] border-r border-[#111827] bg-[#070b15]/90 backdrop-blur-md hidden lg:flex flex-col h-screen sticky top-0 z-40 shrink-0">
         <div className="p-6 border-b border-[#111827] flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -323,13 +385,13 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
           </div>
         </div>
 
-        {/* Navigation list */}
+        {/* Sidebar Tabs */}
         <nav className="flex-grow p-4 space-y-1.5 overflow-y-auto custom-scrollbar">
           {menuItems.map((item) => (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-155 relative group ${
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-150 relative group ${
                 activeTab === item.id 
                   ? 'bg-slate-900 text-cyan-400 border-l-2 border-cyan-400' 
                   : 'text-slate-400 hover:bg-slate-900/50 hover:text-white'
@@ -344,7 +406,7 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
         <div className="p-4 border-t border-[#111827]">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-950/20 hover:text-red-300 transition-all"
+            className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-sm font-medium text-red-400 hover:bg-red-950/20 hover:text-red-300 transition-all duration-150"
           >
             <span className="text-base">🚪</span>
             <span>Logout Session</span>
@@ -352,10 +414,10 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
         </div>
       </aside>
 
-      {/* Main Content Area */}
+      {/* Main Content Pane */}
       <div className="flex-grow flex flex-col min-w-0 h-screen overflow-y-auto">
         
-        {/* Top Header navbar */}
+        {/* Header toolbar */}
         <header className="border-b border-[#111827] bg-[#030712]/80 backdrop-blur-md py-4 px-6 md:px-8 flex items-center justify-between sticky top-0 z-30 shrink-0">
           <div>
             <h1 className="text-base md:text-lg font-bold text-white uppercase tracking-wider">Technician Workcenter</h1>
@@ -363,7 +425,7 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
           </div>
           
           <div className="flex items-center space-x-4">
-            {/* Theme selector */}
+            {/* Theme switcher */}
             <div className="relative">
               <button
                 onClick={() => setShowThemeDropdown(!showThemeDropdown)}
@@ -386,7 +448,7 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
                         setShowThemeDropdown(false);
                       }}
                       className={`w-full text-left px-4 py-2 hover:bg-slate-850 transition-colors flex items-center justify-between ${
-                        themePreference === t.mode ? 'text-cyan-405 font-bold' : 'text-slate-300'
+                        themePreference === t.mode ? 'text-cyan-400 font-bold' : 'text-slate-300'
                       }`}
                     >
                       <span>{t.label}</span>
@@ -413,23 +475,31 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
           {loading ? (
             <div className="py-20 text-center text-xs text-slate-500">Loading workcenter pipeline...</div>
           ) : error ? (
-            <div className="p-4 rounded-xl bg-red-955/20 border border-red-800 text-red-400 text-xs">{error}</div>
+            <div className="p-4 rounded-xl bg-red-950/20 border border-red-800 text-red-400 text-xs">{error}</div>
           ) : (
             <>
-              {/* Dashboard Content */}
+              {/* Dashboard Tab */}
               {activeTab === 'Dashboard' && (
                 <div className="space-y-6 animate-fade-in-up">
                   
+                  {/* Top Welcome Banner */}
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 rounded-2xl bg-gradient-to-r from-slate-900/20 to-slate-950/10 border border-[#111827] gap-4">
+                    <div className="space-y-1">
+                      <h2 className="text-xl font-bold text-white">Good evening, {profile?.full_name?.split(' ')[0] || user?.name || 'Mehmood'} 👋</h2>
+                      <p className="text-xs text-slate-400">Here’s your field work overview for today.</p>
+                    </div>
+                  </div>
+
                   {/* Summary Metric Counters */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
-                      { label: "Assigned Jobs", val: statCounts.assigned, color: 'hover:border-cyan-500/20', icon: '📋' },
-                      { label: "Accepted", val: statCounts.accepted, color: 'hover:border-blue-500/20', icon: '👍' },
+                      { label: "Today's Jobs", val: statCounts.todayJobs, color: 'hover:border-cyan-500/20', icon: '📋' },
+                      { label: "Pending Jobs", val: statCounts.pending, color: 'hover:border-blue-500/20', icon: '👍' },
                       { label: "In Progress", val: statCounts.inProgress, color: 'hover:border-amber-500/20', icon: '⚡' },
                       { label: "Completed", val: statCounts.completed, color: 'hover:border-emerald-500/20', icon: '✅' }
                     ].map((card, i) => (
-                      <div key={i} className={`p-4 rounded-2xl bg-[#090d16]/30 border border-slate-800/80 ${card.color} transition-all duration-200 flex flex-col justify-between h-24`}>
-                        <div className="flex justify-between items-center text-[10px] text-slate-505 tracking-wider uppercase font-bold">
+                      <div key={i} className="p-4 rounded-2xl bg-[#090d16]/30 border border-slate-800/80 transition-all duration-200 flex flex-col justify-between h-24">
+                        <div className="flex justify-between items-center text-[10px] text-slate-500 tracking-wider uppercase font-bold">
                           <span>{card.label}</span>
                           <span>{card.icon}</span>
                         </div>
@@ -438,274 +508,307 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
                     ))}
                   </div>
 
-                  {/* Two column layouts */}
-                  <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                    
-                    {/* Left List of Tasks */}
-                    <div className="xl:col-span-2 p-5 rounded-2xl bg-[#090d16]/20 border border-slate-800 space-y-4">
-                      <h3 className="font-bold text-white text-xs uppercase tracking-wider">My Current Job Pipeline</h3>
-                      {tasks.length > 0 ? (
-                        <div className="space-y-3">
-                          {tasks.slice(0, 4).map((task) => (
-                            <div key={task.id} className="p-4 rounded-xl bg-[#070b14]/50 border border-slate-800/40 hover:border-slate-800 transition-colors flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                              <div className="space-y-1.5">
-                                <div className="flex items-center space-x-2">
-                                  <span className="px-2 py-0.5 rounded bg-slate-909 bg-slate-900 border border-slate-800 font-mono text-[9px] font-bold text-white">JOB-{task.id}</span>
-                                  <span className="text-xs font-bold text-white">{task.task_type}</span>
-                                </div>
-                                <p className="text-slate-400 text-[11px] font-light leading-relaxed max-w-md">{task.description}</p>
-                                <div className="text-[10px] text-slate-500 flex flex-wrap gap-x-3">
-                                  <span>👤 {task.customer_name}</span>
-                                  <span>📍 {task.customer_address}</span>
-                                </div>
+                  {/* MY ASSIGNED JOBS */}
+                  <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-slate-800 space-y-4">
+                    <h3 className="font-bold text-white text-xs uppercase tracking-wider">My Assigned Jobs</h3>
+                    {activeJobsList.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {activeJobsList.map((job) => (
+                          <div key={job.id} className="p-4 rounded-xl bg-[#070b14]/50 border border-slate-850 flex flex-col justify-between space-y-4">
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-start">
+                                <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 font-mono text-[9px] font-bold text-white">{job.job_id}</span>
+                                <span className={`px-2 py-0.5 rounded text-[8px] uppercase font-extrabold ${
+                                  job.priority === 'high' || job.priority === 'urgent' ? 'bg-red-950 text-red-400' : 'bg-slate-900 text-slate-400'
+                                }`}>{job.priority}</span>
                               </div>
-
-                              <div className="flex items-center space-x-2 self-stretch md:self-auto justify-end">
-                                <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold ${
-                                  task.status === 'completed' ? 'bg-emerald-950 text-emerald-450' :
-                                  task.status === 'in_progress' ? 'bg-amber-950 text-amber-450' : 'bg-blue-950 text-blue-450'
-                                }`}>
-                                  {task.status}
-                                </span>
-                                
-                                {getNextStatus(task.status) && (
-                                  <button
-                                    onClick={() => handleUpdateTaskStatus(task.id, getNextStatus(task.status))}
-                                    className="px-2.5 py-1 rounded bg-cyan-950 text-cyan-400 border border-cyan-800 text-[10px] font-semibold hover:bg-cyan-900 transition-all uppercase"
-                                  >
-                                    Move to {getNextStatus(task.status)}
-                                  </button>
-                                )}
-
-                                <button
-                                  onClick={() => { setSelectedTask(task); setShowNotesModal(true); }}
-                                  className="p-1 rounded hover:bg-slate-909 text-slate-400"
-                                  title="Add Notes"
-                                >
-                                  📝
-                                </button>
-                                <button
-                                  onClick={() => { setSelectedTask(task); setShowProblemModal(true); }}
-                                  className="p-1 rounded hover:bg-slate-909 text-red-400"
-                                  title="Report Problem"
-                                >
-                                  ⚠️
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="py-12 text-center text-slate-500 italic text-xs">No active tasks assigned to you today.</div>
-                      )}
-                    </div>
-
-                    {/* Right column schedule */}
-                    <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-slate-800 space-y-4">
-                      <h3 className="font-bold text-white text-xs uppercase tracking-wider">Today's Schedule</h3>
-                      {tasks.filter(t => t.status !== 'completed').length > 0 ? (
-                        <div className="space-y-3">
-                          {tasks.filter(t => t.status !== 'completed').map((task, i) => (
-                            <div key={i} className="p-3 rounded-xl bg-slate-950/20 border border-slate-800/40 flex items-start space-x-2">
-                              <span className="text-sm">📍</span>
                               <div>
-                                <span className="text-xs font-bold text-white block">{task.customer_name}</span>
-                                <span className="text-[10px] text-slate-500 block">{task.customer_address}</span>
-                                <span className="text-[9px] text-cyan-400 block mt-1 uppercase font-bold">Due: {new Date(task.due_date).toLocaleDateString()}</span>
+                                <span className="text-sm font-bold text-white block">{job.display_type}</span>
+                                <p className="text-[10px] text-slate-400 mt-1 line-clamp-2">{job.description}</p>
+                              </div>
+                              <div className="text-[10px] text-slate-500 space-y-1">
+                                <div>👤 <strong>Customer:</strong> {job.customer_name} ({job.customer_phone})</div>
+                                <div>📍 <strong>Location:</strong> {job.customer_address}</div>
+                                <div>📅 <strong>Scheduled:</strong> {new Date(job.due_date || job.created_at).toLocaleString()}</div>
+                                <div>⏳ <strong>Status:</strong> <span className="uppercase text-cyan-400 font-semibold">{job.status}</span></div>
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="py-6 text-center text-slate-505 italic text-xs">Schedule cleared for today.</div>
-                      )}
-                    </div>
 
+                            <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-900">
+                              {/* Workflow transition actions */}
+                              {job.status === 'assigned' && (
+                                <button
+                                  onClick={() => handleUpdateStatus(job, 'accepted')}
+                                  className="flex-grow px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-755 text-white font-bold text-[10px] uppercase tracking-wider"
+                                >
+                                  Accept Job
+                                </button>
+                              )}
+                              {job.status === 'accepted' && (
+                                <button
+                                  onClick={() => handleUpdateStatus(job, 'on_the_way')}
+                                  className="flex-grow px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] uppercase tracking-wider"
+                                >
+                                  Mark On The Way
+                                </button>
+                              )}
+                              {(job.status === 'accepted' || job.status === 'on_the_way') && (
+                                <button
+                                  onClick={() => handleUpdateStatus(job, 'in_progress')}
+                                  className="flex-grow px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-755 text-slate-950 font-black text-[10px] uppercase tracking-wider"
+                                >
+                                  Start Job / In Progress
+                                </button>
+                              )}
+                              {job.status === 'in_progress' && (
+                                <button
+                                  onClick={() => { setSelectedJob(job); setShowReportModal(true); }}
+                                  className="flex-grow px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase tracking-wider animate-pulse"
+                                >
+                                  Complete Job
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-12 text-center text-slate-500 italic text-xs">No active technical jobs assigned to you.</div>
+                    )}
                   </div>
+
                 </div>
               )}
 
               {/* Jobs Tab */}
               {activeTab === 'Jobs' && (
-                <div className="space-y-6 animate-fade-in-up">
-                  <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-slate-800 space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="font-bold text-white text-sm">Assigned Tasks Log</h3>
+                <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-slate-800 space-y-4 animate-fade-in-up">
+                  <h3 className="font-bold text-white text-xs uppercase tracking-wider">My Assigned Jobs Pipeline</h3>
+                  {allAssignedJobs.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-3">
+                      {allAssignedJobs.map((job) => (
+                        <div key={job.id} className="p-4 rounded-xl bg-[#070b14]/50 border border-slate-850 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-800 font-mono text-[9px] font-bold text-white">{job.job_id}</span>
+                              <span className="text-xs font-bold text-white">{job.display_type}</span>
+                            </div>
+                            <p className="text-[10px] text-slate-400">{job.description}</p>
+                            <div className="text-[9px] text-slate-500">
+                              <span>👤 {job.customer_name}</span> | <span>📍 {job.customer_address}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-3 self-stretch md:self-auto justify-between border-t md:border-t-0 pt-2 md:pt-0">
+                            <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold ${
+                              job.status === 'completed' || job.status === 'resolved' ? 'bg-emerald-950 text-emerald-450' : 'bg-slate-900 text-slate-400'
+                            }`}>{job.status}</span>
+                            
+                            {job.status === 'in_progress' && (
+                              <button
+                                onClick={() => { setSelectedJob(job); setShowReportModal(true); }}
+                                className="px-3 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold uppercase"
+                              >
+                                Complete
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    {tasks.length > 0 ? (
-                      <div className="overflow-x-auto rounded-xl border border-slate-800 bg-slate-950/20">
-                        <table className="w-full text-left border-collapse text-xs">
-                          <thead>
-                            <tr className="border-b border-slate-800 bg-slate-900/30 text-slate-400 uppercase font-bold text-[9px] tracking-wider">
-                              <th className="p-3">Job ID</th>
-                              <th className="p-3">Task Type</th>
-                              <th className="p-3">Customer</th>
-                              <th className="p-3">Location</th>
-                              <th className="p-3">Due Date</th>
-                              <th className="p-3">Priority</th>
-                              <th className="p-3">Status</th>
-                              <th className="p-3 text-right">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {tasks.map((task) => (
-                              <tr key={task.id} className="border-b border-slate-800/40 text-slate-300">
-                                <td className="p-3 font-mono font-bold text-white">JOB-{task.id}</td>
-                                <td className="p-3">{task.task_type}</td>
-                                <td className="p-3">{task.customer_name}</td>
-                                <td className="p-3 truncate max-w-xs">{task.customer_address}</td>
-                                <td className="p-3">{new Date(task.due_date).toLocaleDateString()}</td>
-                                <td className="p-3">
-                                  <span className={`px-1.5 py-0.5 rounded text-[8px] uppercase font-extrabold ${
-                                    task.priority === 'high' || task.priority === 'urgent' ? 'bg-red-950 text-red-400' : 'bg-slate-900 text-slate-400'
-                                  }`}>
-                                    {task.priority}
-                                  </span>
-                                </td>
-                                <td className="p-3">
-                                  <span className={`px-1.5 py-0.5 rounded text-[9px] uppercase font-bold ${
-                                    task.status === 'completed' ? 'bg-emerald-950 text-emerald-450' : 'bg-blue-950 text-blue-450'
-                                  }`}>
-                                    {task.status}
-                                  </span>
-                                </td>
-                                <td className="p-3 text-right flex justify-end space-x-1.5">
-                                  {getNextStatus(task.status) && (
-                                    <button
-                                      onClick={() => handleUpdateTaskStatus(task.id, getNextStatus(task.status))}
-                                      className="px-2 py-0.5 rounded bg-cyan-955 text-cyan-400 border border-cyan-800 text-[10px] font-bold"
-                                    >
-                                      Move
-                                    </button>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <div className="py-12 text-center text-slate-500 italic">No tasks found.</div>
-                    )}
-                  </div>
+                  ) : (
+                    <div className="py-12 text-center text-slate-505 italic text-xs">No jobs found in your roster.</div>
+                  )}
                 </div>
               )}
 
               {/* Schedule Tab */}
               {activeTab === 'Schedule' && (
-                <div className="space-y-6 animate-fade-in-up">
-                  <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-slate-800 space-y-4">
-                    <h3 className="font-bold text-white text-xs uppercase tracking-wider">Roster & Time Schedules</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {tasks.map((task, i) => (
-                        <div key={i} className="p-4 rounded-xl bg-[#070b14]/50 border border-slate-800/40 space-y-3">
-                          <div className="flex justify-between items-center">
-                            <span className="text-[10px] text-cyan-400 font-bold font-mono">DUE: {new Date(task.due_date).toLocaleDateString()}</span>
-                            <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold ${
-                              task.status === 'completed' ? 'bg-emerald-950 text-emerald-450' : 'bg-slate-900 text-slate-400'
-                            }`}>{task.status}</span>
+                <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-slate-800 space-y-6 animate-fade-in-up">
+                  <h3 className="font-bold text-white text-xs uppercase tracking-wider">My Schedule</h3>
+                  
+                  {/* Today */}
+                  <div className="space-y-3">
+                    <h4 className="font-bold text-cyan-400 text-xs border-b border-slate-800 pb-1">📅 TODAY</h4>
+                    {todayList.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {todayList.map(j => (
+                          <div key={j.id} className="p-3 rounded-lg bg-slate-950/20 border border-slate-850 text-xs">
+                            <span className="font-bold text-white block">{j.display_type}</span>
+                            <span className="text-slate-500 block mt-1">Customer: {j.customer_name}</span>
+                            <span className="text-slate-500 block truncate">Location: {j.customer_address}</span>
                           </div>
-                          <div>
-                            <span className="text-xs font-bold text-white block">{task.task_type}</span>
-                            <span className="text-[10px] text-slate-500 mt-1 block">Customer: {task.customer_name}</span>
-                            <span className="text-[10px] text-slate-500 block truncate">Address: {task.customer_address}</span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-slate-500 italic">No tasks scheduled for today.</p>
+                    )}
+                  </div>
+
+                  {/* Tomorrow */}
+                  <div className="space-y-3">
+                    <h4 className="font-bold text-slate-300 text-xs border-b border-slate-800 pb-1">📅 TOMORROW</h4>
+                    {tomorrowList.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {tomorrowList.map(j => (
+                          <div key={j.id} className="p-3 rounded-lg bg-slate-950/20 border border-slate-850 text-xs">
+                            <span className="font-bold text-white block">{j.display_type}</span>
+                            <span className="text-slate-500 block mt-1">Customer: {j.customer_name}</span>
+                            <span className="text-slate-500 block truncate">Location: {j.customer_address}</span>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-slate-500 italic">No tasks scheduled for tomorrow.</p>
+                    )}
+                  </div>
+
+                  {/* Upcoming */}
+                  <div className="space-y-3">
+                    <h4 className="font-bold text-slate-350 text-xs border-b border-slate-800 pb-1">📅 UPCOMING</h4>
+                    {upcomingList.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {upcomingList.map(j => (
+                          <div key={j.id} className="p-3 rounded-lg bg-slate-950/20 border border-slate-850 text-xs">
+                            <span className="font-bold text-white block">{j.display_type}</span>
+                            <span className="text-slate-500 block mt-1">Customer: {j.customer_name}</span>
+                            <span className="text-slate-500 block truncate">Location: {j.customer_address}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-slate-500 italic">No upcoming tasks scheduled.</p>
+                    )}
                   </div>
                 </div>
               )}
 
-              {/* Customers Details Tab */}
+              {/* Customers Tab */}
               {activeTab === 'Customers' && (
-                <div className="space-y-6 animate-fade-in-up">
-                  <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-slate-800 space-y-4">
-                    <h3 className="font-bold text-white text-xs uppercase tracking-wider">Assigned Customers Registry</h3>
+                <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-slate-800 space-y-4 animate-fade-in-up">
+                  <h3 className="font-bold text-white text-xs uppercase tracking-wider">Associated Customer Directory</h3>
+                  {activeJobsList.length > 0 ? (
                     <div className="space-y-3">
-                      {tasks.map((task, i) => (
-                        <div key={i} className="p-4 rounded-xl bg-[#070b14]/50 border border-slate-800/40 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                          <div>
-                            <span className="text-xs font-bold text-white block">{task.customer_name}</span>
-                            <span className="text-[10px] text-slate-505 block mt-1">📞 Contact Number: {task.customer_phone}</span>
-                            <span className="text-[10px] text-slate-505 block">📍 Address Details: {task.customer_address}</span>
+                      {activeJobsList.map((job, idx) => (
+                        <div key={idx} className="p-4 rounded-xl bg-[#070b14]/50 border border-slate-850 space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs font-bold text-white">{job.customer_name}</span>
+                            <span className="text-[9px] text-cyan-400 font-bold uppercase">{job.display_type}</span>
                           </div>
-                          <a
-                            href={`tel:${task.customer_phone}`}
-                            className="px-3 py-1.5 rounded-lg bg-slate-909 border border-slate-800 text-[10px] font-bold text-cyan-400 hover:bg-slate-850"
-                          >
-                            📞 Call Customer
-                          </a>
+                          <div className="grid grid-cols-2 gap-4 text-[10px] text-slate-550 text-slate-400">
+                            <div>📞 <strong>Phone:</strong> {job.customer_phone}</div>
+                            <div>📍 <strong>Service Address:</strong> {job.customer_address}</div>
+                            <div>📦 <strong>Internet Speed:</strong> 50 Mbps Fiber</div>
+                            <div>📝 <strong>Job Details:</strong> {job.description}</div>
+                          </div>
                         </div>
                       ))}
                     </div>
-                  </div>
+                  ) : (
+                    <div className="py-12 text-center text-slate-500 italic text-xs">No active customers in pipeline.</div>
+                  )}
                 </div>
               )}
 
-              {/* Inventory Tab */}
-              {activeTab === 'Inventory' && (
-                <div className="space-y-6 animate-fade-in-up text-xs text-slate-400">
-                  <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-slate-800 space-y-4">
-                    <h3 className="font-bold text-white text-xs uppercase tracking-wider text-left">Assigned Equipment & Inventory</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {[
-                        { name: "GPON Fiber ONUs", count: 4, type: "Broadband CPE" },
-                        { name: "CAT6 Ethernet Cable", count: "150m", type: "Media Access" },
-                        { name: "Fiber Splicing Toolkits", count: 1, type: "Operational Gear" },
-                        { name: "Dual-band WiFi Routers", count: 3, type: "Home Networking" }
-                      ].map((item, idx) => (
-                        <div key={idx} className="p-4 rounded-xl bg-[#070b14]/50 border border-slate-800/40 flex flex-col justify-between h-24">
+              {/* History Tab */}
+              {activeTab === 'History' && (
+                <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-slate-800 space-y-4 animate-fade-in-up">
+                  <h3 className="font-bold text-white text-xs uppercase tracking-wider">Work Report History</h3>
+                  {workHistory.length > 0 ? (
+                    <div className="overflow-x-auto rounded-xl border border-slate-800 bg-[#030712]/50 text-xs">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b border-slate-800 bg-slate-900/30 text-slate-400 font-bold uppercase text-[9px]">
+                            <th className="p-3">Job ID</th>
+                            <th className="p-3">Customer</th>
+                            <th className="p-3">Work Performed</th>
+                            <th className="p-3">Solution</th>
+                            <th className="p-3">Equipment</th>
+                            <th className="p-3">Completed Date</th>
+                            <th className="p-3 text-right">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {workHistory.map((report, idx) => (
+                            <tr key={idx} className="border-b border-slate-850 text-slate-300">
+                              <td className="p-3 font-mono font-bold text-white">{report.type === 'task' ? `TSK-${report.id}` : `CMP-${report.id}`}</td>
+                              <td className="p-3">{report.customer_name}</td>
+                              <td className="p-3 truncate max-w-xs">{report.work_performed}</td>
+                              <td className="p-3">{report.solution}</td>
+                              <td className="p-3">{report.equipment_used || 'None'}</td>
+                              <td className="p-3 text-slate-500">{report.completed_date ? new Date(report.completed_date).toLocaleDateString() : 'N/A'}</td>
+                              <td className="p-3 text-right">
+                                <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 font-bold uppercase text-[9px]">Completed</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="py-12 text-center text-slate-500 italic text-xs">No completed jobs found.</div>
+                  )}
+                </div>
+              )}
+
+              {/* Notifications Tab */}
+              {activeTab === 'Notifications' && (
+                <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-slate-800 space-y-4 animate-fade-in-up">
+                  <h3 className="font-bold text-white text-xs uppercase tracking-wider">My Notifications</h3>
+                  {notifications.length > 0 ? (
+                    <div className="space-y-2">
+                      {notifications.map((notif, idx) => (
+                        <div key={idx} className={`p-3.5 rounded-xl border border-slate-850 flex items-start space-x-3 ${notif.is_read ? 'opacity-60' : 'bg-slate-900/10'}`}>
+                          <span className="text-lg">🔔</span>
                           <div>
-                            <span className="font-bold text-white block">{item.name}</span>
-                            <span className="text-[9px] text-slate-500 block mt-1">{item.type}</span>
+                            <span className="font-bold text-white block text-xs">{notif.title}</span>
+                            <p className="text-[11px] text-slate-400 mt-0.5">{notif.message}</p>
+                            <span className="text-[8px] text-slate-500 mt-1 block">{new Date(notif.created_at).toLocaleString()}</span>
                           </div>
-                          <span className="text-lg font-black text-cyan-400">{item.count}</span>
                         </div>
                       ))}
                     </div>
-                  </div>
+                  ) : (
+                    <div className="py-12 text-center text-slate-500 italic text-xs">No notifications.</div>
+                  )}
                 </div>
               )}
 
               {/* Profile Tab */}
               {activeTab === 'Profile' && (
-                <div className="space-y-6 animate-fade-in-up">
-                  <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-slate-800 space-y-4 max-w-xl mx-auto">
-                    <h3 className="font-bold text-white text-xs uppercase tracking-wider text-left">Technician Profile Settings</h3>
-                    {profile && (
-                      <div className="space-y-4 text-xs">
-                        <div className="flex items-center space-x-4 pb-3 border-b border-slate-800/50">
-                          <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg">
-                            {profile.name.slice(0, 2).toUpperCase()}
-                          </div>
-                          <div>
-                            <span className="text-sm font-bold text-white block">{profile.name}</span>
-                            <span className="text-[10px] text-cyan-400 font-mono block mt-1 uppercase">{profile.employee_code}</span>
-                          </div>
+                <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-slate-800 max-w-xl mx-auto space-y-4 animate-fade-in-up">
+                  <h3 className="font-bold text-white text-xs uppercase tracking-wider">My Profile Details</h3>
+                  {profile && (
+                    <div className="space-y-4 text-xs">
+                      <div className="flex items-center space-x-4 pb-3 border-b border-slate-800/50">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-lg">
+                          {profile.name.slice(0, 2).toUpperCase()}
                         </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <span className="text-[10px] text-slate-500 block">Work Email</span>
-                            <span className="font-medium text-white">{profile.email}</span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-slate-500 block">Phone Number</span>
-                            <span className="font-medium text-white">{profile.phone}</span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-slate-500 block">Designation</span>
-                            <span className="font-medium text-white">{profile.designation}</span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-slate-500 block">Registration Date</span>
-                            <span className="font-medium text-white">{new Date(profile.created_at).toLocaleDateString()}</span>
-                          </div>
+                        <div>
+                          <span className="text-sm font-bold text-white block">{profile.name}</span>
+                          <span className="text-[10px] text-cyan-400 font-mono block mt-1 uppercase">{profile.employee_code}</span>
                         </div>
                       </div>
-                    )}
-                  </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <span className="text-[10px] text-slate-500 block">Work Email</span>
+                          <span className="font-medium text-white">{profile.email}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 block">Phone Number</span>
+                          <span className="font-medium text-white">{profile.phone}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 block">Designation</span>
+                          <span className="font-medium text-white">{profile.designation}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 block">Status</span>
+                          <span className="px-2 py-0.5 rounded bg-emerald-950 text-emerald-450 font-bold uppercase text-[9px] inline-block mt-0.5">Active</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -715,73 +818,85 @@ export default function TechnicianPortal({ user, onLogoutSuccess }) {
         </main>
       </div>
 
-      {/* Add Job Notes Modal */}
-      {showNotesModal && selectedTask && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-[450px] max-w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4">
-            <h4 className="font-extrabold text-white text-sm">Add Job Work Notes (JOB-{selectedTask.id})</h4>
-            <form onSubmit={handleAddNote} className="space-y-4 text-xs">
+      {/* Completion Work Report Form Modal */}
+      {showReportModal && selectedJob && (
+        <div className="fixed inset-0 z-55 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-[500px] max-w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4 text-xs">
+            <div className="pb-2 border-b border-slate-850">
+              <h4 className="font-extrabold text-white text-sm">Submit Work Report ({selectedJob.job_id})</h4>
+              <p className="text-[10px] text-slate-500">Provide completion parameters to resolve the job ticket.</p>
+            </div>
+            
+            <form onSubmit={handleCompleteWorkReport} className="space-y-4">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Operational Comments</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase">Problem Found *</label>
                 <textarea
                   required
-                  value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}
-                  placeholder="Record optical power readings, splicer parameters, or details..."
-                  className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-805 text-white h-24 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                  value={reportForm.problem_found}
+                  onChange={(e) => setReportForm({ ...reportForm, problem_found: e.target.value })}
+                  placeholder="Record issues discovered on-site..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-805 text-white h-16 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
-              <div className="flex justify-end space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setShowNotesModal(false)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-850 hover:bg-slate-800 text-slate-350 font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submittingNote}
-                  className="px-4 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-bold"
-                >
-                  {submittingNote ? 'Saving...' : 'Save Notes'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
-      {/* Report Problem Modal */}
-      {showProblemModal && selectedTask && (
-        <div className="fixed inset-0 z-50 bg-slate-955/20 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-[450px] max-w-full rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-4">
-            <h4 className="font-extrabold text-white text-sm">Report Problem (JOB-{selectedTask.id})</h4>
-            <form onSubmit={handleReportProblem} className="space-y-4 text-xs">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Problem Description</label>
+                <label className="text-[10px] font-bold text-slate-400 uppercase">Work Performed *</label>
                 <textarea
                   required
-                  value={problemDescription}
-                  onChange={(e) => setProblemDescription(e.target.value)}
-                  placeholder="Describe optical fiber damage, missing hardware or equipment, or client issues..."
-                  className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-850 text-white h-24 focus:outline-none focus:ring-1 focus:ring-red-500"
+                  value={reportForm.work_performed}
+                  onChange={(e) => setReportForm({ ...reportForm, work_performed: e.target.value })}
+                  placeholder="Details of cabling, routing config, splicer power..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-805 text-white h-16 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
-              <div className="flex justify-end space-x-2">
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase">Solution *</label>
+                <input
+                  type="text"
+                  required
+                  value={reportForm.solution}
+                  onChange={(e) => setReportForm({ ...reportForm, solution: e.target.value })}
+                  placeholder="Fiber link restored, router configured, etc."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-805 text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase">Equipment Used</label>
+                <input
+                  type="text"
+                  value={reportForm.equipment_used}
+                  onChange={(e) => setReportForm({ ...reportForm, equipment_used: e.target.value })}
+                  placeholder="Fiber patch cord, GPON ONU serial..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-805 text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-400 uppercase">Additional Notes</label>
+                <textarea
+                  value={reportForm.additional_notes}
+                  onChange={(e) => setReportForm({ ...reportForm, additional_notes: e.target.value })}
+                  placeholder="Optional extra comments..."
+                  className="w-full px-3 py-2 rounded-xl bg-slate-955 border border-slate-805 text-white h-12 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-2 border-t border-slate-850">
                 <button
                   type="button"
-                  onClick={() => setShowProblemModal(false)}
-                  className="px-3 py-1.5 rounded-lg bg-slate-850 hover:bg-slate-800 text-slate-350 font-semibold"
+                  onClick={() => setShowReportModal(false)}
+                  className="px-3 py-1.5 rounded-lg bg-slate-850 hover:bg-slate-800 text-slate-300 font-semibold"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={submittingProblem}
-                  className="px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-750 text-white font-bold"
+                  disabled={submittingReport}
+                  className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-705 text-white font-bold"
                 >
-                  {submittingProblem ? 'Reporting...' : 'Submit Report'}
+                  {submittingReport ? 'Submitting...' : 'Submit Report & Complete'}
                 </button>
               </div>
             </form>

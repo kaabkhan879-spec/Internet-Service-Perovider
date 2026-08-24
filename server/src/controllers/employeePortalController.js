@@ -39,7 +39,7 @@ async function updateComplaintStatus(req, res) {
   const { id } = req.params;
   const { status, comment } = req.body;
 
-  const validStatuses = ['pending', 'open', 'in_progress', 'resolved', 'closed', 'on_the_way'];
+  const validStatuses = ['pending', 'open', 'in_progress', 'resolved', 'closed', 'on_the_way', 'accepted'];
   if (!validStatuses.includes(status)) {
     return res.status(400).json({ error: 'Invalid complaint status.' });
   }
@@ -108,7 +108,7 @@ async function updateTaskStatus(req, res) {
   const { id } = req.params;
   const { status } = req.body;
 
-  const validStatuses = ['assigned', 'on_the_way', 'in_progress', 'completed'];
+  const validStatuses = ['assigned', 'accepted', 'on_the_way', 'in_progress', 'completed', 'pending'];
   if (!validStatuses.includes(status)) {
     return res.status(400).json({ error: 'Invalid task status.' });
   }

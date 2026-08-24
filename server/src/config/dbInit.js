@@ -246,6 +246,12 @@ async function initializeDatabase() {
       ALTER TABLE customers ADD CONSTRAINT customers_status_check CHECK (status IN ('active', 'inactive', 'suspended'));
     `);
 
+    // Sync technical_tasks status check constraint to support 'accepted' and 'pending'
+    await db.query(`
+      ALTER TABLE technical_tasks DROP CONSTRAINT IF EXISTS technical_tasks_status_check;
+      ALTER TABLE technical_tasks ADD CONSTRAINT technical_tasks_status_check CHECK (status IN ('assigned', 'accepted', 'on_the_way', 'in_progress', 'completed', 'pending'));
+    `);
+
     // Create settings table if not exists
     await db.query(`
       CREATE TABLE IF NOT EXISTS settings (
