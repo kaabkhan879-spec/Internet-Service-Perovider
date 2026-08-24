@@ -50,12 +50,12 @@ function Layout({ children, user }) {
               Home
             </Link>
             {user ? (
-              <Link to={user.role === 'admin' ? "/admin" : (user.role === 'technician' ? "/technician" : "/employee")} className="text-sm font-medium px-4 py-2 rounded-lg bg-cyan-950 border border-cyan-800/50 text-cyan-400 hover:bg-cyan-900 hover:text-cyan-300 transition-all duration-300">
+              <Link to={user.role === 'admin' ? "/admin" : (user.role === 'technician' ? "/technician" : (user.role === 'customer' ? "/customer" : "/employee"))} className="text-sm font-medium px-4 py-2 rounded-lg bg-cyan-950 border border-cyan-800/50 text-cyan-400 hover:bg-cyan-900 hover:text-cyan-300 transition-all duration-300">
                 Dashboard
               </Link>
             ) : (
-              <Link to="/admin/login" className="text-sm font-medium px-4 py-2 rounded-lg bg-cyan-950 border border-cyan-800/50 text-cyan-400 hover:bg-cyan-900 hover:text-cyan-300 transition-all duration-300">
-                Admin Login
+              <Link to="/customer/login" className="text-sm font-medium px-4 py-2 rounded-lg bg-cyan-950 border border-cyan-800/50 text-cyan-400 hover:bg-cyan-900 hover:text-cyan-300 transition-all duration-300">
+                Customer Login
               </Link>
             )}
           </nav>
@@ -117,9 +117,21 @@ function Home() {
         </div>
       </div>
 
-      <div className="pt-4">
-        <Link to="/admin" className="inline-flex items-center space-x-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-505 to-indigo-605 bg-gradient-to-r from-cyan-500 to-indigo-600 font-semibold text-white shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 hover:scale-[1.02] transition-all duration-300">
-          <span>Go to Portal</span>
+      <div className="pt-4 flex flex-wrap gap-4 justify-center">
+        <Link to="/customer" className="inline-flex items-center space-x-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-teal-500 font-semibold text-white shadow-lg hover:scale-[1.02] transition-all duration-300">
+          <span>Customer Portal</span>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+        <Link to="/employee" className="inline-flex items-center space-x-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-650 font-semibold text-white shadow-lg hover:scale-[1.02] transition-all duration-300">
+          <span>Employee Portal</span>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+        <Link to="/admin" className="inline-flex items-center space-x-2 px-6 py-3 rounded-xl bg-slate-900 border border-slate-800 font-semibold text-slate-205 text-slate-300 shadow-lg hover:scale-[1.02] transition-all duration-300">
+          <span>Admin Portal</span>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>

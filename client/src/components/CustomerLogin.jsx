@@ -56,7 +56,7 @@ function CustomerLogin({ onLoginSuccess }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
-          <h2 className="text-2xl font-black text-white">Customer Portal</h2>
+          <h2 className="text-2xl font-black text-white uppercase tracking-wider">CUSTOMER PORTAL</h2>
           <p className="text-slate-400 text-xs font-light">Manage your internet service, requests and complaints.</p>
         </div>
 
@@ -73,7 +73,7 @@ function CustomerLogin({ onLoginSuccess }) {
         {/* Login Form */}
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">CNIC Number</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">CNIC NUMBER</label>
             <input
               type="text"
               required
@@ -85,7 +85,7 @@ function CustomerLogin({ onLoginSuccess }) {
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Portal Password</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Password</label>
             <input
               type="password"
               required
@@ -102,7 +102,7 @@ function CustomerLogin({ onLoginSuccess }) {
               onClick={handleForgotPassword}
               className="font-bold text-cyan-400 hover:text-cyan-300 transition-colors"
             >
-              Forgot Password?
+              Forgot Password
             </button>
           </div>
 
@@ -117,7 +117,7 @@ function CustomerLogin({ onLoginSuccess }) {
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
             ) : (
-              <span>Access Portal & Dashboard</span>
+              <span>Login</span>
             )}
           </button>
         </form>
