@@ -31,6 +31,22 @@ const getStatusBadge = (status) => {
 };
 
 export default function CustomerPortal({ user, onLogoutSuccess }) {
+  const getGreeting = () => {
+    const hr = new Date().getHours();
+    if (hr < 12) return 'Good morning';
+    if (hr < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+
+  const parseComplaintType = (subj) => {
+    const match = (subj || '').match(/^\[(.*?)\]/);
+    return match ? match[1] : 'General Support';
+  };
+
+  const parseCleanSubject = (subj) => {
+    return (subj || '').replace(/^\[.*?\]\s*/, '');
+  };
+
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -315,11 +331,11 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
   // Sidebar navigation mapping
   const menuItems = [
     { id: 'Dashboard', label: 'Dashboard', icon: '🏠' },
-    { id: 'Profile', label: 'My Profile', icon: '👤' },
-    { id: 'Service', label: 'My Service', icon: '🌐' },
+    { id: 'Service', label: 'My Internet', icon: '🌐' },
     { id: 'Requests', label: 'Service Requests', icon: '🛠️' },
-    { id: 'Complaints', label: 'My Complaints', icon: '🚨' },
-    { id: 'Billing', label: 'My Billing', icon: '💳' },
+    { id: 'Complaints', label: 'Complaints', icon: '🚨' },
+    { id: 'Billing', label: 'Billing & Payments', icon: '💳' },
+    { id: 'Profile', label: 'My Profile', icon: '👤' },
     { id: 'Notifications', label: 'Notifications', icon: '🔔' },
     { id: 'Password', label: 'Change Password', icon: '🔐' }
   ];
@@ -449,25 +465,56 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                   {/* Top Welcome Banner */}
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 gap-4 shadow-sm">
                     <div className="space-y-1">
-                      <h2 className="text-xl font-bold text-slate-900 dark:text-white">Welcome, {profile?.full_name || user?.name} 👋</h2>
-                      <p className="text-xs text-slate-600 dark:text-slate-400">Manage your active billing profile, internet services and complaints tickets.</p>
+                      <h2 className="text-xl font-bold text-slate-900 dark:text-white">{getGreeting()}, {profile?.full_name || user?.name} 👋</h2>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Here's your internet service overview.</p>
                     </div>
                   </div>
 
                   {/* Summary Metric Cards */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                     {[
-                      { label: "Account Status", val: dashboardData?.accountStatus?.toUpperCase() || 'ACTIVE', status: true, color: dashboardData?.accountStatus === 'suspended' ? 'text-amber-500' : 'text-emerald-500', icon: '⚡' },
-                      { label: "Current Plan", val: dashboardData?.packageName || 'No Active Package', small: true, icon: '🌐' },
-                      { label: "Outstanding Balance", val: formatPKR(dashboardData?.currentBill), color: dashboardData?.currentBill > 0 ? 'text-rose-500' : 'text-slate-900 dark:text-white', icon: '💳' },
-                      { label: "Open Complaints", val: dashboardData?.openComplaintsCount || 0, icon: '🚨' }
+                      { 
+                        label: "Current Package", 
+                        val: dashboardData?.packageName || 'No Active Package', 
+                        sub: dashboardData?.speedMbps ? `${dashboardData.speedMbps} Mbps` : 'N/A', 
+                        icon: '🌐' 
+                      },
+                      { 
+                        label: "Service Status", 
+                        val: dashboardData?.accountStatus ? (dashboardData.accountStatus.charAt(0).toUpperCase() + dashboardData.accountStatus.slice(1)) : 'Active', 
+                        color: dashboardData?.accountStatus === 'suspended' ? 'text-amber-500 font-bold' : (dashboardData?.accountStatus === 'inactive' ? 'text-rose-500 font-bold' : 'text-emerald-500 font-bold'), 
+                        sub: 'Status',
+                        icon: '⚡' 
+                      },
+                      { 
+                        label: "Current Bill", 
+                        val: formatPKR(dashboardData?.currentBill), 
+                        sub: billing.length > 0 && dashboardData?.currentBill > 0 ? `Due: ${new Date(billing[0].due_date).toLocaleDateString()}` : 'No dues pending',
+                        color: dashboardData?.currentBill > 0 ? 'text-rose-550 text-rose-600 font-black dark:text-rose-400' : 'text-slate-900 dark:text-white',
+                        icon: '💳' 
+                      },
+                      { 
+                        label: "Open Complaints", 
+                        val: dashboardData?.openComplaintsCount || 0, 
+                        sub: 'Active tickets',
+                        icon: '🚨' 
+                      },
+                      { 
+                        label: "Service Requests", 
+                        val: dashboardData?.pendingRequestsCount || 0, 
+                        sub: 'Pending requests',
+                        icon: '🛠️' 
+                      }
                     ].map((card, i) => (
-                      <div key={i} className="p-4 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 transition-all duration-200 flex flex-col justify-between h-24 shadow-sm">
-                        <div className="flex justify-between items-center text-[10px] text-slate-600 dark:text-slate-400 tracking-wider uppercase font-bold">
+                      <div key={i} className="p-4 rounded-2xl bg-white dark:bg-[#111827] border border-slate-200 dark:border-slate-800 transition-all duration-200 flex flex-col justify-between h-28 shadow-sm">
+                        <div className="flex justify-between items-center text-[10px] text-slate-500 dark:text-slate-400 tracking-wider uppercase font-bold">
                           <span>{card.label}</span>
                           <span>{card.icon}</span>
                         </div>
-                        <div className={`font-black ${card.small ? 'text-sm' : 'text-xl'} ${card.color || 'text-slate-900 dark:text-white'} truncate`}>{card.val}</div>
+                        <div className="space-y-1">
+                          <div className={`font-black text-xs md:text-sm ${card.color || 'text-slate-900 dark:text-white'} truncate`}>{card.val}</div>
+                          <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate font-semibold">{card.sub}</div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -644,29 +691,53 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
 
                   <div className="grid grid-cols-1 gap-4 text-xs bg-slate-50 dark:bg-[#0f172a] p-5 rounded-2xl border border-slate-200 dark:border-[#1e293b]">
                     <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800/80">
-                      <span className="text-slate-550 text-slate-500 dark:text-slate-400">Package Name:</span>
+                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Customer Name:</span>
+                      <span className="font-bold text-slate-900 dark:text-white">{profile?.full_name || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800/80">
+                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Customer ID:</span>
+                      <span className="font-mono font-bold text-slate-900 dark:text-white">{profile?.customer_code || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800/80">
+                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Internet Package:</span>
                       <span className="font-bold text-slate-900 dark:text-white">{service?.package_name || 'No Active Plan Assigned'}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800/80">
-                      <span className="text-slate-550 text-slate-500 dark:text-slate-400">Download/Upload Speed:</span>
-                      <span className="font-bold text-slate-900 dark:text-white">{service?.speed_mbps || 0} Mbps Unlimited</span>
+                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Internet Speed:</span>
+                      <span className="font-bold text-slate-900 dark:text-white">{service?.speed_mbps || 0} Mbps</span>
                     </div>
                     <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800/80">
-                      <span className="text-slate-550 text-slate-500 dark:text-slate-400">Monthly Recurring Charges:</span>
+                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Monthly Charges:</span>
                       <span className="font-bold text-slate-900 dark:text-white">{service?.monthly_price ? formatPKR(service.monthly_price) : 'Rs. 0'}</span>
                     </div>
                     <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800/80">
-                      <span className="text-slate-550 text-slate-500 dark:text-slate-400">Connection Status:</span>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                        service?.service_status === 'active' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-450' : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-400'
+                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Service Status:</span>
+                      <span className={`px-2.5 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                        service?.service_status === 'active' 
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-450 dark:border-emerald-900' 
+                          : 'bg-amber-105 bg-amber-100 text-amber-800 border-amber-250 dark:bg-amber-950 dark:text-amber-400 dark:border-amber-900'
                       }`}>
                         {service?.service_status || 'inactive'}
                       </span>
                     </div>
-                    <div className="flex justify-between py-2">
-                      <span className="text-slate-550 text-slate-500 dark:text-slate-400">Installation Date:</span>
+                    <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800/80">
+                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Installation Date:</span>
                       <span className="font-bold text-slate-900 dark:text-white">
-                        {service?.installation_date ? new Date(service.installation_date).toLocaleDateString() : 'N/A'}
+                        {profile?.installation_date ? new Date(profile.installation_date).toLocaleDateString() : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b border-slate-200 dark:border-slate-800/80">
+                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Activation Date:</span>
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {service?.start_date ? new Date(service.start_date).toLocaleDateString() : (profile?.installation_date ? new Date(profile.installation_date).toLocaleDateString() : 'N/A')}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-2">
+                      <span className="text-slate-500 dark:text-slate-400 font-semibold">Next Billing Date:</span>
+                      <span className="font-bold text-slate-900 dark:text-white text-cyan-600 dark:text-cyan-400">
+                        {billing.length > 0 && billing[0].status === 'paid' 
+                          ? new Date(new Date(billing[0].due_date).setMonth(new Date(billing[0].due_date).getMonth() + 1)).toLocaleDateString()
+                          : (billing.length > 0 ? new Date(billing[0].due_date).toLocaleDateString() : 'N/A')}
                       </span>
                     </div>
                   </div>
@@ -839,12 +910,16 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                             <div className="space-y-1.5 max-w-[70%]">
                               <div className="flex items-center space-x-2">
                                 <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-900 text-[10px] font-mono font-bold text-slate-800 dark:text-slate-300">CMP-{comp.id}</span>
-                                <span className="text-xs font-bold text-slate-900 dark:text-white truncate">{comp.subject}</span>
+                                <span className="text-xs font-bold text-slate-900 dark:text-white truncate">{parseCleanSubject(comp.subject)}</span>
                               </div>
                               <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-1">{comp.description}</p>
-                              <div className="text-[9px] text-slate-505 text-slate-500 flex space-x-2">
+                              <div className="text-[9px] text-slate-500 dark:text-slate-400 flex flex-wrap gap-x-2 gap-y-1 font-medium">
+                                <span>Category: <span className="font-semibold text-cyan-600 dark:text-cyan-400">{parseComplaintType(comp.subject)}</span></span>
+                                <span>•</span>
                                 <span>Filed: {new Date(comp.created_at).toLocaleDateString()}</span>
-                                <span>|</span>
+                                <span>•</span>
+                                <span>Updated: {new Date(comp.updated_at || comp.created_at).toLocaleDateString()}</span>
+                                <span>•</span>
                                 <span>Priority: <span className="font-bold uppercase">{comp.priority}</span></span>
                               </div>
                             </div>
@@ -891,28 +966,30 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                     <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-xs shadow-sm">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-550 bg-slate-50 dark:bg-[#111827] text-slate-650 text-slate-600 dark:text-slate-400 font-bold uppercase text-[9px]">
-                            <th className="p-3">Billing Cycle</th>
-                            <th className="p-3">Amount Due</th>
+                          <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#111827] text-slate-600 dark:text-slate-400 font-bold uppercase text-[9px]">
+                            <th className="p-3">Invoice/Bill ID</th>
+                            <th className="p-3">Billing Period</th>
+                            <th className="p-3">Amount</th>
                             <th className="p-3">Due Date</th>
-                            <th className="p-3">Payment status</th>
-                            <th className="p-3 text-right">Cleared Date</th>
+                            <th className="p-3">Status</th>
+                            <th className="p-3 text-right">Payment Date</th>
                           </tr>
                         </thead>
                         <tbody>
                           {billing.map((inv) => (
                             <tr key={inv.id} className="border-b border-slate-100 dark:border-slate-800/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-[#111827]/40 transition-colors">
-                              <td className="p-3 font-bold text-slate-900 dark:text-white">{inv.billing_month}</td>
+                              <td className="p-3 font-mono font-bold text-slate-900 dark:text-white">INV-{inv.id}</td>
+                              <td className="p-3 font-medium">{inv.billing_month}</td>
                               <td className="p-3 font-semibold">{formatPKR(inv.amount)}</td>
                               <td className="p-3 text-slate-500 dark:text-slate-450">{new Date(inv.due_date).toLocaleDateString()}</td>
                               <td className="p-3">
                                 <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase border ${
-                                  inv.status === 'paid' ? 'bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900' : 'bg-rose-100 text-rose-800 border-rose-250 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-900'
+                                  inv.status === 'paid' ? 'bg-emerald-100 text-emerald-800 border-emerald-250 dark:bg-emerald-950/40 dark:text-emerald-450 dark:border-emerald-900' : 'bg-rose-105 bg-rose-100 text-rose-800 border-rose-250 dark:bg-rose-950/40 dark:text-rose-450 dark:border-rose-900'
                                 }`}>
                                   {inv.status}
                                 </span>
                               </td>
-                              <td className="p-3 text-right text-slate-500 dark:text-slate-505">
+                              <td className="p-3 text-right text-slate-500 dark:text-slate-450 font-medium">
                                 {inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : '-'}
                               </td>
                             </tr>
@@ -1040,17 +1117,52 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
             {detailsLoading || !selectedComplaint ? (
               <div className="py-10 text-center text-slate-500">Loading timeline...</div>
             ) : (
-              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="font-bold text-xs text-slate-900 dark:text-white">{selectedComplaint.subject}</span>
-                    <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold ${getStatusBadge(selectedComplaint.status)}`}>
-                      {selectedComplaint.status}
-                    </span>
+              <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3 bg-slate-50 dark:bg-slate-950 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px]">
+                    <div>
+                      <span className="text-slate-500 dark:text-slate-400 block">Complaint ID:</span>
+                      <strong className="text-slate-900 dark:text-white font-mono">CMP-{selectedComplaint.id}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 dark:text-slate-400 block">Category (Type):</span>
+                      <strong className="text-slate-900 dark:text-white">{parseComplaintType(selectedComplaint.subject)}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 dark:text-slate-400 block">Priority:</span>
+                      <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                        selectedComplaint.priority === 'high' || selectedComplaint.priority === 'urgent'
+                          ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-400'
+                          : 'bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-400'
+                      }`}>{selectedComplaint.priority}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 dark:text-slate-400 block">Status:</span>
+                      <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold border ${getStatusBadge(selectedComplaint.status)}`}>
+                        {selectedComplaint.status}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 dark:text-slate-400 block">Created Date:</span>
+                      <span className="text-slate-750 text-slate-700 dark:text-slate-300 font-medium">{new Date(selectedComplaint.created_at).toLocaleString()}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 dark:text-slate-400 block">Last Updated:</span>
+                      <span className="text-slate-750 text-slate-700 dark:text-slate-300 font-medium">{new Date(selectedComplaint.updated_at || selectedComplaint.created_at).toLocaleString()}</span>
+                    </div>
                   </div>
-                  <p className="bg-slate-50 dark:bg-slate-950 p-3 rounded-lg border border-slate-200 dark:border-slate-850 leading-relaxed text-slate-600 dark:text-slate-350">
-                    {selectedComplaint.description}
-                  </p>
+                  
+                  <div className="space-y-1">
+                    <span className="text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold tracking-wider">Subject:</span>
+                    <strong className="text-slate-905 text-slate-900 dark:text-white block text-sm font-bold">{parseCleanSubject(selectedComplaint.subject)}</strong>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-slate-500 dark:text-slate-400 text-[10px] uppercase font-bold tracking-wider">Description:</span>
+                    <p className="bg-slate-50 dark:bg-slate-950 p-3 rounded-lg border border-slate-200 dark:border-slate-850 leading-relaxed text-slate-750 text-slate-700 dark:text-slate-300">
+                      {selectedComplaint.description}
+                    </p>
+                  </div>
                 </div>
 
                 {/* Timeline display */}
