@@ -244,6 +244,17 @@ async function initializeDatabase() {
     await db.query(`
       ALTER TABLE customers DROP CONSTRAINT IF EXISTS customers_status_check;
       ALTER TABLE customers ADD CONSTRAINT customers_status_check CHECK (status IN ('active', 'inactive', 'suspended'));
+      
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS activation_date TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS billing_cycle VARCHAR(50) DEFAULT 'monthly';
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS next_billing_date TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS service_expiry_date TIMESTAMP WITH TIME ZONE;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS grace_period_days INTEGER DEFAULT 3;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS service_status VARCHAR(50) DEFAULT 'ACTIVE';
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS last_payment_date TIMESTAMP WITH TIME ZONE;
+
+      ALTER TABLE customers DROP CONSTRAINT IF EXISTS customers_service_status_check;
+      ALTER TABLE customers ADD CONSTRAINT customers_service_status_check CHECK (service_status IN ('ACTIVE', 'DUE', 'SUSPENDED', 'EXPIRED'));
     `);
 
     // Sync technical_tasks status check constraint to support 'accepted' and 'pending'

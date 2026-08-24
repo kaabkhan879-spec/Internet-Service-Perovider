@@ -1,6 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+const calculateNextBillingAndExpiry = (activationDateStr, billingCycle) => {
+  if (!activationDateStr) return 'N/A';
+  const baseDate = new Date(activationDateStr);
+  let monthsToAdd = 1;
+  const cycle = (billingCycle || 'monthly').toLowerCase();
+  if (cycle === 'quarterly') monthsToAdd = 3;
+  else if (cycle === 'semi-annual' || cycle === 'semi_annual') monthsToAdd = 6;
+  else if (cycle === 'annual') monthsToAdd = 12;
+
+  const expiryDate = new Date(baseDate);
+  expiryDate.setMonth(expiryDate.getMonth() + monthsToAdd);
+  return expiryDate.toISOString().split('T')[0];
+};
+
 const formatPKR = (amount) => {
   const val = parseFloat(amount) || 0;
   return `Rs. ${val.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
@@ -31,9 +45,35 @@ function CustomerManagement({ user, onLogoutSuccess }) {
   const [detailsLoading, setDetailsLoading] = useState(false);
 
   // Forms state controls
-  const [addForm, setAddForm] = useState({ full_name: '', phone: '', email: '', cnic: '', address: '', installation_date: '', status: 'active', package_id: '', password: '', confirmPassword: '' });
+  const [addForm, setAddForm] = useState({
+    full_name: '',
+    phone: '',
+    email: '',
+    cnic: '',
+    address: '',
+    installation_date: new Date().toISOString().split('T')[0],
+    activation_date: new Date().toISOString().split('T')[0],
+    billing_cycle: 'monthly',
+    grace_period_days: 3,
+    status: 'active',
+    package_id: '',
+    password: '',
+    confirmPassword: ''
+  });
   const [showPassword, setShowPassword] = useState(false);
-  const [editForm, setEditForm] = useState({ id: '', full_name: '', phone: '', email: '', cnic: '', address: '', installation_date: '' });
+  const [editForm, setEditForm] = useState({
+    id: '',
+    full_name: '',
+    phone: '',
+    email: '',
+    cnic: '',
+    address: '',
+    installation_date: '',
+    activation_date: '',
+    billing_cycle: 'monthly',
+    grace_period_days: 3,
+    service_status: 'ACTIVE'
+  });
   const [assignPackageId, setAssignPackageId] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -259,7 +299,11 @@ function CustomerManagement({ user, onLogoutSuccess }) {
       email: customer.email,
       cnic: customer.cnic || '',
       address: customer.address || '',
-      installation_date: customer.installation_date ? customer.installation_date.split('T')[0] : ''
+      installation_date: customer.installation_date ? customer.installation_date.split('T')[0] : '',
+      activation_date: customer.activation_date ? customer.activation_date.split('T')[0] : '',
+      billing_cycle: customer.billing_cycle || 'monthly',
+      grace_period_days: customer.grace_period_days || 3,
+      service_status: customer.service_status || 'ACTIVE'
     });
     setShowEditModal(true);
   };
@@ -268,6 +312,8 @@ function CustomerManagement({ user, onLogoutSuccess }) {
   const handleAssignPackageSubmit = async (e) => {
     e.preventDefault();
     if (!assignPackageId) return;
+    const confirmed = window.confirm("Are you sure you want to change this customer's package? This will update their activation date to today and recalculate their service expiry.");
+    if (!confirmed) return;
     setActionLoading(true);
     try {
       const response = await fetch(`http://localhost:5000/api/customers/${customerDetails.customer.id}/assign-package`, {
@@ -809,13 +855,68 @@ function CustomerManagement({ user, onLogoutSuccess }) {
                   )}
 
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Installation / Start Date</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Installation Date</label>
                     <input
                       type="date"
                       value={addForm.installation_date}
                       onChange={(e) => setAddForm({ ...addForm, installation_date: e.target.value })}
                       className="w-full px-3 py-2.5 rounded-lg bg-slate-950 border border-slate-805 text-xs focus:outline-none focus:border-cyan-500 text-white"
                     />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Activation Date</label>
+                    <input
+                      type="date"
+                      value={addForm.activation_date}
+                      onChange={(e) => setAddForm({ ...addForm, activation_date: e.target.value })}
+                      className="w-full px-3 py-2.5 rounded-lg bg-slate-950 border border-slate-805 text-xs focus:outline-none focus:border-cyan-500 text-white"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Billing Cycle</label>
+                    <select
+                      value={addForm.billing_cycle}
+                      onChange={(e) => setAddForm({ ...addForm, billing_cycle: e.target.value })}
+                      className="w-full px-3 py-2.5 rounded-lg bg-slate-950 border border-slate-805 text-xs focus:outline-none focus:border-cyan-500 text-white"
+                    >
+                      <option value="monthly">Monthly</option>
+                      <option value="quarterly">Quarterly</option>
+                      <option value="semi-annual">Semi-Annual</option>
+                      <option value="annual">Annual</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Grace Period (Days)</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={addForm.grace_period_days}
+                      onChange={(e) => setAddForm({ ...addForm, grace_period_days: parseInt(e.target.value, 10) || 3 })}
+                      className="w-full px-3 py-2.5 rounded-lg bg-slate-950 border border-slate-805 text-xs focus:outline-none focus:border-cyan-500 text-white"
+                    />
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-850 space-y-2 text-[10px] text-slate-300">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500 font-bold uppercase tracking-wider">Next Billing Date:</span>
+                      <span className="text-white font-black font-mono bg-slate-900 px-2 py-0.5 rounded">
+                        {calculateNextBillingAndExpiry(addForm.activation_date, addForm.billing_cycle)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500 font-bold uppercase tracking-wider">Service Expiry Date:</span>
+                      <span className="text-white font-black font-mono bg-slate-900 px-2 py-0.5 rounded">
+                        {calculateNextBillingAndExpiry(addForm.activation_date, addForm.billing_cycle)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500 font-bold uppercase tracking-wider">Service Status:</span>
+                      <span className="px-2 py-0.5 bg-emerald-950/50 border border-emerald-900 text-emerald-400 font-black rounded uppercase">ACTIVE</span>
+                    </div>
                   </div>
 
                   <div className="space-y-1">
@@ -968,14 +1069,75 @@ function CustomerManagement({ user, onLogoutSuccess }) {
                 />
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Installation Date</label>
+                  <input
+                    type="date"
+                    value={editForm.installation_date}
+                    onChange={(e) => setEditForm({ ...editForm, installation_date: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-805 text-xs focus:outline-none focus:border-cyan-500 text-white"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Activation Date</label>
+                  <input
+                    type="date"
+                    value={editForm.activation_date}
+                    onChange={(e) => setEditForm({ ...editForm, activation_date: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-805 text-xs focus:outline-none focus:border-cyan-500 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Billing Cycle</label>
+                  <select
+                    value={editForm.billing_cycle}
+                    onChange={(e) => setEditForm({ ...editForm, billing_cycle: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-805 text-xs focus:outline-none focus:border-cyan-500 text-white"
+                  >
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="semi-annual">Semi-Annual</option>
+                    <option value="annual">Annual</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Grace Period (Days)</label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={editForm.grace_period_days}
+                    onChange={(e) => setEditForm({ ...editForm, grace_period_days: parseInt(e.target.value, 10) || 3 })}
+                    className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-805 text-xs focus:outline-none focus:border-cyan-500 text-white"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Installation Date</label>
-                <input
-                  type="date"
-                  value={editForm.installation_date}
-                  onChange={(e) => setEditForm({ ...editForm, installation_date: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-805 text-xs focus:outline-none focus:border-cyan-500 text-white"
-                />
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Service Status</label>
+                <select
+                  value={editForm.service_status}
+                  onChange={(e) => setEditForm({ ...editForm, service_status: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg bg-slate-950 border border-slate-805 text-xs focus:outline-none focus:border-cyan-500 text-white font-bold"
+                >
+                  <option value="ACTIVE" className="text-emerald-400">ACTIVE</option>
+                  <option value="DUE" className="text-amber-505 text-amber-500">DUE</option>
+                  <option value="SUSPENDED" className="text-rose-505 text-rose-500">SUSPENDED</option>
+                  <option value="EXPIRED" className="text-rose-700">EXPIRED</option>
+                </select>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-850 space-y-1 text-[10px] text-slate-400">
+                <div className="flex justify-between items-center">
+                  <span className="uppercase tracking-wider">Recalculated Expiry Preview:</span>
+                  <span className="text-white font-bold font-mono">
+                    {calculateNextBillingAndExpiry(editForm.activation_date, editForm.billing_cycle)}
+                  </span>
+                </div>
               </div>
 
               <div className="pt-4 flex space-x-3">
@@ -1130,6 +1292,81 @@ function CustomerManagement({ user, onLogoutSuccess }) {
                         </button>
                       </div>
                     </form>
+                  </div>
+                </div>
+
+                {/* Service & Billing Information */}
+                <div className="bg-slate-950/35 p-5 rounded-2xl border border-slate-850 space-y-3 text-xs">
+                  <h4 className="text-xs font-bold text-cyan-400 uppercase tracking-wider">Service & Billing Information</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5">
+                    <div className="flex justify-between items-center py-1.5 border-b border-slate-900">
+                      <span className="text-slate-500">Installation Date:</span>
+                      <span className="text-slate-200 font-medium">
+                        {customerDetails.customer.installation_date ? new Date(customerDetails.customer.installation_date).toLocaleDateString() : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 border-b border-slate-900">
+                      <span className="text-slate-500">Activation Date:</span>
+                      <span className="text-slate-200 font-medium">
+                        {customerDetails.customer.activation_date ? new Date(customerDetails.customer.activation_date).toLocaleDateString() : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 border-b border-slate-900">
+                      <span className="text-slate-500">Internet Package:</span>
+                      <span className="text-white font-bold">{customerDetails.customer.package_name || 'None Assigned'}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 border-b border-slate-900">
+                      <span className="text-slate-500">Internet Speed:</span>
+                      <span className="text-slate-200 font-semibold">{customerDetails.customer.speed_mbps ? `${customerDetails.customer.speed_mbps} Mbps` : 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 border-b border-slate-900">
+                      <span className="text-slate-500">Periodic Charges:</span>
+                      <span className="text-emerald-450 font-black text-emerald-400">{customerDetails.customer.monthly_price ? formatPKR(customerDetails.customer.monthly_price) : 'Rs. 0'}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 border-b border-slate-900">
+                      <span className="text-slate-500">Billing Cycle:</span>
+                      <span className="text-slate-200 font-bold uppercase">{customerDetails.customer.billing_cycle || 'monthly'}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 border-b border-slate-900">
+                      <span className="text-slate-500">Next Billing Date:</span>
+                      <span className="text-cyan-400 font-semibold font-mono">
+                        {customerDetails.customer.next_billing_date ? new Date(customerDetails.customer.next_billing_date).toLocaleDateString() : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 border-b border-slate-900">
+                      <span className="text-slate-500">Service Expiry Date:</span>
+                      <span className="text-rose-400 font-semibold font-mono">
+                        {customerDetails.customer.service_expiry_date ? new Date(customerDetails.customer.service_expiry_date).toLocaleDateString() : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 border-b border-slate-900">
+                      <span className="text-slate-500">Grace Period:</span>
+                      <span className="text-slate-200 font-semibold">{customerDetails.customer.grace_period_days || 3} days</span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 border-b border-slate-900">
+                      <span className="text-slate-500">Service Status:</span>
+                      <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold ${
+                        customerDetails.customer.service_status === 'ACTIVE' ? 'bg-emerald-500/15 text-emerald-400' :
+                        customerDetails.customer.service_status === 'DUE' ? 'bg-amber-500/15 text-amber-400' :
+                        'bg-rose-500/15 text-rose-400'
+                      }`}>
+                        {customerDetails.customer.service_status || 'ACTIVE'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 border-b border-slate-900">
+                      <span className="text-slate-500">Last Payment Date:</span>
+                      <span className="text-slate-200 font-medium">
+                        {customerDetails.customer.last_payment_date ? new Date(customerDetails.customer.last_payment_date).toLocaleString() : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-1.5 border-b border-slate-900">
+                      <span className="text-slate-500">Payment Status:</span>
+                      <span className={`px-2 py-0.5 rounded text-[9px] uppercase font-bold ${
+                        customerDetails.customer.outstanding_balance > 0 ? 'bg-amber-500/15 text-amber-400' : 'bg-emerald-500/15 text-emerald-400'
+                      }`}>
+                        {customerDetails.customer.outstanding_balance > 0 ? 'OVERDUE' : 'PAID'}
+                      </span>
+                    </div>
                   </div>
                 </div>
 

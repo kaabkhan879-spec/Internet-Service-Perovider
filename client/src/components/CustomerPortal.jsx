@@ -54,6 +54,26 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
     return (subj || '').replace(/^\[.*?\]\s*/, '');
   };
 
+  const getRemainingDaysText = () => {
+    if (!profile?.service_expiry_date) return null;
+    const expiry = new Date(profile.service_expiry_date);
+    const today = new Date();
+    
+    expiry.setHours(0,0,0,0);
+    today.setHours(0,0,0,0);
+    
+    const diffTime = expiry.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) {
+      return { text: "Service expired", color: "text-rose-600 dark:text-rose-455 border-rose-500/20 bg-rose-500/5", icon: "🔴" };
+    } else if (diffDays <= 3) {
+      return { text: `${diffDays} days remaining`, color: "text-amber-605 dark:text-amber-400 border-amber-500/20 bg-amber-500/5", icon: "🟠" };
+    } else {
+      return { text: `${diffDays} days remaining`, color: "text-emerald-605 dark:text-emerald-450 border-emerald-500/20 bg-emerald-500/5", icon: "🟢" };
+    }
+  };
+
   const [activeTab, setActiveTab] = useState('Dashboard');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -1018,16 +1038,32 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 rounded-3xl p-5 shadow-sm">
                     {/* Status Card */}
                     <div className="p-3 flex items-center space-x-3.5 border-r border-slate-100 dark:border-slate-800 last:border-r-0">
-                      <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-450 shrink-0">
+                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
+                        (profile?.service_status || 'ACTIVE') === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-450' :
+                        (profile?.service_status || 'ACTIVE') === 'DUE' ? 'bg-amber-500/10 text-amber-500' :
+                        'bg-rose-500/10 text-rose-500'
+                      }`}>
                         🛡️
                       </div>
                       <div className="leading-tight">
                         <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Service Status</span>
-                        <span className="text-xs font-black text-emerald-600 dark:text-emerald-450 block mt-0.5 uppercase flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          {service?.service_status || 'ACTIVE'}
+                        <span className={`text-xs font-black block mt-0.5 uppercase flex items-center gap-1 ${
+                          (profile?.service_status || 'ACTIVE') === 'ACTIVE' ? 'text-emerald-600 dark:text-emerald-450' :
+                          (profile?.service_status || 'ACTIVE') === 'DUE' ? 'text-amber-500 animate-pulse' :
+                          'text-rose-500 animate-pulse'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${
+                            (profile?.service_status || 'ACTIVE') === 'ACTIVE' ? 'bg-emerald-500' :
+                            (profile?.service_status || 'ACTIVE') === 'DUE' ? 'bg-amber-500' :
+                            'bg-rose-500'
+                          }`} />
+                          {profile?.service_status || 'ACTIVE'}
                         </span>
-                        <p className="text-[9px] text-slate-450 dark:text-slate-500 font-medium">Your service is working fine</p>
+                        <p className="text-[9px] text-slate-450 dark:text-slate-500 font-medium">
+                          {(profile?.service_status || 'ACTIVE') === 'ACTIVE' ? 'Your service is active' :
+                           (profile?.service_status || 'ACTIVE') === 'DUE' ? 'Payment is due' :
+                           'Service suspended'}
+                        </p>
                       </div>
                     </div>
 
@@ -1071,37 +1107,69 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                   {/* Main Details and Right Visual split columns */}
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     
-                    {/* Connection details panel */}
-                    <div className="lg:col-span-2 p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 shadow-sm space-y-4">
-                      <div>
-                        <h3 className="font-black text-slate-900 dark:text-white text-sm">Connection Details</h3>
-                        <p className="text-[10px] text-slate-500 mt-1">Detailed database parameters about your active internet account.</p>
-                      </div>
+                    {/* Left Column: Banner + Connection Details */}
+                    <div className="lg:col-span-2 space-y-4">
+                      {/* Service Status Notification Banner */}
+                      {(() => {
+                        const statusMsg = (profile?.service_status || 'ACTIVE') === 'ACTIVE' ? "Your internet service is active." :
+                                          (profile?.service_status || 'ACTIVE') === 'DUE' ? "Your payment is due. Please renew your package to avoid suspension." :
+                                          "Your internet service has been suspended. Please renew your package to restore service.";
+                        const statusColor = (profile?.service_status || 'ACTIVE') === 'ACTIVE' ? "bg-emerald-500/5 border-emerald-500/10 text-emerald-600 dark:text-emerald-450" :
+                                            (profile?.service_status || 'ACTIVE') === 'DUE' ? "bg-amber-500/5 border-amber-500/10 text-amber-500" :
+                                            "bg-rose-500/5 border-rose-500/10 text-rose-500";
+                        const remDays = getRemainingDaysText();
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 pt-2">
-                        {[
-                          { label: "Customer Name", val: profile?.full_name || 'N/A', icon: "👤", color: "text-slate-900 dark:text-white font-bold" },
-                          { label: "Customer ID", val: profile?.customer_code || 'N/A', icon: "🔑", color: "text-blue-600 dark:text-blue-400 font-bold font-mono" },
-                          { label: "Internet Package", val: service?.package_name || 'No Active package', icon: "📦", color: "text-indigo-650 dark:text-indigo-400 font-black" },
-                          { label: "Internet Speed", val: service?.speed_mbps ? `${service.speed_mbps} Mbps` : 'N/A', icon: "🚀", color: "text-slate-900 dark:text-white font-bold" },
-                          { label: "Monthly Charges", val: service?.monthly_price ? formatPKR(service.monthly_price) : 'Rs. 0', icon: "💰", color: "text-emerald-600 dark:text-emerald-450 font-black" },
-                          { label: "Service Status", val: service?.service_status || 'inactive', icon: "🟢", color: "text-emerald-600 dark:text-emerald-400 font-extrabold uppercase" },
-                          { label: "Installation Date", val: formatDatePretty(profile?.installation_date), icon: "📅", color: "text-slate-700 dark:text-slate-300 font-medium" },
-                          { label: "Activation Date", val: formatDatePretty(service?.start_date || profile?.installation_date), icon: "⚡", color: "text-slate-700 dark:text-slate-300 font-medium" },
-                          { label: "Next Billing Date", val: formatDatePretty(
-                            billing.length > 0 && billing[0].status === 'paid' 
-                              ? new Date(new Date(billing[0].due_date).setMonth(new Date(billing[0].due_date).getMonth() + 1))
-                              : (billing.length > 0 ? billing[0].due_date : null)
-                          ), icon: "💳", color: "text-cyan-600 dark:text-cyan-400 font-semibold" }
-                        ].map((row, idx) => (
-                          <div key={idx} className="flex justify-between items-center py-2.5 border-b border-slate-100 dark:border-slate-900/60 last:border-b-0">
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase flex items-center space-x-1.5">
-                              <span>{row.icon}</span>
-                              <span>{row.label}</span>
-                            </span>
-                            <span className={`text-xs ${row.color}`}>{row.val}</span>
+                        return (
+                          <div className={`p-4 rounded-2xl border ${statusColor} flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-inner`}>
+                            <div className="flex items-center space-x-2 text-xs">
+                              <span className="text-base">📢</span>
+                              <span className="font-semibold">{statusMsg}</span>
+                            </div>
+                            {remDays && (
+                              <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase border tracking-wider flex items-center space-x-1 ${remDays.color}`}>
+                                <span>{remDays.icon}</span> <span>{remDays.text}</span>
+                              </span>
+                            )}
                           </div>
-                        ))}
+                        );
+                      })()}
+
+                      {/* Connection details panel */}
+                      <div className="p-6 rounded-3xl bg-white dark:bg-[#0B1220] border border-slate-200 dark:border-slate-900 shadow-sm space-y-4">
+                        <div>
+                          <h3 className="font-black text-slate-900 dark:text-white text-sm">Connection Details</h3>
+                          <p className="text-[10px] text-slate-500 mt-1">Detailed database parameters about your active internet account.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 pt-2">
+                          {[
+                            { label: "Customer Name", val: profile?.full_name || 'N/A', icon: "👤", color: "text-slate-900 dark:text-white font-bold" },
+                            { label: "Customer ID", val: profile?.customer_code || 'N/A', icon: "🔑", color: "text-blue-600 dark:text-blue-400 font-bold font-mono" },
+                            { label: "Internet Package", val: service?.package_name || 'No Active package', icon: "📦", color: "text-indigo-650 dark:text-indigo-400 font-black" },
+                            { label: "Internet Speed", val: service?.speed_mbps ? `${service.speed_mbps} Mbps` : 'N/A', icon: "🚀", color: "text-slate-900 dark:text-white font-bold" },
+                            { label: "Monthly Charges", val: service?.monthly_price ? formatPKR(service.monthly_price) : 'Rs. 0', icon: "💰", color: "text-emerald-600 dark:text-emerald-450 font-black" },
+                            { 
+                              label: "Service Status", 
+                              val: profile?.service_status || 'ACTIVE', 
+                              icon: "🛡️", 
+                              color: (profile?.service_status || 'ACTIVE') === 'ACTIVE' ? "text-emerald-600 dark:text-emerald-400 font-extrabold uppercase" : 
+                                     (profile?.service_status || 'ACTIVE') === 'DUE' ? "text-amber-500 font-extrabold uppercase animate-pulse" : 
+                                     "text-rose-605 dark:text-rose-455 font-extrabold uppercase animate-pulse" 
+                            },
+                            { label: "Installation Date", val: formatDatePretty(profile?.installation_date), icon: "📅", color: "text-slate-700 dark:text-slate-300 font-medium" },
+                            { label: "Activation Date", val: formatDatePretty(profile?.activation_date || profile?.installation_date), icon: "⚡", color: "text-slate-700 dark:text-slate-300 font-medium" },
+                            { label: "Next Billing Date", val: formatDatePretty(profile?.next_billing_date), icon: "💳", color: "text-cyan-600 dark:text-cyan-400 font-semibold" },
+                            { label: "Service Expiry Date", val: formatDatePretty(profile?.service_expiry_date), icon: "⏳", color: "text-rose-500 dark:text-rose-450 font-semibold" }
+                          ].map((row, idx) => (
+                            <div key={idx} className="flex justify-between items-center py-2.5 border-b border-slate-100 dark:border-slate-900/60 last:border-b-0">
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase flex items-center space-x-1.5">
+                                <span>{row.icon}</span>
+                                <span>{row.label}</span>
+                              </span>
+                              <span className={`text-xs ${row.color}`}>{row.val}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
@@ -1112,12 +1180,32 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                       </div>
                       
                       <div className="space-y-1.5 mt-4 z-10">
-                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] font-bold uppercase tracking-wider inline-flex items-center space-x-1.5 border border-emerald-500/20">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          <span>Active Link</span>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider inline-flex items-center space-x-1.5 border ${
+                          (profile?.service_status || 'ACTIVE') === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' :
+                          (profile?.service_status || 'ACTIVE') === 'DUE' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                          'bg-rose-500/10 text-rose-500 border-rose-500/20'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full bg-emerald-500 ${
+                            (profile?.service_status || 'ACTIVE') === 'ACTIVE' ? 'bg-emerald-500 animate-pulse' :
+                            (profile?.service_status || 'ACTIVE') === 'DUE' ? 'bg-amber-500' :
+                            'bg-rose-500'
+                          }`} />
+                          <span>
+                            {(profile?.service_status || 'ACTIVE') === 'ACTIVE' ? 'Active Link' :
+                             (profile?.service_status || 'ACTIVE') === 'DUE' ? 'Payment Due' :
+                             'Suspended Link'}
+                          </span>
                         </span>
-                        <h4 className="text-sm font-black text-slate-900 dark:text-white mt-1">You're All Set!</h4>
-                        <p className="text-[10px] text-slate-500 max-w-[200px] mx-auto leading-normal">Your high-speed internet connection is active and ready to go.</p>
+                        <h4 className="text-sm font-black text-slate-900 dark:text-white mt-1">
+                          {(profile?.service_status || 'ACTIVE') === 'ACTIVE' ? "You're All Set!" :
+                           (profile?.service_status || 'ACTIVE') === 'DUE' ? "Payment Required" :
+                           "Connection Suspended"}
+                        </h4>
+                        <p className="text-[10px] text-slate-500 max-w-[200px] mx-auto leading-normal">
+                          {(profile?.service_status || 'ACTIVE') === 'ACTIVE' ? "Your high-speed internet connection is active and ready to go." :
+                           (profile?.service_status || 'ACTIVE') === 'DUE' ? "Your payment is due soon. Please renew to keep your high-speed access." :
+                           "Your internet link has been suspended. Please make a payment to restore your service."}
+                        </p>
                       </div>
 
                       {/* Animated Wi-Fi visual */}
@@ -1125,11 +1213,17 @@ export default function CustomerPortal({ user, onLogoutSuccess }) {
                         <div className="absolute w-24 h-24 rounded-full border border-cyan-500/20 dark:border-cyan-400/10 animate-ping" />
                         <div className="absolute w-16 h-16 rounded-full border border-indigo-500/20 dark:border-indigo-400/10 animate-ping" style={{ animationDelay: '0.4s' }} />
                         <div className="absolute w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/20" />
-                        <span className="text-3xl animate-bounce duration-1000">📶</span>
+                        <span className="text-3xl animate-bounce duration-1000">
+                          {(profile?.service_status || 'ACTIVE') === 'ACTIVE' ? '📶' : '⚠️'}
+                        </span>
                       </div>
 
                       <div className="text-[9px] text-slate-400 dark:text-slate-500 mt-2 z-10 font-bold uppercase tracking-wide">
-                        Network Link Latency: <span className="font-extrabold text-emerald-500">12ms (Optimal)</span>
+                        Network Link Status: <span className={`font-extrabold ${
+                          (profile?.service_status || 'ACTIVE') === 'ACTIVE' ? 'text-emerald-500' : 'text-rose-500 animate-pulse'
+                        }`}>
+                          {(profile?.service_status || 'ACTIVE') === 'ACTIVE' ? '12ms (Optimal)' : 'Offline'}
+                        </span>
                       </div>
                     </div>
 

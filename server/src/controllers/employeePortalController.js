@@ -1,6 +1,23 @@
 const db = require('../config/db');
 const { hashPassword, comparePassword } = require('../utils/password');
 
+function calculateExpiryDates(activationDateVal, billingCycle) {
+  const activationDate = new Date(activationDateVal || new Date());
+  let monthsToAdd = 1;
+  const cycle = (billingCycle || 'monthly').toLowerCase();
+  if (cycle === 'quarterly') monthsToAdd = 3;
+  else if (cycle === 'semi-annual' || cycle === 'semi_annual') monthsToAdd = 6;
+  else if (cycle === 'annual') monthsToAdd = 12;
+
+  const expiryDate = new Date(activationDate);
+  expiryDate.setMonth(expiryDate.getMonth() + monthsToAdd);
+
+  return {
+    nextBillingDate: expiryDate,
+    serviceExpiryDate: expiryDate
+  };
+}
+
 // Helper to get employee ID from user ID
 async function getEmployeeId(userId) {
   const result = await db.query('SELECT id FROM employees WHERE user_id = $1', [userId]);
@@ -499,7 +516,10 @@ async function getOperationsDashboardData(req, res) {
  * Provision a new customer profile via employee operations
  */
 async function createCustomer(req, res) {
-  const { full_name, phone, email, cnic, address, status, package_id } = req.body;
+  const { 
+    full_name, phone, email, cnic, address, status, package_id,
+    activation_date, billing_cycle, grace_period_days 
+  } = req.body;
   if (!full_name || !phone || !email) {
     return res.status(400).json({ error: 'Full name, phone, and email are required fields.' });
   }
@@ -513,6 +533,12 @@ async function createCustomer(req, res) {
     const defaultPassword = 'customer123';
     const passwordHash = await hashPassword(defaultPassword);
     
+    const finalActivationDate = activation_date || new Date().toISOString().split('T')[0];
+    const finalBillingCycle = billing_cycle || 'monthly';
+    const finalGracePeriod = parseInt(grace_period_days, 10) || 3;
+
+    const { nextBillingDate, serviceExpiryDate } = calculateExpiryDates(finalActivationDate, finalBillingCycle);
+
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
@@ -522,14 +548,20 @@ async function createCustomer(req, res) {
       );
       const userId = userRes.rows[0].id;
       const customerRes = await client.query(
-        "INSERT INTO customers (user_id, customer_code, full_name, phone, email, address, cnic, status, installation_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id",
-        [userId, customerCode, full_name, phone, email, address || null, cnic || null, status || 'active', new Date()]
+        `INSERT INTO customers (
+          user_id, customer_code, full_name, phone, email, address, cnic, status, installation_date,
+          activation_date, billing_cycle, next_billing_date, service_expiry_date, grace_period_days, service_status
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'ACTIVE') RETURNING id`,
+        [
+          userId, customerCode, full_name, phone, email, address || null, cnic || null, status || 'active', new Date(),
+          finalActivationDate, finalBillingCycle, nextBillingDate, serviceExpiryDate, finalGracePeriod
+        ]
       );
       const customerId = customerRes.rows[0].id;
       if (package_id) {
         await client.query(
-          "INSERT INTO subscriptions (customer_id, package_id, start_date, status) VALUES ($1, $2, $3, 'active')",
-          [customerId, package_id, new Date()]
+          "INSERT INTO subscriptions (customer_id, package_id, start_date, end_date, status) VALUES ($1, $2, $3, $4, 'active')",
+          [customerId, package_id, finalActivationDate, serviceExpiryDate]
         );
       }
       await client.query('COMMIT');

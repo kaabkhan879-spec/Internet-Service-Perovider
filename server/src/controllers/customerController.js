@@ -1,6 +1,23 @@
 const db = require('../config/db');
 const { hashPassword } = require('../utils/password');
 
+function calculateExpiryDates(activationDateVal, billingCycle) {
+  const activationDate = new Date(activationDateVal || new Date());
+  let monthsToAdd = 1;
+  const cycle = (billingCycle || 'monthly').toLowerCase();
+  if (cycle === 'quarterly') monthsToAdd = 3;
+  else if (cycle === 'semi-annual' || cycle === 'semi_annual') monthsToAdd = 6;
+  else if (cycle === 'annual') monthsToAdd = 12;
+
+  const expiryDate = new Date(activationDate);
+  expiryDate.setMonth(expiryDate.getMonth() + monthsToAdd);
+
+  return {
+    nextBillingDate: expiryDate,
+    serviceExpiryDate: expiryDate
+  };
+}
+
 /**
  * List all customers with optional search string matching name, phone, or customer code
  * GET /api/customers
@@ -123,7 +140,10 @@ async function getCustomerDetails(req, res) {
  * POST /api/customers
  */
 async function createCustomer(req, res) {
-  const { full_name, phone, email, cnic, address, installation_date, status, package_id, password } = req.body;
+  const { 
+    full_name, phone, email, cnic, address, installation_date, status, package_id, password,
+    activation_date, billing_cycle, grace_period_days
+  } = req.body;
 
   if (!full_name || !phone || !email) {
     return res.status(400).json({ error: 'Full name, phone, and email are required fields.' });
@@ -144,6 +164,12 @@ async function createCustomer(req, res) {
     const finalPassword = password || 'customer123';
     const passwordHash = await hashPassword(finalPassword);
 
+    const finalActivationDate = activation_date || new Date().toISOString().split('T')[0];
+    const finalBillingCycle = billing_cycle || 'monthly';
+    const finalGracePeriod = parseInt(grace_period_days, 10) || 3;
+
+    const { nextBillingDate, serviceExpiryDate } = calculateExpiryDates(finalActivationDate, finalBillingCycle);
+
     // SQL Transaction wrapper using single connection client
     const client = await db.pool.connect();
     try {
@@ -160,8 +186,11 @@ async function createCustomer(req, res) {
 
       // 2. Insert into customers
       const customerInsert = `
-        INSERT INTO customers (user_id, customer_code, full_name, phone, email, address, cnic, status, installation_date)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        INSERT INTO customers (
+          user_id, customer_code, full_name, phone, email, address, cnic, status, installation_date,
+          activation_date, billing_cycle, next_billing_date, service_expiry_date, grace_period_days, service_status
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'ACTIVE')
         RETURNING id;
       `;
       const customerRes = await client.query(customerInsert, [
@@ -173,7 +202,12 @@ async function createCustomer(req, res) {
         address || null,
         cnic || null,
         status || 'active',
-        installation_date || new Date()
+        installation_date || new Date(),
+        finalActivationDate,
+        finalBillingCycle,
+        nextBillingDate,
+        serviceExpiryDate,
+        finalGracePeriod
       ]);
 
       const customerId = customerRes.rows[0].id;
@@ -181,10 +215,10 @@ async function createCustomer(req, res) {
       // 3. Assign package subscription if package_id is provided
       if (package_id) {
         const subInsert = `
-          INSERT INTO subscriptions (customer_id, package_id, start_date, status)
-          VALUES ($1, $2, $3, 'active');
+          INSERT INTO subscriptions (customer_id, package_id, start_date, end_date, status)
+          VALUES ($1, $2, $3, $4, 'active');
         `;
-        await client.query(subInsert, [customerId, package_id, installation_date || new Date()]);
+        await client.query(subInsert, [customerId, package_id, finalActivationDate, serviceExpiryDate]);
       }
 
       await client.query('COMMIT');
@@ -210,7 +244,10 @@ async function createCustomer(req, res) {
  */
 async function updateCustomer(req, res) {
   const { id } = req.params;
-  const { full_name, phone, email, cnic, address, installation_date } = req.body;
+  const { 
+    full_name, phone, email, cnic, address, installation_date,
+    activation_date, billing_cycle, grace_period_days, service_status 
+  } = req.body;
 
   if (!full_name || !phone || !email) {
     return res.status(400).json({ error: 'Full name, phone, and email are required fields.' });
@@ -218,12 +255,13 @@ async function updateCustomer(req, res) {
 
   try {
     // Find customer first to grab their user_id
-    const findCust = await db.query('SELECT user_id, email FROM customers WHERE id = $1', [id]);
+    const findCust = await db.query('SELECT user_id, email, activation_date, billing_cycle, grace_period_days, service_status FROM customers WHERE id = $1', [id]);
     if (findCust.rows.length === 0) {
       return res.status(404).json({ error: 'Customer not found.' });
     }
 
-    const { user_id, email: currentEmail } = findCust.rows[0];
+    const currentCust = findCust.rows[0];
+    const { user_id, email: currentEmail } = currentCust;
 
     // Check email uniqueness if email changed
     if (email !== currentEmail) {
@@ -232,6 +270,13 @@ async function updateCustomer(req, res) {
         return res.status(400).json({ error: 'Email address is already in use by another user.' });
       }
     }
+
+    const finalActivationDate = activation_date || currentCust.activation_date || new Date().toISOString();
+    const finalBillingCycle = billing_cycle || currentCust.billing_cycle || 'monthly';
+    const finalGracePeriod = grace_period_days !== undefined ? parseInt(grace_period_days, 10) : (currentCust.grace_period_days || 3);
+    const finalServiceStatus = service_status || currentCust.service_status || 'ACTIVE';
+
+    const { nextBillingDate, serviceExpiryDate } = calculateExpiryDates(finalActivationDate, finalBillingCycle);
 
     const client = await db.pool.connect();
     try {
@@ -246,10 +291,23 @@ async function updateCustomer(req, res) {
       // Update customers details
       const updateCust = `
         UPDATE customers 
-        SET full_name = $1, phone = $2, email = $3, cnic = $4, address = $5, installation_date = $6, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $7;
+        SET full_name = $1, phone = $2, email = $3, cnic = $4, address = $5, installation_date = $6,
+            activation_date = $7, billing_cycle = $8, next_billing_date = $9, service_expiry_date = $10,
+            grace_period_days = $11, service_status = $12, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $13;
       `;
-      await client.query(updateCust, [full_name, phone, email, cnic || null, address || null, installation_date || null, id]);
+      await client.query(updateCust, [
+        full_name, phone, email, cnic || null, address || null, installation_date || null,
+        finalActivationDate, finalBillingCycle, nextBillingDate, serviceExpiryDate,
+        finalGracePeriod, finalServiceStatus, id
+      ]);
+
+      // Update active subscription dates
+      await client.query(`
+        UPDATE subscriptions
+        SET start_date = $1, end_date = $2, updated_at = CURRENT_TIMESTAMP
+        WHERE customer_id = $3 AND (status = 'active' OR status = 'suspended');
+      `, [finalActivationDate, serviceExpiryDate, id]);
 
       await client.query('COMMIT');
       return res.json({ message: 'Customer details updated successfully.' });
@@ -323,7 +381,7 @@ async function assignPackage(req, res) {
 
   try {
     // Verify customer exists
-    const checkCust = await db.query('SELECT id FROM customers WHERE id = $1', [id]);
+    const checkCust = await db.query('SELECT id, billing_cycle FROM customers WHERE id = $1', [id]);
     if (checkCust.rows.length === 0) {
       return res.status(404).json({ error: 'Customer not found.' });
     }
@@ -333,6 +391,10 @@ async function assignPackage(req, res) {
     if (checkPack.rows.length === 0) {
       return res.status(404).json({ error: 'Package is not found or inactive.' });
     }
+
+    const billingCycle = checkCust.rows[0].billing_cycle || 'monthly';
+    const todayStr = new Date().toISOString().split('T')[0];
+    const { nextBillingDate, serviceExpiryDate } = calculateExpiryDates(todayStr, billingCycle);
 
     const client = await db.pool.connect();
     try {
@@ -346,9 +408,16 @@ async function assignPackage(req, res) {
 
       // 2. Insert new active subscription
       await client.query(
-        "INSERT INTO subscriptions (customer_id, package_id, start_date, status) VALUES ($1, $2, CURRENT_DATE, 'active')",
-        [id, package_id]
+        "INSERT INTO subscriptions (customer_id, package_id, start_date, end_date, status) VALUES ($1, $2, $3, $4, 'active')",
+        [id, package_id, todayStr, serviceExpiryDate]
       );
+
+      // 3. Update customer details status and expiry dates
+      await client.query(`
+        UPDATE customers
+        SET activation_date = $1, next_billing_date = $2, service_expiry_date = $3, service_status = 'ACTIVE', status = 'active', updated_at = CURRENT_TIMESTAMP
+        WHERE id = $4;
+      `, [todayStr, nextBillingDate, serviceExpiryDate, id]);
 
       await client.query('COMMIT');
       return res.json({ message: 'Internet package assigned successfully.' });
