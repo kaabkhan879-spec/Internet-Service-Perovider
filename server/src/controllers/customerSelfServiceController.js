@@ -17,28 +17,46 @@ async function customerLogin(req, res) {
   }
 
   try {
+    const cleanCnic = cnic.replace(/\D/g, '');
+    console.log(`[CustomerLogin DEBUG] Attempting login for clean CNIC: "${cleanCnic}"`);
+    
     // 1. Find user/customer associated with this CNIC
     const queryStr = `
-      SELECT c.id as customer_id, c.full_name, c.email, c.status as customer_status,
-             u.id as user_id, u.password_hash, u.status as user_status
+      SELECT c.id as customer_id, c.full_name, c.email, c.status as customer_status, c.cnic as customer_cnic,
+             u.id as user_id, u.password_hash, u.status as user_status, u.role as user_role
       FROM customers c
       JOIN users u ON c.user_id = u.id
-      WHERE REPLACE(c.cnic, '-', '') = REPLACE($1, '-', '');
+      WHERE REGEXP_REPLACE(c.cnic, '\\D', '', 'g') = $1;
     `;
-    const result = await db.query(queryStr, [cnic.trim()]);
+    const result = await db.query(queryStr, [cleanCnic]);
+    console.log(`[CustomerLogin DEBUG] Query returned ${result.rows.length} rows.`);
+
     if (result.rows.length === 0) {
+      console.log(`[CustomerLogin DEBUG] Customer found: false`);
       return res.status(401).json({ error: 'Invalid CNIC or password.' });
     }
 
     const account = result.rows[0];
+    console.log(`[CustomerLogin DEBUG] Customer found: true`);
+    console.log(`[CustomerLogin DEBUG] Auth account found: true`);
+    console.log(`[CustomerLogin DEBUG] Role: ${account.user_role}`);
+    console.log(`[CustomerLogin DEBUG] Password hash exists: ${!!account.password_hash}`);
+
+    // Verify role is customer
+    if (account.user_role !== 'customer') {
+      console.log(`[CustomerLogin DEBUG] Forbidden. Role is not customer: ${account.user_role}`);
+      return res.status(403).json({ error: 'Access restricted to customer accounts.' });
+    }
 
     // 2. Validate status
     if (account.user_status !== 'active' || account.customer_status === 'inactive') {
+      console.log(`[CustomerLogin DEBUG] Account is inactive or customer status is inactive`);
       return res.status(403).json({ error: 'Your account is inactive. Please contact support.' });
     }
 
     // 3. Verify the password
     const isMatch = await comparePassword(password, account.password_hash);
+    console.log(`[CustomerLogin DEBUG] Password verification result: ${isMatch}`);
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid CNIC or password.' });
     }
