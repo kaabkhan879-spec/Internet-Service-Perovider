@@ -81,6 +81,11 @@ function EmployeePortal({ user, onLogoutSuccess }) {
 
   // Header UI states
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [showThemeDropdown, setShowThemeDropdown] = useState(false);
+  const [themePreference, setThemePreference] = useState(() => {
+    return localStorage.getItem('isp-employee-theme') || 'auto';
+  });
+  const [activeTheme, setActiveTheme] = useState('dark');
 
   // Modals & Forms States
   const [selectedItem, setSelectedItem] = useState(null); 
@@ -329,6 +334,32 @@ function EmployeePortal({ user, onLogoutSuccess }) {
       setTimeout(() => setTriggerBellRing(false), 900);
     }, 1200);
   }, []);
+
+  useEffect(() => {
+    const evaluateTheme = () => {
+      if (themePreference === 'light') {
+        setActiveTheme('light');
+      } else if (themePreference === 'dark') {
+        setActiveTheme('dark');
+      } else {
+        // Auto day/night mode: Light from 6 AM to 6 PM (18:00)
+        const hour = new Date().getHours();
+        if (hour >= 6 && hour < 18) {
+          setActiveTheme('light');
+        } else {
+          setActiveTheme('dark');
+        }
+      }
+    };
+
+    evaluateTheme();
+    const interval = setInterval(evaluateTheme, 15000);
+    return () => clearInterval(interval);
+  }, [themePreference]);
+
+  useEffect(() => {
+    localStorage.setItem('isp-employee-theme', themePreference);
+  }, [themePreference]);
 
   const handleRefreshData = async () => {
     if (isRefreshing) return;
@@ -1187,10 +1218,176 @@ function EmployeePortal({ user, onLogoutSuccess }) {
   });
 
   return (
-    <div className="flex bg-[#030712] min-h-screen text-[#f3f4f6] font-sans w-full selection:bg-cyan-500 selection:text-[#030712] overflow-x-hidden relative">
+    <div className={`flex min-h-screen font-sans w-full selection:bg-cyan-500 overflow-x-hidden relative theme-transition ${activeTheme === 'light' ? 'bg-[#f8fafc] text-[#1e293b] light-theme' : 'bg-[#030712] text-[#f3f4f6] selection:text-[#030712]'}`}>
       
       {/* Inject custom micro-animations style sheet directly to preserve component isolation */}
       <style dangerouslySetInnerHTML={{__html: `
+        /* Smooth transitions for theme switching */
+        .theme-transition, .theme-transition *, .theme-transition aside, .theme-transition main, .theme-transition header, .theme-transition div {
+          transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease !important;
+        }
+
+        /* Unified Light Mode overrides */
+        .light-theme {
+          background-color: #f8fafc !important;
+          color: #1e293b !important;
+        }
+        .light-theme aside {
+          background-color: #ffffff !important;
+          border-right: 1px solid #e2e8f0 !important;
+        }
+        .light-theme aside span, 
+        .light-theme aside h3,
+        .light-theme aside p,
+        .light-theme aside svg {
+          color: #0f172a !important;
+        }
+        .light-theme aside nav a {
+          color: #475569 !important;
+        }
+        .light-theme aside nav a.bg-slate-900 {
+          background-color: #f1f5f9 !important;
+          color: #0ea5e9 !important;
+        }
+        .light-theme aside nav a:hover {
+          background-color: #f8fafc !important;
+          color: #0f172a !important;
+        }
+        .light-theme main {
+          background-color: #f8fafc !important;
+          color: #1e293b !important;
+        }
+        .light-theme header {
+          background-color: #ffffff !important;
+          border-bottom: 1px solid #e2e8f0 !important;
+        }
+        .light-theme header span,
+        .light-theme header h3,
+        .light-theme header h2,
+        .light-theme header h1,
+        .light-theme header p,
+        .light-theme header button {
+          color: #1e293b !important;
+        }
+        
+        .light-theme .bg-[#090d16]/30,
+        .light-theme .bg-[#090d16]/20,
+        .light-theme .bg-[#090d16]/10,
+        .light-theme .bg-slate-900/20,
+        .light-theme .bg-slate-900/50,
+        .light-theme .bg-slate-950/10,
+        .light-theme .bg-[#0a0f1b]/80,
+        .light-theme .bg-[#090d16],
+        .light-theme .bg-slate-950/20,
+        .light-theme .bg-slate-900/30,
+        .light-theme .bg-[#090d16]/30,
+        .light-theme .bg-[#090d16]/20,
+        .light-theme .bg-slate-955/20,
+        .light-theme .bg-[#070b14]/50,
+        .light-theme .bg-slate-950,
+        .light-theme .bg-[#030712]/50,
+        .light-theme .bg-slate-955 {
+          background: #ffffff !important;
+          background-color: #ffffff !important;
+          border-color: #e2e8f0 !important;
+          color: #1e293b !important;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+        }
+
+        .light-theme .bg-gradient-to-r {
+          background: #ffffff !important;
+          background-color: #ffffff !important;
+          border-color: #e2e8f0 !important;
+          color: #1e293b !important;
+        }
+
+        .light-theme .text-white,
+        .light-theme h2,
+        .light-theme h3,
+        .light-theme h4,
+        .light-theme strong,
+        .light-theme button {
+          color: #0f172a !important;
+        }
+        .light-theme .text-slate-400,
+        .light-theme .text-slate-500,
+        .light-theme .text-slate-405,
+        .light-theme .text-slate-350,
+        .light-theme .text-slate-300 {
+          color: #64748b !important;
+        }
+        .light-theme .border-[#111827],
+        .light-theme .border-slate-800,
+        .light-theme .border-slate-850,
+        .light-theme .border-slate-805,
+        .light-theme .border-slate-700/60 {
+          border-color: #e2e8f0 !important;
+        }
+        .light-theme table {
+          background-color: #ffffff !important;
+        }
+        .light-theme tr {
+          border-color: #f1f5f9 !important;
+        }
+        .light-theme tr:hover {
+          background-color: #f8fafc !important;
+        }
+        .light-theme th {
+          background-color: #f1f5f9 !important;
+          color: #475569 !important;
+          border-color: #e2e8f0 !important;
+        }
+        .light-theme td {
+          color: #334155 !important;
+          border-color: #f1f5f9 !important;
+        }
+        .light-theme td font-mono,
+        .light-theme td .font-mono {
+          color: #0f172a !important;
+        }
+        .light-theme input,
+        .light-theme select,
+        .light-theme textarea {
+          background-color: #ffffff !important;
+          border-color: #cbd5e1 !important;
+          color: #0f172a !important;
+        }
+        .light-theme input::placeholder,
+        .light-theme textarea::placeholder {
+          color: #94a3b8 !important;
+        }
+        
+        .light-theme button.bg-[#090d16],
+        .light-theme button.bg-slate-900,
+        .light-theme button.bg-slate-955,
+        .light-theme .bg-slate-955 {
+          background: #f1f5f9 !important;
+          background-color: #f1f5f9 !important;
+          border-color: #cbd5e1 !important;
+          color: #334155 !important;
+        }
+        .light-theme button.bg-[#090d16]:hover,
+        .light-theme button.bg-slate-900:hover,
+        .light-theme button.bg-slate-955:hover {
+          background-color: #e2e8f0 !important;
+          color: #0f172a !important;
+        }
+
+        .light-theme .text-cyan-405,
+        .light-theme .text-cyan-400 {
+          color: #0284c7 !important;
+        }
+        .light-theme .border-cyan-500/20,
+        .light-theme .border-cyan-500/30 {
+          border-color: rgba(2, 132, 199, 0.2) !important;
+        }
+        .light-theme .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+        }
+        .light-theme .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+
         .custom-scrollbar::-webkit-scrollbar {
           width: 5px;
           height: 5px;
@@ -1241,7 +1438,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
         .stagger-6 { animation-delay: 240ms; }
 
         @media (prefers-reduced-motion: reduce) {
-          .animate-fade-in-up, .animate-bell-wiggle, .hover\\:-translate-y-0\\.5, .hover\\:-translate-y-1 {
+          .animate-fade-in-up, .animate-bell-wiggle, .hover\\:-translate-y-0\\.5, .hover\\:-translate-y-1, .theme-transition, .theme-transition * {
             animation: none !important;
             transition: none !important;
             transform: none !important;
@@ -1333,10 +1530,45 @@ function EmployeePortal({ user, onLogoutSuccess }) {
           </div>
           
           <div className="flex items-center space-x-4">
+            {/* Theme Controller Selector */}
+            <div className="relative">
+              <button
+                onClick={() => { setShowThemeDropdown(!showThemeDropdown); setShowNotifDropdown(false); setShowProfileDropdown(false); }}
+                className="p-2 rounded-xl hover:bg-slate-900 text-slate-400 hover:text-cyan-405 transition-colors flex items-center"
+                title={activeTheme === 'light' ? 'Switch to Dark/Auto Theme' : 'Switch to Light/Auto Theme'}
+              >
+                <span className="text-lg">{activeTheme === 'light' ? '☀️' : '🌙'}</span>
+              </button>
+              
+              {showThemeDropdown && (
+                <div className="absolute right-0 mt-2.5 w-36 rounded-2xl bg-slate-905 bg-slate-900 border border-slate-800 shadow-2xl py-2 z-50 animate-fade-in-up text-xs ring-1 ring-cyan-500/10">
+                  {[
+                    { mode: 'auto', label: '⚙️ Automatic' },
+                    { mode: 'light', label: '☀️ Light Mode' },
+                    { mode: 'dark', label: '🌙 Dark Mode' }
+                  ].map((t) => (
+                    <button
+                      key={t.mode}
+                      onClick={() => {
+                        setThemePreference(t.mode);
+                        setShowThemeDropdown(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 hover:bg-slate-850 transition-colors flex items-center justify-between ${
+                        themePreference === t.mode ? 'text-cyan-405 font-bold' : 'text-slate-350'
+                      }`}
+                    >
+                      <span>{t.label}</span>
+                      {themePreference === t.mode && <span className="text-[10px]">✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Notification Bell with Badge */}
             <div className="relative">
               <button
-                onClick={() => { setShowNotifDropdown(!showNotifDropdown); setShowProfileDropdown(false); }}
+                onClick={() => { setShowNotifDropdown(!showNotifDropdown); setShowProfileDropdown(false); setShowThemeDropdown(false); }}
                 className={`relative p-2 rounded-xl hover:bg-slate-900 text-slate-405 hover:text-cyan-400 transition-colors flex items-center ${triggerBellRing ? 'animate-bell-wiggle' : ''}`}
                 title="Notifications"
               >
@@ -1396,7 +1628,7 @@ function EmployeePortal({ user, onLogoutSuccess }) {
             {/* Profile Dropdown widget */}
             <div className="relative">
               <button
-                onClick={() => { setShowProfileDropdown(!showProfileDropdown); setShowNotifDropdown(false); }}
+                onClick={() => { setShowProfileDropdown(!showProfileDropdown); setShowNotifDropdown(false); setShowThemeDropdown(false); }}
                 className="flex items-center space-x-2.5 focus:outline-none group p-1.5 rounded-xl hover:bg-slate-900/50 transition-colors"
               >
                 <div className="text-right hidden sm:block">
@@ -1579,97 +1811,53 @@ function EmployeePortal({ user, onLogoutSuccess }) {
                   )}
                 </div>
 
-                {/* RIGHT COLUMN: QUICK ACTIONS */}
+                {/* RIGHT COLUMN: TECHNICIANS AVAILABILITY */}
                 <div className="space-y-6 animate-fade-in-up stagger-3">
                   
-                  {/* Quick Actions Panel */}
-                  <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-[#111827] space-y-4">
-                    <h3 className="font-bold text-white text-xs uppercase tracking-wider">Quick Actions</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      {[
-                        { label: 'Add Customer', icon: '👤', onClick: () => {
-                          setNewCustomerForm({ name: '', email: '', phone: '', address: '', planId: packagesList[0]?.id.toString() || '' });
-                          setShowAddCustomerModal(true);
-                        } },
-                        { label: 'New Request', icon: '📋', onClick: () => {
-                          if (customersList.length === 0) {
-                            alert('Please register a customer first.');
-                            return;
-                          }
-                          setNewRequestForm({ customerId: customersList[0].id.toString(), requestType: 'Installation', description: '', priority: 'medium', dueDate: '' });
-                          setShowNewRequestModal(true);
-                        } },
-                        { label: 'Create Complaint', icon: '🎫', onClick: () => {
-                          if (customersList.length === 0) {
-                            alert('Please register a customer first.');
-                            return;
-                          }
-                          setNewComplaintForm({ customerId: customersList[0].id.toString(), subject: '', description: '', priority: 'medium' });
-                          setShowCreateComplaintModal(true);
-                        } },
-                        { label: 'Assign Tech', icon: '🔧', onClick: () => {
-                          if (techniciansList.length === 0) {
-                            alert('No crew technicians available.');
-                            return;
-                          }
-                          setAssignForm({ type: 'task', ticketId: '', technicianId: techniciansList[0].id.toString() });
-                          setShowAssignTechModal(true);
-                        } }
-                      ].map((action, idx) => (
-                        <button
-                          key={idx}
-                          onClick={action.onClick}
-                          className="flex flex-col items-center justify-center p-3.5 rounded-xl bg-[#070b14] border border-slate-800 hover:border-cyan-500/30 text-xs font-semibold text-slate-300 hover:text-white hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-150 hover:shadow-md hover:shadow-cyan-500/5 group"
-                        >
-                          <span className="text-xl mb-1.5 group-hover:scale-110 transition-transform duration-200">{action.icon}</span>
-                          <span className="text-center">{action.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Technician Availability Registry */}
-                  <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-[#111827] space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h3 className="font-bold text-white text-xs uppercase tracking-wider">Technicians Availability</h3>
-                      <button onClick={() => setActiveTab('Technicians')} className="text-cyan-400 text-[10px] font-semibold hover:underline">
-                        Coordinate Crew
-                      </button>
-                    </div>
+                  <div className="p-5 rounded-2xl bg-[#090d16]/20 border border-[#111827] space-y-4 h-full flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-center pb-2">
+                        <h3 className="font-bold text-white text-xs uppercase tracking-wider">Technicians Availability</h3>
+                        <button onClick={() => setActiveTab('Technicians')} className="text-cyan-400 text-[10px] font-semibold hover:underline">
+                          Coordinate Crew
+                        </button>
+                      </div>
 
-                    {loading ? (
-                      <div className="space-y-2">
-                        {[...Array(3)].map((_, i) => (
-                          <div key={i} className="h-10 bg-slate-900/50 rounded-xl animate-pulse" />
-                        ))}
-                      </div>
-                    ) : techniciansList.length > 0 ? (
-                      <div className="space-y-3 max-h-56 overflow-y-auto custom-scrollbar pr-1">
-                        {techniciansList.map((tech, idx) => {
-                          const statusLabel = tech.active_jobs > 0 ? 'On Job' : 'Available';
-                          return (
-                            <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-[#070b14]/50 border border-slate-800/40">
-                              <div className="flex items-center space-x-2.5">
-                                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-slate-800 to-slate-900 border border-slate-700/60 flex items-center justify-center font-bold text-xs text-slate-300">
-                                  {tech.name.slice(0, 2).toUpperCase()}
+                      {loading ? (
+                        <div className="space-y-2 mt-2">
+                          {[...Array(3)].map((_, i) => (
+                            <div key={i} className="h-10 bg-slate-900/50 rounded-xl animate-pulse" />
+                          ))}
+                        </div>
+                      ) : techniciansList.length > 0 ? (
+                        <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar pr-1 mt-2">
+                          {techniciansList.map((tech, idx) => {
+                            const statusLabel = tech.active_jobs > 0 ? 'On Job' : 'Available';
+                            return (
+                              <div key={idx} className="flex items-center justify-between p-2.5 rounded-xl bg-[#070b14]/50 border border-slate-800/40">
+                                <div className="flex items-center space-x-2.5">
+                                  <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-slate-800 to-slate-900 border border-slate-700/60 flex items-center justify-center font-bold text-xs text-slate-300">
+                                    {tech.name.slice(0, 2).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <span className="text-xs font-bold text-white block leading-none">{tech.name}</span>
+                                    <span className="text-[9px] text-slate-500 block mt-1">Jobs Assigned: {tech.active_jobs}</span>
+                                  </div>
                                 </div>
-                                <div>
-                                  <span className="text-xs font-bold text-white block leading-none">{tech.name}</span>
-                                  <span className="text-[9px] text-slate-500 block mt-1">Jobs Assigned: {tech.active_jobs}</span>
-                                </div>
+                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
+                                  statusLabel === 'Available' ? 'bg-emerald-950 text-emerald-405 border border-emerald-800/40' : 'bg-blue-950 text-blue-400 border border-blue-800/40'
+                                }`}>
+                                  {statusLabel}
+                                </span>
                               </div>
-                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${
-                                statusLabel === 'Available' ? 'bg-emerald-950 text-emerald-400 border border-emerald-800/40' : 'bg-blue-950 text-blue-400 border border-blue-800/40'
-                              }`}>
-                                {statusLabel}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="py-6 text-center text-slate-500 italic text-[11px]">No active technicians found.</div>
-                    )}
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="py-6 text-center text-slate-500 italic text-[11px] mt-2">No active technicians found.</div>
+                      )}
+                    </div>
                   </div>
 
                 </div>
