@@ -31,9 +31,12 @@ async function employeeLogin(req, res) {
 
     const user = result.rows[0];
 
-    // Verify it is an employee role user
-    if (user.role !== 'employee') {
-      return res.status(403).json({ error: 'Forbidden. Access restricted to employee accounts.' });
+    // Determine the resolved role based on the employees designation role
+    const resolvedRole = user.employee_role?.toLowerCase() === 'technician' ? 'technician' : 'employee';
+
+    // Verify it is an authorized staff account
+    if (user.role !== 'employee' && user.role !== 'technician') {
+      return res.status(403).json({ error: 'Forbidden. Access restricted to staff accounts.' });
     }
 
     // 2. Assert active account status
@@ -56,7 +59,7 @@ async function employeeLogin(req, res) {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role // 'employee'
+        role: resolvedRole
       },
       JWT_SECRET,
       { expiresIn: '24h' }
@@ -84,7 +87,7 @@ async function employeeLogin(req, res) {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
+        role: resolvedRole,
         employee_role: user.employee_role,
         employee_code: user.employee_code
       }

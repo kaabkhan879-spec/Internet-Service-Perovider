@@ -27,7 +27,7 @@ const {
   togglePackageStatus,
   deletePackage
 } = require('../controllers/employeePortalController');
-const { requireAuth } = require('../middleware/authMiddleware');
+const { requireAuth, requireEmployee, requireTechnician } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
@@ -37,42 +37,36 @@ router.post('/login', employeeLogin);
 // Enforce session check on portal endpoints
 router.use(requireAuth);
 
-// Profile endpoints
+// Profile endpoints (shared by employee and technician)
 router.get('/profile', employeeProfile);
 router.put('/profile', updateProfile);
 router.post('/change-password', changePassword);
 router.get('/activities', getActivities);
 router.post('/logout', employeeLogout);
 
-// Complaints endpoints
-router.get('/complaints', getAssignedComplaints);
-router.put('/complaints/:id/status', updateComplaintStatus);
+// Technician routes
+router.get('/complaints', requireTechnician, getAssignedComplaints);
+router.put('/complaints/:id/status', requireTechnician, updateComplaintStatus);
+router.get('/tasks', requireTechnician, getAssignedTasks);
+router.put('/tasks/:id/status', requireTechnician, updateTaskStatus);
+router.post('/work-reports', requireTechnician, submitWorkReport);
+router.get('/work-history', requireTechnician, getWorkHistory);
 
-// Tasks endpoints
-router.get('/tasks', getAssignedTasks);
-router.put('/tasks/:id/status', updateTaskStatus);
+// Employee (Operations) routes
+router.get('/dashboard-stats', requireEmployee, getOperationsDashboardData);
+router.post('/customers', requireEmployee, createCustomer);
+router.post('/tasks', requireEmployee, createTask);
+router.post('/complaints', requireEmployee, createComplaint);
+router.post('/assign-technician', requireEmployee, assignTechnician);
+router.get('/customers/:id', requireEmployee, getCustomerDetails);
+router.put('/customers/:id', requireEmployee, updateCustomer);
+router.patch('/customers/:id/status', requireEmployee, toggleCustomerStatus);
+router.post('/packages', requireEmployee, createPackage);
+router.put('/packages/:id', requireEmployee, updatePackage);
+router.patch('/packages/:id/status', requireEmployee, togglePackageStatus);
+router.delete('/packages/:id', requireEmployee, deletePackage);
 
-// Work reports endpoint
-router.post('/work-reports', submitWorkReport);
-
-// Work history endpoint
-router.get('/work-history', getWorkHistory);
-
-// Operations Dashboard Data endpoint
-router.get('/dashboard-stats', getOperationsDashboardData);
-router.post('/customers', createCustomer);
-router.post('/tasks', createTask);
-router.post('/complaints', createComplaint);
-router.post('/assign-technician', assignTechnician);
-router.get('/customers/:id', getCustomerDetails);
-router.put('/customers/:id', updateCustomer);
-router.patch('/customers/:id/status', toggleCustomerStatus);
-router.post('/packages', createPackage);
-router.put('/packages/:id', updatePackage);
-router.patch('/packages/:id/status', togglePackageStatus);
-router.delete('/packages/:id', deletePackage);
-
-// Notifications endpoints
+// Notifications endpoints (shared)
 router.get('/notifications', getNotifications);
 router.get('/notifications/unread-count', getUnreadNotificationsCount);
 router.post('/notifications/mark-read', markNotificationsAsRead);

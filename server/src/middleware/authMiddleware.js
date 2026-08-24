@@ -64,7 +64,41 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+/**
+ * Middleware to enforce Employee or Admin access.
+ * Must be executed AFTER requireAuth.
+ */
+function requireEmployee(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized. User context missing.' });
+  }
+
+  if (req.user.role !== 'employee' && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden. Employee access required.' });
+  }
+
+  next();
+}
+
+/**
+ * Middleware to enforce Technician or Admin access.
+ * Must be executed AFTER requireAuth.
+ */
+function requireTechnician(req, res, next) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Unauthorized. User context missing.' });
+  }
+
+  if (req.user.role !== 'technician' && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden. Technician access required.' });
+  }
+
+  next();
+}
+
 module.exports = {
   requireAuth,
-  requireAdmin
+  requireAdmin,
+  requireEmployee,
+  requireTechnician
 };

@@ -21,7 +21,7 @@ async function login(req, res) {
     // 2. Lookup the user and employee record
     const queryStr = `
       SELECT u.id, u.name, u.email, u.password_hash, u.role, u.status as user_status,
-             e.status as employee_status
+             e.status as employee_status, e.role as employee_role
       FROM users u
       LEFT JOIN employees e ON e.user_id = u.id
       WHERE u.email = $1;
@@ -33,9 +33,12 @@ async function login(req, res) {
 
     const user = userResult.rows[0];
 
-    // 3. Confirm role is admin or employee
-    if (user.role !== 'admin' && user.role !== 'employee') {
-      return res.status(403).json({ error: 'Forbidden. Access restricted to administrator or employee accounts.' });
+    // Determine dynamically resolved role
+    const resolvedRole = user.role === 'admin' ? 'admin' : (user.employee_role?.toLowerCase() === 'technician' ? 'technician' : 'employee');
+
+    // 3. Confirm role is admin, employee, or technician
+    if (user.role !== 'admin' && user.role !== 'employee' && user.role !== 'technician') {
+      return res.status(403).json({ error: 'Forbidden. Access restricted to administrator or staff accounts.' });
     }
 
     // 4. Verify account status
@@ -43,7 +46,7 @@ async function login(req, res) {
       if (user.user_status !== 'active') {
         return res.status(403).json({ error: 'Account is inactive. Please contact support.' });
       }
-    } else if (user.role === 'employee') {
+    } else {
       if (user.user_status !== 'active' || user.employee_status !== 'active') {
         return res.status(403).json({ error: 'Account is inactive. Please contact support.' });
       }
@@ -61,7 +64,7 @@ async function login(req, res) {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: resolvedRole
       },
       JWT_SECRET,
       { expiresIn: '24h' }
@@ -82,7 +85,7 @@ async function login(req, res) {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role
+        role: resolvedRole
       }
     });
   } catch (err) {

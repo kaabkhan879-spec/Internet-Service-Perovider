@@ -8,6 +8,7 @@ import BillingManagement from './components/BillingManagement';
 import EmployeeManagement from './components/EmployeeManagement';
 import EmployeeLogin from './components/EmployeeLogin';
 import EmployeePortal from './components/EmployeePortal';
+import TechnicianPortal from './components/TechnicianPortal';
 import ComplaintsManagement from './components/ComplaintsManagement';
 import UsageMonitoring from './components/UsageMonitoring';
 import PaymentsManagement from './components/PaymentsManagement';
@@ -15,14 +16,14 @@ import PaymentsManagement from './components/PaymentsManagement';
 // Layout wrapper for consistent look and feel
 function Layout({ children, user }) {
   const location = useLocation();
-  const isNoLayoutPage = location.pathname.startsWith('/admin') || location.pathname.startsWith('/employee');
+  const isNoLayoutPage = location.pathname.startsWith('/admin') || location.pathname.startsWith('/employee') || location.pathname.startsWith('/technician');
 
   if (isNoLayoutPage) {
     return <>{children}</>;
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col selection:bg-cyan-500 selection:text-slate-950 relative">
+    <div className="min-h-screen bg-slate-955 bg-slate-950 text-slate-100 flex flex-col selection:bg-cyan-505 selection:bg-cyan-500 selection:text-slate-950 relative">
       {/* Background gradients */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-cyan-500/10 blur-[120px]" />
@@ -47,7 +48,7 @@ function Layout({ children, user }) {
               Home
             </Link>
             {user ? (
-              <Link to="/admin" className="text-sm font-medium px-4 py-2 rounded-lg bg-cyan-950 border border-cyan-800/50 text-cyan-400 hover:bg-cyan-900 hover:text-cyan-300 transition-all duration-300">
+              <Link to={user.role === 'admin' ? "/admin" : (user.role === 'technician' ? "/technician" : "/employee")} className="text-sm font-medium px-4 py-2 rounded-lg bg-cyan-950 border border-cyan-800/50 text-cyan-400 hover:bg-cyan-900 hover:text-cyan-300 transition-all duration-300">
                 Dashboard
               </Link>
             ) : (
@@ -77,13 +78,13 @@ function Home() {
   return (
     <div className="w-full max-w-4xl text-center space-y-8 animate-fade-in">
       <div className="space-y-4">
-        <div className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 text-xs font-semibold text-cyan-400 tracking-wider uppercase shadow-inner">
+        <div className="inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-slate-909 bg-slate-900 border border-slate-800 text-xs font-semibold text-cyan-400 tracking-wider uppercase shadow-inner">
           <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
           <span>v1.0.0 Setup Ready</span>
         </div>
         <h1 className="text-4xl md:text-6xl font-black tracking-tight text-white leading-none">
           Next-Generation <br />
-          <span className="bg-gradient-to-r from-cyan-400 via-teal-400 to-indigo-500 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-cyan-405 to-indigo-505 bg-gradient-to-r from-cyan-400 via-teal-400 to-indigo-500 bg-clip-text text-transparent">
             ISP Management System
           </span>
         </h1>
@@ -115,8 +116,8 @@ function Home() {
       </div>
 
       <div className="pt-4">
-        <Link to="/admin" className="inline-flex items-center space-x-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 font-semibold text-white shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 hover:scale-[1.02] transition-all duration-300">
-          <span>Go to Admin Portal</span>
+        <Link to="/admin" className="inline-flex items-center space-x-2 px-6 py-3 rounded-xl bg-gradient-to-r from-cyan-505 to-indigo-605 bg-gradient-to-r from-cyan-500 to-indigo-600 font-semibold text-white shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 hover:scale-[1.02] transition-all duration-300">
+          <span>Go to Portal</span>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
@@ -166,6 +167,13 @@ function App() {
     );
   }
 
+  const getDashboardRedirect = (u) => {
+    if (!u) return "/employee/login";
+    if (u.role === 'admin') return "/admin";
+    if (u.role === 'technician') return "/technician";
+    return "/employee";
+  };
+
   return (
     <Router>
       <Layout user={user}>
@@ -173,47 +181,51 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route 
             path="/admin/login" 
-            element={user ? (user.role === 'admin' ? <Navigate to="/admin" replace /> : <Navigate to="/employee" replace />) : <AdminLogin onLoginSuccess={(u) => setUser(u)} />} 
+            element={user ? <Navigate to={getDashboardRedirect(user)} replace /> : <AdminLogin onLoginSuccess={(u) => setUser(u)} />} 
           />
           <Route 
             path="/admin" 
-            element={user ? (user.role === 'admin' ? <AdminDashboard user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/employee" replace />) : <Navigate to="/admin/login" replace />} 
+            element={user ? (user.role === 'admin' ? <AdminDashboard user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to={getDashboardRedirect(user)} replace />) : <Navigate to="/admin/login" replace />} 
           />
           <Route 
             path="/admin/customers" 
-            element={user ? (user.role === 'admin' ? <CustomerManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/employee" replace />) : <Navigate to="/admin/login" replace />} 
+            element={user ? (user.role === 'admin' ? <CustomerManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to={getDashboardRedirect(user)} replace />) : <Navigate to="/admin/login" replace />} 
           />
           <Route 
             path="/admin/packages" 
-            element={user ? (user.role === 'admin' ? <PackageManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/employee" replace />) : <Navigate to="/admin/login" replace />} 
+            element={user ? (user.role === 'admin' ? <PackageManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to={getDashboardRedirect(user)} replace />) : <Navigate to="/admin/login" replace />} 
           />
           <Route 
             path="/admin/billing" 
-            element={user ? (user.role === 'admin' ? <BillingManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/employee" replace />) : <Navigate to="/admin/login" replace />} 
+            element={user ? (user.role === 'admin' ? <BillingManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to={getDashboardRedirect(user)} replace />) : <Navigate to="/admin/login" replace />} 
           />
           <Route 
             path="/admin/employees" 
-            element={user ? (user.role === 'admin' ? <EmployeeManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/employee" replace />) : <Navigate to="/admin/login" replace />} 
+            element={user ? (user.role === 'admin' ? <EmployeeManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to={getDashboardRedirect(user)} replace />) : <Navigate to="/admin/login" replace />} 
           />
           <Route 
             path="/admin/complaints" 
-            element={user ? (user.role === 'admin' ? <ComplaintsManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/employee" replace />) : <Navigate to="/admin/login" replace />} 
+            element={user ? (user.role === 'admin' ? <ComplaintsManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to={getDashboardRedirect(user)} replace />) : <Navigate to="/admin/login" replace />} 
           />
           <Route 
             path="/admin/usage" 
-            element={user ? (user.role === 'admin' ? <UsageMonitoring user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/employee" replace />) : <Navigate to="/admin/login" replace />} 
+            element={user ? (user.role === 'admin' ? <UsageMonitoring user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to={getDashboardRedirect(user)} replace />) : <Navigate to="/admin/login" replace />} 
           />
           <Route 
             path="/admin/payments" 
-            element={user ? (user.role === 'admin' ? <PaymentsManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/employee" replace />) : <Navigate to="/admin/login" replace />} 
+            element={user ? (user.role === 'admin' ? <PaymentsManagement user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to={getDashboardRedirect(user)} replace />) : <Navigate to="/admin/login" replace />} 
           />
           <Route 
             path="/employee/login" 
-            element={user ? (user.role === 'admin' ? <Navigate to="/admin" replace /> : <Navigate to="/employee" replace />) : <EmployeeLogin onLoginSuccess={(u) => setUser(u)} />} 
+            element={user ? <Navigate to={getDashboardRedirect(user)} replace /> : <EmployeeLogin onLoginSuccess={(u) => setUser(u)} />} 
           />
           <Route 
             path="/employee" 
-            element={user ? (user.role === 'employee' ? <EmployeePortal user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to="/admin" replace />) : <Navigate to="/employee/login" replace />} 
+            element={user ? (user.role === 'employee' ? <EmployeePortal user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to={getDashboardRedirect(user)} replace />) : <Navigate to="/employee/login" replace />} 
+          />
+          <Route 
+            path="/technician" 
+            element={user ? (user.role === 'technician' ? <TechnicianPortal user={user} onLogoutSuccess={() => setUser(null)} /> : <Navigate to={getDashboardRedirect(user)} replace />) : <Navigate to="/employee/login" replace />} 
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

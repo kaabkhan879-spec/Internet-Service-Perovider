@@ -112,13 +112,14 @@ async function createEmployee(req, res) {
     try {
       await client.query('BEGIN');
 
-      // 4. Create user record (Non-admin staff have role = 'employee' in users table)
+      // 4. Create user record (Set role dynamically: 'technician' or 'employee')
       const userStatusVal = status || 'active';
+      const userRoleVal = role.toLowerCase() === 'technician' ? 'technician' : 'employee';
       const userResult = await client.query(`
         INSERT INTO users (name, email, password_hash, role, status)
-        VALUES ($1, $2, $3, 'employee', $4)
+        VALUES ($1, $2, $3, $4, $5)
         RETURNING id;
-      `, [full_name, email.trim().toLowerCase(), passwordHash, userStatusVal]);
+      `, [full_name, email.trim().toLowerCase(), passwordHash, userRoleVal, userStatusVal]);
 
       const userId = userResult.rows[0].id;
 
@@ -198,12 +199,13 @@ async function updateEmployee(req, res) {
         WHERE id = $8;
       `, [full_name, phone || '', cnic || '', address || '', designation || '', role, empStatusVal, id]);
 
-      // 2. Update users credentials record
+      // 2. Update users credentials record (Sync name, email, role and status)
+      const userRoleVal = role.toLowerCase() === 'technician' ? 'technician' : 'employee';
       await client.query(`
         UPDATE users
-        SET name = $1, email = $2, status = $3, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $4;
-      `, [full_name, email.trim().toLowerCase(), empStatusVal, userId]);
+        SET name = $1, email = $2, role = $3, status = $4, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $5;
+      `, [full_name, email.trim().toLowerCase(), userRoleVal, empStatusVal, userId]);
 
       await client.query('COMMIT');
       return res.json({ message: 'Employee profile updated successfully.' });
